@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hivework — Landing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
+    --violet:#6C5CE7; --violet-deep:#5643D9;
+    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
+    --line:#E7E3DA; --card:#FFFFFF; --radius:20px;
+  }
+  body{margin:0;background:var(--cream);}
+  .hivework-landing *{box-sizing:border-box;}
+  .hivework-landing{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    scroll-behavior:smooth;
+  }
+  .hivework-landing h1,.hivework-landing h2,.hivework-landing h3{font-family:'Sora',sans-serif;}
+  .hivework-landing .mono{font-family:'JetBrains Mono',monospace;}
+  .hivework-landing a{color:inherit;text-decoration:none;}
+
+  /* ---------- NAV ---------- */
+  .hivework-landing nav{
+    max-width:1180px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:24px 24px 0;position:relative;
+  }
+  .hivework-landing .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;}
+  .hivework-landing .testnet-badge{font-family:'Inter';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 9px;border-radius:100px;background:var(--line);color:var(--ink-soft);cursor:pointer;}
+  .hivework-landing .testnet-tip{position:absolute;top:60px;left:24px;max-width:280px;background:var(--ink);color:var(--cream);font-size:12px;line-height:1.5;padding:12px 14px;border-radius:14px;z-index:30;box-shadow:0 20px 40px -16px rgba(27,26,31,.35);display:none;}
+  .hivework-landing .testnet-tip.open{display:block;}
+  .hivework-landing .logo-mark{
+    width:34px;height:34px;border-radius:10px;
+    background:linear-gradient(135deg,var(--violet),var(--violet-deep));
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-size:16px;flex-shrink:0;
+  }
+  .hivework-landing .nav-links{display:flex;gap:6px;align-items:center;}
+  .hivework-landing .nav-links a{
+    padding:9px 16px;border-radius:100px;font-weight:600;font-size:14.5px;color:var(--ink-soft);
+    transition:background .15s,color .15s;
+  }
+  .hivework-landing .nav-links a:hover{background:#EFEBE3;color:var(--ink);}
+  .hivework-landing .nav-cta{background:var(--ink);color:white!important;padding:10px 20px!important;}
+  .hivework-landing .nav-cta:hover{background:var(--violet-deep)!important;color:white!important;}
+  @media (max-width:820px){ .hivework-landing .nav-links a:not(.nav-cta){display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hivework-landing .hero{
+    max-width:1180px;margin:0 auto;
+    display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;
+    padding:64px 24px 40px;align-items:center;
+  }
+  @media (max-width:900px){ .hivework-landing .hero{grid-template-columns:1fr;padding-top:40px;} }
+
+  .hivework-landing .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#EFEAFB;color:var(--violet-deep);
+    padding:7px 14px;border-radius:100px;font-size:13px;font-weight:600;
+    margin-bottom:22px;
+  }
+  .hivework-landing .eyebrow-dot{
+    width:7px;height:7px;border-radius:50%;background:var(--mint);flex-shrink:0;
+    box-shadow:0 0 0 0 rgba(46,196,182,.5);animation:hw-pulse 2s infinite;
+  }
+  @keyframes hw-pulse{
+    0%{box-shadow:0 0 0 0 rgba(46,196,182,.45);}
+    70%{box-shadow:0 0 0 8px rgba(46,196,182,0);}
+    100%{box-shadow:0 0 0 0 rgba(46,196,182,0);}
+  }
+
+  .hivework-landing .hero h1{
+    font-size:clamp(36px,5vw,58px);
+    line-height:1.04;font-weight:800;letter-spacing:-1.5px;margin:0 0 20px;
+  }
+  .hivework-landing .hero h1 .accent{color:var(--violet);}
+  .hivework-landing .hero p.sub{
+    font-size:17px;line-height:1.6;color:var(--ink-soft);max-width:460px;margin:0 0 32px;
+  }
+  .hivework-landing .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px;}
+  .hivework-landing .btn{
+    padding:14px 26px;border-radius:100px;font-weight:600;font-size:15px;
+    display:inline-flex;align-items:center;gap:8px;transition:transform .12s, box-shadow .12s;
+    border:none;cursor:pointer;
+  }
+  .hivework-landing .btn:active{transform:scale(.97);}
+  .hivework-landing .btn-primary{background:var(--violet);color:white;box-shadow:0 10px 24px -8px rgba(108,92,231,.55);}
+  .hivework-landing .btn-primary:hover{background:var(--violet-deep);}
+  .hivework-landing .btn-ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
+  .hivework-landing .btn-ghost:hover{border-color:var(--ink);}
+
+  .hivework-landing .trust-row{display:flex;gap:28px;flex-wrap:wrap;}
+  .hivework-landing .trust-item{display:flex;flex-direction:column;}
+  .hivework-landing .trust-item .num{font-family:'Sora';font-weight:800;font-size:22px;}
+  .hivework-landing .trust-item .label{font-size:12.5px;color:var(--ink-soft);}
+
+  /* ---------- ESCROW TICKER (signature element) ---------- */
+  .hivework-landing .ticker-wrap{position:relative;height:420px;}
+  .hivework-landing .ticker-card{
+    position:absolute;left:0;right:0;background:var(--card);
+    border-radius:18px;padding:18px 20px;
+    box-shadow:0 20px 45px -18px rgba(27,26,31,.18);
+    border:1px solid var(--line);
+    display:flex;align-items:center;gap:14px;
+    opacity:0;transform:translateY(14px);
+  }
+  .hivework-landing .ticker-icon{
+    width:40px;height:40px;border-radius:12px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+  }
+  .hivework-landing .ticker-body{flex:1;min-width:0;}
+  .hivework-landing .ticker-title{font-weight:600;font-size:14.5px;margin-bottom:2px;}
+  .hivework-landing .ticker-sub{font-size:12.5px;color:var(--ink-soft);}
+  .hivework-landing .ticker-amount{font-family:'JetBrains Mono';font-weight:500;font-size:14px;flex-shrink:0;}
+
+  .hivework-landing .t1{top:0;}
+  .hivework-landing .t2{top:98px;}
+  .hivework-landing .t3{top:196px;}
+  .hivework-landing .t4{top:294px;}
+
+  .hivework-landing .t1 .ticker-icon{background:#EFEAFB;color:var(--violet);}
+  .hivework-landing .t2 .ticker-icon{background:#FFF3DC;color:#B8860B;}
+  .hivework-landing .t3 .ticker-icon{background:#E4F8F6;color:#1A9E92;}
+  .hivework-landing .t4 .ticker-icon{background:#E4F8F6;color:#1A9E92;}
+  .hivework-landing .t2 .ticker-amount{color:#B8860B;}
+  .hivework-landing .t3 .ticker-amount,.hivework-landing .t4 .ticker-amount{color:#1A9E92;}
+
+  @keyframes hw-rise{
+    0%{opacity:0;transform:translateY(18px);}
+    8%{opacity:1;transform:translateY(0);}
+    92%{opacity:1;transform:translateY(0);}
+    100%{opacity:0;transform:translateY(-10px);}
+  }
+  .hivework-landing .t1{animation:hw-rise 7s ease-in-out infinite;}
+  .hivework-landing .t2{animation:hw-rise 7s ease-in-out infinite 1.75s;}
+  .hivework-landing .t3{animation:hw-rise 7s ease-in-out infinite 3.5s;}
+  .hivework-landing .t4{animation:hw-rise 7s ease-in-out infinite 5.25s;}
+
+  .hivework-landing .ticker-frame{
+    position:absolute;inset:-16px -16px auto -16px;height:452px;
+    border-radius:28px;background:linear-gradient(180deg,#EFEAFB 0%,transparent 60%);
+    z-index:-1;
+  }
+
+  /* ---------- STATS STRIP ---------- */
+  .hivework-landing .stats{
+    max-width:1180px;margin:0 auto;padding:8px 24px 64px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  }
+  @media (max-width:700px){ .hivework-landing .stats{grid-template-columns:1fr;} }
+  .hivework-landing .stat-card{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:22px 24px;
+  }
+  .hivework-landing .stat-card .num{font-family:'Sora';font-weight:800;font-size:30px;}
+  .hivework-landing .stat-card .label{color:var(--ink-soft);font-size:13.5px;margin-top:2px;}
+
+  /* ---------- CATEGORIES ---------- */
+  .hivework-landing section{max-width:1180px;margin:0 auto;padding:20px 24px 72px;}
+  .hivework-landing .section-head{margin-bottom:32px;}
+  .hivework-landing .section-head .kicker{color:var(--violet);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .hivework-landing .section-head h2{font-size:32px;font-weight:800;letter-spacing:-.6px;margin:0;}
+
+  .hivework-landing .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  @media (max-width:800px){ .hivework-landing .cat-grid{grid-template-columns:1fr;} }
+  .hivework-landing .cat-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:26px;transition:transform .15s, box-shadow .15s;
+  }
+  .hivework-landing .cat-card:hover{transform:translateY(-4px);box-shadow:0 18px 36px -16px rgba(27,26,31,.14);}
+  .hivework-landing .cat-blob{
+    width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+    font-size:22px;margin-bottom:18px;
+  }
+  .hivework-landing .cat-card:nth-child(1) .cat-blob{background:#FFE8E5;}
+  .hivework-landing .cat-card:nth-child(2) .cat-blob{background:#FFF3DC;}
+  .hivework-landing .cat-card:nth-child(3) .cat-blob{background:#E4F8F6;}
+  .hivework-landing .cat-card h3{font-size:18px;margin:0 0 6px;font-weight:700;}
+  .hivework-landing .cat-card p{color:var(--ink-soft);font-size:14px;margin:0 0 16px;line-height:1.5;}
+  .hivework-landing .cat-card .open{
+    font-size:13px;font-weight:600;color:var(--violet-deep);
+    display:flex;align-items:center;gap:6px;
+  }
+
+  /* ---------- FLOW (real sequence, numbered on purpose) ---------- */
+  .hivework-landing .flow{background:var(--ink);border-radius:28px;padding:56px 44px;color:white;position:relative;overflow:hidden;}
+  .hivework-landing .flow:before{
+    content:"";position:absolute;top:-80px;right:-80px;width:280px;height:280px;
+    border-radius:50%;background:radial-gradient(circle,rgba(108,92,231,.35),transparent 70%);
+  }
+  .hivework-landing .flow-head{margin-bottom:36px;position:relative;}
+  .hivework-landing .flow-head .kicker{color:#B8A9FF;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .hivework-landing .flow-head h2{font-size:30px;font-weight:800;margin:0;letter-spacing:-.5px;}
+  .hivework-landing .flow-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;position:relative;}
+  @media (max-width:800px){ .hivework-landing .flow-steps{grid-template-columns:1fr;} }
+  .hivework-landing .flow-step{border-left:2px solid rgba(255,255,255,.15);padding-left:20px;}
+  .hivework-landing .flow-step .idx{font-family:'JetBrains Mono';color:#B8A9FF;font-size:13px;margin-bottom:10px;}
+  .hivework-landing .flow-step h3{font-size:17px;margin:0 0 8px;font-weight:700;}
+  .hivework-landing .flow-step p{color:#B4B1BC;font-size:14px;line-height:1.55;margin:0;}
+
+  /* ---------- FOOTER ---------- */
+  .hivework-landing footer{
+    max-width:1180px;margin:0 auto;padding:40px 24px 60px;
+    display:flex;justify-content:space-between;align-items:center;
+    border-top:1px solid var(--line);color:var(--ink-soft);font-size:13.5px;flex-wrap:wrap;gap:16px;
+  }
+  .hivework-landing footer .logo{font-size:15px;}
+  .hivework-landing footer .logo-mark{width:26px;height:26px;font-size:13px;border-radius:8px;}
+</style>
+</head>
+<body>
+
+<div class="hivework-landing">
+  <nav>
+    <div class="logo">
+      <div class="logo-mark">π</div>Hivework
+      <span class="testnet-badge" onclick="toggleTestnetTip(event)">Testnet</span>
+    </div>
+    <div class="testnet-tip" id="testnetTip">Hivework is running on the Pi Testnet. Balances and payments shown are Test-Pi and carry no real-world value.</div>
+    <div class="nav-links">
+      <a href="#">Browse</a>
+      <a href="#">Post a job</a>
+      <a href="#">Dashboard</a>
+      <a href="/onboarding" class="nav-cta">Get started</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span>Powered by Sentinel Trust Layer</div>
+      <h1>Work gets done.<br>Pi gets <span class="accent">released</span>, instantly.</h1>
+      <p class="sub">Hivework is the freelance and testing marketplace for the Pi ecosystem. Post a task, lock the budget in escrow, and pay the moment the work's approved — no invoices, no waiting.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="window.location.href='/onboarding?intent=find'">Find work →</button>
+        <button class="btn btn-ghost" onclick="window.location.href='/onboarding?intent=post'">Post a job</button>
+      </div>
+      <div class="trust-row">
+        <div class="trust-item"><span class="num">116π</span><span class="label">paid out this week</span></div>
+        <div class="trust-item"><span class="num">7%</span><span class="label">platform fee</span></div>
+        <div class="trust-item"><span class="num">3</span><span class="label">job categories</span></div>
+      </div>
+    </div>
+
+    <div class="ticker-wrap">
+      <div class="ticker-frame"></div>
+      <div class="ticker-card t1">
+        <div class="ticker-icon">📝</div>
+        <div class="ticker-body">
+          <div class="ticker-title">Job posted</div>
+          <div class="ticker-sub">"Test payment flow on Android"</div>
+        </div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t2">
+        <div class="ticker-icon">🔒</div>
+        <div class="ticker-body">
+          <div class="ticker-title">Pi locked in escrow</div>
+          <div class="ticker-sub">Held safely until work is approved</div>
+        </div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t3">
+        <div class="ticker-icon">✅</div>
+        <div class="ticker-body">
+          <div class="ticker-title">Worker approved</div>
+          <div class="ticker-sub">@Olawalt · report submitted</div>
+        </div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t4">
+        <div class="ticker-icon">💸</div>
+        <div class="ticker-body">
+          <div class="ticker-title">Pi released to wallet</div>
+          <div class="ticker-sub mono">GB33VY…OFXX</div>
+        </div>
+        <div class="ticker-amount mono">9.3π</div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <div class="kicker">Categories</div>
+      <h2>Find the kind of work you're good at</h2>
+    </div>
+    <div class="cat-grid">
+      <div class="cat-card">
+        <div class="cat-blob">🐛</div>
+        <h3>Bug testing</h3>
+        <p>Break things on purpose. Report exactly what happened, on real devices.</p>
+        <div class="open">1 open job →</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-blob">🎨</div>
+        <h3>UI feedback</h3>
+        <p>Give developers a clear read on what's confusing before it ships.</p>
+        <div class="open">0 open jobs →</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-blob">🌍</div>
+        <h3>Translation</h3>
+        <p>Help apps speak your language, literally. Any device, any locale.</p>
+        <div class="open">0 open jobs →</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="flow">
+      <div class="flow-head">
+        <div class="kicker">How escrow works</div>
+        <h2>Three steps, no middleman holding your Pi longer than it has to</h2>
+      </div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="idx">01 — post</div>
+          <h3>Developer posts a job</h3>
+          <p>Sets the task, requirements, and locks the Pi budget in escrow up front.</p>
+        </div>
+        <div class="flow-step">
+          <div class="idx">02 — work</div>
+          <h3>Pioneer applies and works</h3>
+          <p>Claims the task, does the work, submits a structured report for review.</p>
+        </div>
+        <div class="flow-step">
+          <div class="idx">03 — release</div>
+          <h3>Approved and paid</h3>
+          <p>Developer approves. Pi releases straight to the worker's wallet — instantly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="logo"><div class="logo-mark">π</div>Hivework</div>
+    <div>© 2026 Hivework · Built for the Pi Network ecosystem</div>
+  </footer>
+</div>
+
+<script>
+function toggleTestnetTip(e){ e.stopPropagation(); document.getElementById('testnetTip').classList.toggle('open'); }
+</script>
+</body>
+</html>

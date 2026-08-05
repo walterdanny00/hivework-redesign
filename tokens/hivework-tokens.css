@@ -1,0 +1,24 @@
+/**
+ * Hivework — shared design tokens
+ * Import this once per app entry point (e.g. index.js / App.jsx) so both
+ * HiveworkLanding and HiveworkApp read from the same source of truth.
+ *
+ *   import "./hivework-tokens.css";
+ *
+ * Change a value here and it updates everywhere — no need to touch the
+ * component files themselves.
+ */
+
+:root {
+  --cream: #F7F5F1;
+  --ink: #1B1A1F;
+  --ink-soft: #6B6874;
+  --violet: #6C5CE7;
+  --violet-deep: #5643D9;
+  --mint: #2EC4B6;
+  --coral: #FF6B5D;
+  --butter: #FFC857;
+  --line: #E7E3DA;
+  --card: #FFFFFF;
+  --radius: 20px;
+}

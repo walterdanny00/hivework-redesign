@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hivework — Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
+    --violet:#6C5CE7; --violet-deep:#5643D9;
+    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
+    --line:#E7E3DA; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:#EAE7DF;color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Sora',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  /* ---- demo/preview controls (not part of the design) ---- */
+  .preview-bar{
+    max-width:560px;margin:0 auto;padding:12px 20px;border:1px dashed #B8B2A0;border-radius:12px;
+    background:#F1EEE5;font-size:11.5px;color:var(--ink-soft);margin-top:16px;
+  }
+  .preview-bar strong{color:var(--ink);}
+  .preview-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+  .preview-btn{font-size:11px;font-weight:700;padding:5px 10px;border-radius:100px;border:1px solid #B8B2A0;background:white;color:var(--ink-soft);cursor:pointer;}
+  .preview-btn.on{background:var(--ink);color:white;border-color:var(--ink);}
+
+  .frame{width:100%;max-width:560px;margin:0 auto;background:var(--cream);position:relative;min-height:80vh;border-radius:0 0 28px 28px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(27,26,31,.3);}
+  .pad{padding:0 24px 40px;}
+
+  header{padding:24px 24px 4px;}
+  .logo{font-family:'Sora';font-weight:800;font-size:17px;}
+  .logo span{color:var(--violet);}
+
+  .wizard-track{display:flex;margin:26px 0 30px;}
+  .wz-seg{flex:1;text-align:center;position:relative;}
+  .wz-seg:not(:last-child):after{content:"";position:absolute;top:12px;left:56%;width:88%;height:2px;background:var(--line);}
+  .wz-seg.done:not(:last-child):after{background:var(--violet);}
+  .wz-dot{width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--line);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);position:relative;z-index:1;}
+  .wz-seg.done .wz-dot{background:var(--violet);border-color:var(--violet);color:white;}
+  .wz-seg.active .wz-dot{border-color:var(--violet);color:var(--violet);}
+  .wz-label{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
+  .wz-seg.active .wz-label{color:var(--ink);}
+
+  .step-head{margin-bottom:24px;}
+  .step-head h1{font-size:26px;font-weight:800;letter-spacing:-.6px;margin:0 0 8px;line-height:1.15;}
+  .step-head p{font-size:14px;color:var(--ink-soft);line-height:1.55;margin:0;}
+
+  .back-btn{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-soft);padding:22px 0 0;cursor:pointer;background:none;border:none;}
+
+  /* Wallet visual — gives Screen 1 something to actually look at */
+  .wallet-card{
+    background:linear-gradient(135deg,var(--violet),var(--violet-deep));border-radius:20px;padding:22px;
+    color:white;margin-bottom:26px;position:relative;overflow:hidden;box-shadow:0 20px 40px -18px rgba(108,92,231,.5);
+  }
+  .wallet-card:before{content:"";position:absolute;top:-50px;right:-50px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);}
+  .wallet-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;}
+  .wallet-pi{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'Sora';font-weight:800;font-size:17px;}
+  .wallet-status{font-size:11px;font-weight:700;background:rgba(255,255,255,.15);padding:5px 11px;border-radius:100px;}
+  .wallet-label{font-size:12px;opacity:.8;margin-top:22px;}
+  .wallet-value{font-family:'JetBrains Mono';font-size:15px;margin-top:3px;opacity:.95;}
+
+  /* KYC — light expandable pill, not a heavy box */
+  .kyc-pill{
+    display:flex;align-items:center;gap:10px;background:#FFF3DC;border:1px solid #F4DFA8;
+    border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;
+  }
+  .kyc-pill svg{color:#B8860B;flex-shrink:0;}
+  .kyc-pill span{font-size:12.5px;font-weight:700;color:#8A6512;flex:1;}
+  .kyc-pill .chev{transition:transform .2s;}
+  .kyc-pill.open .chev{transform:rotate(180deg);}
+  .kyc-detail{
+    max-height:0;overflow:hidden;transition:max-height .25s ease;
+  }
+  .kyc-detail.open{max-height:220px;}
+  .kyc-detail-inner{font-size:12px;color:var(--ink-soft);line-height:1.6;padding:12px 14px 18px;}
+
+  .testnet-note{font-size:11.5px;color:var(--ink-soft);margin:14px 2px 28px;line-height:1.5;}
+
+  .tos-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer;}
+  .tos-check{
+    width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);background:var(--card);
+    flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  .tos-check.checked{background:var(--violet);border-color:var(--violet);}
+  .tos-row p{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0;}
+  .tos-row a{color:var(--violet-deep);font-weight:600;text-decoration:none;}
+
+  .btn{width:100%;padding:16px;border-radius:100px;font-weight:700;font-size:15px;border:none;cursor:pointer;transition:.15s;}
+  .btn-primary{background:var(--violet);color:white;box-shadow:0 14px 28px -10px rgba(108,92,231,.55);}
+  .btn-primary:disabled{background:#DCD8CD;color:#A7A296;box-shadow:none;cursor:not-allowed;}
+  .btn-ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
+  .btn-text{background:none;border:none;color:var(--ink-soft);font-weight:600;font-size:13.5px;cursor:pointer;width:100%;padding:14px;text-align:center;}
+
+  .pibrowser-note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:12px;line-height:1.5;}
+
+  /* Screen 2 — one cohesive card, matching the notif-visual pattern */
+  .profile-card{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 22px;margin-bottom:26px;
+    box-shadow:0 20px 40px -22px rgba(27,26,31,.2);
+  }
+  .pc-row{padding:18px 0;border-bottom:1px solid var(--line);}
+  .pc-row:last-child{border-bottom:none;}
+  .pc-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;}
+
+  .pc-identity{display:flex;align-items:center;gap:14px;}
+  .pp-avatar{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:800;font-family:'Sora';font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .pp-name{font-family:'JetBrains Mono';font-size:15px;font-weight:600;}
+  .pp-tag{font-size:11px;font-weight:700;color:var(--violet-deep);background:#EFEAFB;padding:4px 9px;border-radius:100px;display:inline-block;margin-top:4px;}
+
+  .pc-bio textarea{
+    width:100%;border:none;background:none;padding:0;font-size:14px;font-family:'Inter';color:var(--ink);
+    resize:none;height:44px;outline:none;
+  }
+  .pc-bio textarea::placeholder{color:#A7A296;}
+
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip-toggle{
+    padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);
+    font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;
+  }
+  .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+
+  /* Screen 3 — notifications */
+  .notif-visual{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:26px;
+    box-shadow:0 20px 40px -22px rgba(27,26,31,.2);
+  }
+  .notif-row{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
+  .notif-row:last-child{border-bottom:none;}
+  .notif-ic{width:30px;height:30px;border-radius:9px;background:#E4F8F6;color:#1A9E92;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+  .notif-row div h4{margin:0 0 2px;font-size:13px;font-weight:700;}
+  .notif-row div p{margin:0;font-size:11.5px;color:var(--ink-soft);}
+
+  /* routing confirmation */
+  .routing{text-align:center;padding:60px 24px;}
+  .routing .spin{
+    width:44px;height:44px;border-radius:50%;border:3px solid #EFEAFB;border-top-color:var(--violet);
+    margin:0 auto 20px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .routing h2{font-size:19px;font-weight:800;margin:0 0 6px;}
+  .routing p{font-size:13px;color:var(--ink-soft);margin:0;}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <strong>Preview controls</strong> — not part of the design, just for testing states.
+  <div class="preview-row">
+    Pi Browser:
+    <button class="preview-btn on" id="pb-yes" onclick="setPiBrowser(true)">Detected</button>
+    <button class="preview-btn" id="pb-no" onclick="setPiBrowser(false)">Not detected</button>
+  </div>
+  <div class="preview-row">
+    Intent from Landing:
+    <button class="preview-btn on" id="int-none" onclick="setIntent('none')">None</button>
+    <button class="preview-btn" id="int-find" onclick="setIntent('find')">find</button>
+    <button class="preview-btn" id="int-post" onclick="setIntent('post')">post</button>
+  </div>
+</div>
+
+<div class="frame">
+  <header>
+    <div class="logo">Hive<span>work</span></div>
+  </header>
+
+  <div class="pad">
+
+    <!-- SCREEN 1: CONNECT WALLET -->
+    <div class="screen active" id="s1">
+      <div class="wizard-track">
+        <div class="wz-seg active"><div class="wz-dot">1</div><div class="wz-label">Connect</div></div>
+        <div class="wz-seg"><div class="wz-dot">2</div><div class="wz-label">Profile</div></div>
+        <div class="wz-seg"><div class="wz-dot">3</div><div class="wz-label">Notify</div></div>
+      </div>
+
+      <div class="step-head">
+        <h1>Connect your Pi Wallet</h1>
+        <p>Hivework uses the Pi Wallet for identity and escrow. We'll request your Pi username and payment permissions.</p>
+      </div>
+
+      <div class="wallet-card">
+        <div class="wallet-top">
+          <div class="wallet-pi">π</div>
+          <span class="wallet-status">Not connected</span>
+        </div>
+        <div class="wallet-label">Pi Wallet</div>
+        <div class="wallet-value">Waiting for connection…</div>
+      </div>
+
+      <div class="kyc-pill" onclick="toggleKyc()" id="kyc-pill">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+        <span>KYC required for paid activity — tap to learn more</span>
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A6512" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="kyc-detail" id="kyc-detail">
+        <div class="kyc-detail-inner">Browsing is open to everyone. Posting a job or applying to paid work requires a KYC-verified, Mainnet-migrated Pi Wallet — Pi's network doesn't support Pi transfers on unverified accounts. Haven't completed KYC yet? You can still explore Hivework, and we'll prompt you to verify when you're ready to post or apply.</div>
+      </div>
+
+      <div class="testnet-note">Note: Hivework is currently on Pi Testnet — wallet activity here uses Test-Pi, not real Pi.</div>
+
+      <div class="tos-row" onclick="toggleTos()">
+        <div class="tos-check" id="tos-check">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" id="tos-tick" style="display:none;"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <p>I agree to the <a href="#" onclick="event.stopPropagation()">Terms of Service</a> and <a href="#" onclick="event.stopPropagation()">Privacy Policy</a>.</p>
+      </div>
+
+      <button class="btn btn-primary" id="connect-btn" disabled onclick="goTo('s2')">Connect with Pi Wallet</button>
+      <div class="pibrowser-note" id="pibrowser-explain" style="display:none;">The Pi SDK only works inside Pi Browser — open this page there to connect your wallet.</div>
+    </div>
+
+    <!-- SCREEN 2: QUICK PROFILE -->
+    <div class="screen" id="s2">
+      <button class="back-btn" onclick="goTo('s1')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>
+        Back
+      </button>
+      <div class="wizard-track">
+        <div class="wz-seg done"><div class="wz-dot">✓</div><div class="wz-label">Connect</div></div>
+        <div class="wz-seg active"><div class="wz-dot">2</div><div class="wz-label">Profile</div></div>
+        <div class="wz-seg"><div class="wz-dot">3</div><div class="wz-label">Notify</div></div>
+      </div>
+
+      <div class="step-head">
+        <h1>Set up your profile</h1>
+        <p>This helps us match you with the right jobs. You can always finish this later.</p>
+      </div>
+
+      <div class="profile-card">
+        <div class="pc-row pc-identity">
+          <div class="pp-avatar">O</div>
+          <div>
+            <div class="pp-name">@olawalt</div>
+            <span class="pp-tag">From Pi Wallet</span>
+          </div>
+        </div>
+
+        <div class="pc-row pc-bio">
+          <div class="pc-label">Bio · optional</div>
+          <textarea placeholder="A short line about what you do..."></textarea>
+        </div>
+
+        <div class="pc-row">
+          <div class="pc-label">Skills · optional</div>
+          <div class="chip-group">
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">Bug testing</div>
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">UI feedback</div>
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">Translation</div>
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">Android tester</div>
+          </div>
+        </div>
+
+        <div class="pc-row">
+          <div class="pc-label">Devices · optional</div>
+          <div class="chip-group">
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">Android</div>
+            <div class="chip-toggle" onclick="this.classList.toggle('selected')">iOS</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="goTo('s3')">Continue →</button>
+      <button class="btn-text" onclick="goTo('s3')">Skip for now</button>
+    </div>
+
+    <!-- SCREEN 3: NOTIFICATIONS -->
+    <div class="screen" id="s3">
+      <button class="back-btn" onclick="goTo('s2')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>
+        Back
+      </button>
+      <div class="wizard-track">
+        <div class="wz-seg done"><div class="wz-dot">✓</div><div class="wz-label">Connect</div></div>
+        <div class="wz-seg done"><div class="wz-dot">✓</div><div class="wz-label">Profile</div></div>
+        <div class="wz-seg active"><div class="wz-dot">3</div><div class="wz-label">Notify</div></div>
+      </div>
+
+      <div class="step-head">
+        <h1>Stay in the loop</h1>
+        <p>Get notified the moment your work is approved or paid, or when someone applies to your job.</p>
+      </div>
+
+      <div class="notif-visual">
+        <div class="notif-row">
+          <div class="notif-ic">✓</div>
+          <div><h4>Work approved</h4><p>Know instantly when a job you applied to gets approved</p></div>
+        </div>
+        <div class="notif-row">
+          <div class="notif-ic">π</div>
+          <div><h4>Pi released</h4><p>Get notified the moment Pi lands in your wallet</p></div>
+        </div>
+        <div class="notif-row">
+          <div class="notif-ic">👤</div>
+          <div><h4>New applicant</h4><p>See when someone applies to a job you posted</p></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="finishOnboarding()">Enable notifications</button>
+      <button class="btn-text" onclick="finishOnboarding()">Not now</button>
+    </div>
+
+    <!-- ROUTING CONFIRMATION -->
+    <div class="screen" id="s4">
+      <div class="routing">
+        <div class="spin"></div>
+        <h2 id="routing-title">Taking you in…</h2>
+        <p id="routing-sub">One moment.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let tosChecked = false;
+let piBrowserDetected = true;
+let intent = 'none';
+
+function toggleKyc(){
+  const pill = document.getElementById('kyc-pill');
+  const detail = document.getElementById('kyc-detail');
+  pill.classList.toggle('open');
+  detail.classList.toggle('open');
+}
+
+function toggleTos(){
+  tosChecked = !tosChecked;
+  document.getElementById('tos-check').classList.toggle('checked', tosChecked);
+  document.getElementById('tos-tick').style.display = tosChecked ? 'block' : 'none';
+  updateConnectButton();
+}
+
+function setPiBrowser(val){
+  piBrowserDetected = val;
+  document.getElementById('pb-yes').classList.toggle('on', val);
+  document.getElementById('pb-no').classList.toggle('on', !val);
+  updateConnectButton();
+}
+
+function setIntent(val){
+  intent = val;
+  document.getElementById('int-none').classList.toggle('on', val==='none');
+  document.getElementById('int-find').classList.toggle('on', val==='find');
+  document.getElementById('int-post').classList.toggle('on', val==='post');
+}
+
+function updateConnectButton(){
+  const btn = document.getElementById('connect-btn');
+  const explain = document.getElementById('pibrowser-explain');
+  if(!piBrowserDetected){
+    btn.textContent = 'Open in Pi Browser';
+    btn.disabled = !tosChecked;
+    explain.style.display = 'block';
+    btn.onclick = () => alert('Would redirect to Pi Browser deep link here.');
+  } else {
+    btn.textContent = 'Connect with Pi Wallet';
+    btn.disabled = !tosChecked;
+    explain.style.display = 'none';
+    btn.onclick = () => {
+      document.querySelector('.wallet-status').textContent = 'Connected';
+      document.querySelector('.wallet-status').style.background = 'rgba(46,196,182,.35)';
+      document.querySelector('.wallet-value').textContent = '@olawalt';
+      setTimeout(()=>goTo('s2'), 500);
+    };
+  }
+}
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function finishOnboarding(){
+  goTo('s4');
+  const title = document.getElementById('routing-title');
+  const sub = document.getElementById('routing-sub');
+  setTimeout(()=>{
+    if(intent === 'find'){
+      title.textContent = 'Taking you to Browse';
+      sub.textContent = 'Let\'s find you some work.';
+    } else if(intent === 'post'){
+      title.textContent = 'Taking you to Post a Job';
+      sub.textContent = 'Let\'s get your job listed.';
+    } else {
+      title.textContent = 'Taking you to Home';
+      sub.textContent = 'Welcome to Hivework.';
+    }
+  }, 200);
+}
+
+updateConnectButton();
+</script>
+</body>
+</html>
