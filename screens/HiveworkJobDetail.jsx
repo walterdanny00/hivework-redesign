@@ -6,24 +6,65 @@ const STAR_ICON = (
   </svg>
 );
 
-const CHECK_ICON = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-    <path d="M20 6L9 17l-5-5" />
-  </svg>
-);
-
 const TOTAL_SLOTS = 5;
 
+// Trust tiers pulled straight from JobDetail.tsx's TRUST_COLOR map — same
+// four tiers, same semantics (Gold/Silver/Bronze/Unverified).
+const TRUST_COLOR = {
+  Gold: "var(--butter)",
+  Silver: "#9CA3AF",
+  Bronze: "#B45309",
+  Unverified: "var(--ink-soft)",
+};
+
 const INITIAL_APPLICANTS = [
-  { id: "a1", name: "@sam_k", rating: "4.8★", jobs: "31 jobs done" },
-  { id: "a2", name: "@devMia", rating: "4.5★", jobs: "12 jobs done" },
+  {
+    id: "a1",
+    name: "@sam_k",
+    rating: 4.8,
+    skills: ["Android testing", "Bug reports", "QA"],
+    devices: ["Android"],
+    trustBadge: "★ Gold",
+    trustTier: "Gold",
+    coverNote: "I've tested payment flows on 6 different Android devices for two other Pi apps — happy to send examples of past reports.",
+  },
+  {
+    id: "a2",
+    name: "@devMia",
+    rating: 4.5,
+    skills: ["Android testing"],
+    devices: ["Android"],
+    trustBadge: "Silver",
+    trustTier: "Silver",
+    coverNote: "New to Hivework but have a Pixel 8 and a Galaxy S22 to test on — can turn this around same day.",
+  },
 ];
 
 const INITIAL_SLOTS = [
-  { id: "s1", name: "@walterdanny00", rating: "4.6★", jobs: "42 jobs done", status: "completed", givenRating: 5, draftRating: 0 },
-  { id: "s2", name: "@ola_t", rating: "4.9★", jobs: "18 jobs done", status: "completed", givenRating: null, draftRating: 0 },
-  { id: "s3", name: "@kwame_b", rating: "4.2★", jobs: "9 jobs done", status: "progress", givenRating: null, draftRating: 0 },
-  { id: "s4", name: "@leah_r", rating: "4.7★", jobs: "20 jobs done", status: "submitted", givenRating: null, draftRating: 0 },
+  {
+    id: "s1", name: "@walterdanny00", rating: 4.6,
+    skills: ["Android testing", "Bug reports"], devices: ["Android"], trustBadge: "★ Gold", trustTier: "Gold",
+    status: "completed", submission: "Tested on Pixel 7 + Samsung A54. Found one issue: payment confirmation screen flashes blank for ~1s on slow connections. Screenshots attached.",
+    givenRating: 5, draftRating: 0,
+  },
+  {
+    id: "s2", name: "@ola_t", rating: 4.9,
+    skills: ["Android testing", "Translations"], devices: ["Android"], trustBadge: "★ Gold", trustTier: "Gold",
+    status: "completed", submission: "No issues found on OnePlus 11. Full flow works end to end, retested 3 times.",
+    givenRating: null, draftRating: 0,
+  },
+  {
+    id: "s3", name: "@kwame_b", rating: 4.2,
+    skills: ["Android testing"], devices: ["Android"], trustBadge: "Bronze", trustTier: "Bronze",
+    status: "progress", submission: null,
+    givenRating: null, draftRating: 0,
+  },
+  {
+    id: "s4", name: "@leah_r", rating: 4.7,
+    skills: ["Android testing", "QA"], devices: ["Android"], trustBadge: "Silver", trustTier: "Silver",
+    status: "submitted", submission: "Confirmed the flow on a Moto G Power. Payment went through fine but the success toast is cut off on smaller screens — screenshot attached.",
+    givenRating: null, draftRating: 0,
+  },
 ];
 
 const STATUS_LABEL = { completed: "Completed", progress: "In progress", submitted: "Submitted" };
@@ -54,9 +95,12 @@ const STYLES = `
   .hivework-job-detail .detail-hero{padding:18px 0 4px;}
   .hivework-job-detail .detail-cat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--violet-deep);margin-bottom:8px;}
   .hivework-job-detail .detail-title{font-family:'Sora';font-weight:800;font-size:24px;letter-spacing:-.5px;line-height:1.15;margin-bottom:14px;}
-  .hivework-job-detail .detail-meta-row{display:flex;gap:22px;margin-bottom:22px;}
+  .hivework-job-detail .detail-meta-row{display:flex;gap:22px;margin-bottom:14px;}
   .hivework-job-detail .detail-meta .l{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;}
   .hivework-job-detail .detail-meta .v{font-family:'JetBrains Mono';font-weight:700;font-size:16px;margin-top:2px;}
+  .hivework-job-detail .detail-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
+  .hivework-job-detail .posted-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
+  .hivework-job-detail .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:#FFF3DC;color:#B8860B;text-transform:capitalize;}
 
   .hivework-job-detail .slot-bar{display:flex;gap:4px;margin-bottom:10px;}
   .hivework-job-detail .slot-seg{flex:1;height:8px;border-radius:5px;background:var(--line);}
@@ -76,24 +120,35 @@ const STYLES = `
   .hivework-job-detail .ov-block:last-child{margin-bottom:0;}
   .hivework-job-detail .ov-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
   .hivework-job-detail .ov-block p{font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:0;}
-  .hivework-job-detail .req-list{list-style:none;padding:0;margin:0;}
-  .hivework-job-detail .req-list li{display:flex;gap:10px;font-size:13px;color:var(--ink);padding:9px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
-  .hivework-job-detail .req-list li:last-child{border-bottom:none;}
-  .hivework-job-detail .req-list svg{flex-shrink:0;margin-top:2px;color:var(--mint);}
   .hivework-job-detail .chip-row{display:flex;gap:8px;flex-wrap:wrap;}
   .hivework-job-detail .chip-outline{border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 12px;border-radius:100px;color:var(--ink-soft);}
 
-  .hivework-job-detail .applicant-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
+  .hivework-job-detail .applicant-row{padding:16px 0;border-bottom:1px solid var(--line);}
   .hivework-job-detail .applicant-row:last-child{border-bottom:none;}
+  .hivework-job-detail .app-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
   .hivework-job-detail .avatar-sm{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .hivework-job-detail .app-info{flex:1;min-width:0;}
   .hivework-job-detail .app-info .n{font-weight:700;font-size:13.5px;}
-  .hivework-job-detail .app-info .s{font-size:11.5px;color:var(--ink-soft);}
-  .hivework-job-detail .app-actions{display:flex;gap:6px;flex-shrink:0;}
+  .hivework-job-detail .app-info .trust{font-size:11px;font-weight:700;margin-top:2px;}
+  .hivework-job-detail .app-rating{font-size:12px;color:var(--ink-soft);white-space:nowrap;flex-shrink:0;padding-top:2px;}
+  .hivework-job-detail .app-rating b{color:var(--ink);}
+  .hivework-job-detail .app-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .hivework-job-detail .app-chip{font-size:11px;font-weight:600;padding:4px 10px;border-radius:100px;background:#EFECE5;color:var(--ink-soft);}
+  .hivework-job-detail .app-chip.device{background:#EFEAFB;color:var(--violet-deep);}
+  .hivework-job-detail .app-note{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:12px;}
+  .hivework-job-detail .app-actions{display:flex;gap:6px;}
   .hivework-job-detail .app-btn{padding:8px 13px;border-radius:100px;font-size:11.5px;font-weight:700;border:none;cursor:pointer;}
-  .hivework-job-detail .app-btn.approve{background:var(--violet);color:white;}
+  .hivework-job-detail .app-btn.approve{background:var(--violet);color:white;flex:1;}
   .hivework-job-detail .app-btn.decline{background:#EFECE5;color:var(--ink-soft);}
   .hivework-job-detail .empty-note{font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+
+  .hivework-job-detail .close-slots-card{background:#FDFBF7;border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
+  .hivework-job-detail .close-slots-card .cs-label{font-size:12.5px;font-weight:700;margin-bottom:4px;}
+  .hivework-job-detail .close-slots-card .cs-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;}
+  .hivework-job-detail .cs-row{display:flex;gap:10px;align-items:center;}
+  .hivework-job-detail .cs-input{width:52px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 6px;font-family:'JetBrains Mono';font-weight:700;font-size:13px;background:var(--card);}
+  .hivework-job-detail .cs-btn{flex:1;background:var(--ink);color:white;border:none;border-radius:100px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+  .hivework-job-detail .cs-error{font-size:11.5px;color:var(--coral);margin-top:8px;}
 
   .hivework-job-detail .ledger{position:relative;padding-left:0;}
   .hivework-job-detail .ledger:before{content:"";position:absolute;left:19px;top:44px;bottom:14px;width:2px;background:var(--line);border-radius:2px;}
@@ -113,15 +168,18 @@ const STYLES = `
   .hivework-job-detail .ledger-status.progress{background:#EFEAFB;color:var(--violet-deep);}
   .hivework-job-detail .ledger-status.submitted{background:#FFF3DC;color:#B8860B;}
 
-  .hivework-job-detail .rating-given{font-size:12px;color:var(--ink-soft);margin:14px 0 0 50px;}
+  .hivework-job-detail .ledger-submission{margin:12px 0 0 50px;background:#F7F5F1;border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
+  .hivework-job-detail .ledger-submission .lbl{font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+
+  .hivework-job-detail .rating-given{font-size:12px;color:var(--ink-soft);margin:12px 0 0 50px;}
   .hivework-job-detail .rating-given .stars{color:var(--butter);letter-spacing:1px;}
-  .hivework-job-detail .rate-widget{margin:14px 0 0 50px;display:flex;align-items:center;gap:12px;}
+  .hivework-job-detail .rate-widget{margin:12px 0 0 50px;display:flex;align-items:center;gap:12px;}
   .hivework-job-detail .rate-stars{display:flex;gap:4px;cursor:pointer;}
   .hivework-job-detail .rate-stars svg{color:var(--line);}
-  .hivework-job-detail .rate-stars svg.on{color:var(--butter);}
+  .hivework-job-detail .rate-stars .on svg{color:var(--butter);}
   .hivework-job-detail .rate-confirm{font-size:11.5px;font-weight:700;color:white;background:var(--violet);border:none;border-radius:100px;padding:7px 13px;cursor:pointer;opacity:.35;pointer-events:none;}
   .hivework-job-detail .rate-confirm.enabled{opacity:1;pointer-events:auto;}
-  .hivework-job-detail .ledger-cta{margin:14px 0 0 50px;}
+  .hivework-job-detail .ledger-cta{margin:12px 0 0 50px;}
   .hivework-job-detail .ledger-cta .app-btn{background:var(--violet);color:white;}
 
   .hivework-job-detail .ledger-open{padding:14px 0;}
@@ -137,8 +195,13 @@ export default function HiveworkJobDetail() {
   const [activeTab, setActiveTab] = useState("overview");
   const [applicants, setApplicants] = useState(INITIAL_APPLICANTS);
   const [slots, setSlots] = useState(INITIAL_SLOTS);
+  const [closeCount, setCloseCount] = useState(1);
+  const [closeCountText, setCloseCountText] = useState("1");
+  const [closing, setClosing] = useState(false);
+  const [closedCount, setClosedCount] = useState(0);
 
-  const openCount = TOTAL_SLOTS - slots.length;
+  const openCount = TOTAL_SLOTS - slots.length - closedCount;
+  const perSlotBudget = 2;
 
   function approve(id) {
     const a = applicants.find((x) => x.id === id);
@@ -146,7 +209,7 @@ export default function HiveworkJobDetail() {
     setApplicants((prev) => prev.filter((x) => x.id !== id));
     setSlots((prev) => [
       ...prev,
-      { id: "slot-" + id, name: a.name, rating: a.rating, jobs: a.jobs, status: "progress", givenRating: null, draftRating: 0 },
+      { ...a, status: "progress", submission: null, givenRating: null, draftRating: 0 },
     ]);
   }
 
@@ -164,6 +227,25 @@ export default function HiveworkJobDetail() {
 
   function markComplete(id) {
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, status: "completed" } : s)));
+  }
+
+  function closeSlots() {
+    setClosing(true);
+    setTimeout(() => {
+      setClosedCount((prev) => prev + closeCount);
+      setCloseCount(1);
+      setCloseCountText("1");
+      setClosing(false);
+    }, 400);
+  }
+
+  function handleCloseCountChange(raw) {
+    const digits = raw.replace(/[^0-9]/g, "");
+    if (digits === "") { setCloseCountText(""); return; }
+    const n = parseInt(digits, 10);
+    const clamped = Math.max(1, Math.min(openCount, n));
+    setCloseCount(clamped);
+    setCloseCountText(String(clamped));
   }
 
   const counts = { completed: 0, progress: 0, submitted: 0 };
@@ -198,8 +280,16 @@ export default function HiveworkJobDetail() {
 
             <div className="detail-meta-row">
               <div className="detail-meta"><div className="l">Budget</div><div className="v mono">10π</div></div>
-              <div className="detail-meta"><div className="l">Per slot</div><div className="v mono">2π</div></div>
+              <div className="detail-meta"><div className="l">Per slot</div><div className="v mono">{perSlotBudget}π</div></div>
               <div className="detail-meta"><div className="l">Posted</div><div className="v">2 days ago</div></div>
+            </div>
+            <div className="detail-sub">
+              👥 {slots.length + closedCount > 0 ? slots.length : 0}/{TOTAL_SLOTS} workers · {perSlotBudget}π each · 2 days per worker
+            </div>
+
+            <div className="posted-row">
+              <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Posted by @you</span>
+              <span className="status-chip">in progress</span>
             </div>
 
             <div className="slot-bar">
@@ -233,11 +323,7 @@ export default function HiveworkJobDetail() {
                 </div>
                 <div className="ov-block">
                   <div className="ov-label">Requirements</div>
-                  <ul className="req-list">
-                    <li>{CHECK_ICON}Test on a real Android device, not an emulator</li>
-                    <li>{CHECK_ICON}Submit a structured report with screenshots</li>
-                    <li>{CHECK_ICON}Complete within 48 hours of approval</li>
-                  </ul>
+                  <p>Real Android device required — no emulators. Submit a structured report with screenshots. Complete within 48 hours of approval.</p>
                 </div>
                 <div className="ov-block">
                   <div className="ov-label">Device & language</div>
@@ -256,13 +342,22 @@ export default function HiveworkJobDetail() {
                 ) : (
                   applicants.map((a) => (
                     <div className="applicant-row" key={a.id}>
-                      <div className="avatar-sm">{a.name[1].toUpperCase()}</div>
-                      <div className="app-info">
-                        <div className="n">{a.name}</div>
-                        <div className="s">{a.rating} · {a.jobs}</div>
+                      <div className="app-top">
+                        <div className="avatar-sm">{a.name[1].toUpperCase()}</div>
+                        <div className="app-info">
+                          <div className="n">{a.name}</div>
+                          <div className="trust" style={{ color: TRUST_COLOR[a.trustTier] }}>{a.trustBadge}</div>
+                        </div>
+                        <div className="app-rating"><b>{a.rating}</b> ★</div>
                       </div>
+                      <div className="app-chips">
+                        {a.skills.slice(0, 3).map((s) => <span className="app-chip" key={s}>{s}</span>)}
+                        {a.skills.length > 3 && <span className="app-chip">+{a.skills.length - 3} more</span>}
+                        {a.devices.map((d) => <span className="app-chip device" key={d}>📱 {d}</span>)}
+                      </div>
+                      <p className="app-note">{a.coverNote}</p>
                       <div className="app-actions">
-                        <button className="app-btn approve" onClick={() => approve(a.id)}>Approve</button>
+                        <button className="app-btn approve" onClick={() => approve(a.id)}>Approve & Assign</button>
                         <button className="app-btn decline" onClick={() => decline(a.id)}>Decline</button>
                       </div>
                     </div>
@@ -273,6 +368,31 @@ export default function HiveworkJobDetail() {
 
             {activeTab === "slots" && (
               <div className="tab-card">
+                {openCount > 0 && (
+                  <div className="close-slots-card">
+                    <div className="cs-label">Close unfilled slots</div>
+                    <div className="cs-sub">{openCount} slot{openCount === 1 ? "" : "s"} still unfilled. Closing refunds {perSlotBudget}π per slot back to you.</div>
+                    <div className="cs-row">
+                      <input
+                        className="cs-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={closeCountText}
+                        onChange={(e) => handleCloseCountChange(e.target.value)}
+                        onBlur={() => {
+                          const n = parseInt(closeCountText, 10);
+                          const clamped = isNaN(n) ? 1 : Math.max(1, Math.min(openCount, n));
+                          setCloseCount(clamped);
+                          setCloseCountText(String(clamped));
+                        }}
+                      />
+                      <button className="cs-btn" disabled={closing} onClick={closeSlots}>
+                        {closing ? "Closing…" : `Close ${closeCount} · refund ${(perSlotBudget * closeCount).toFixed(2)}π`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="ledger">
                   {slots.map((s) => (
                     <div className="ledger-item" key={s.id}>
@@ -280,10 +400,17 @@ export default function HiveworkJobDetail() {
                         <div className={"ledger-dot " + s.status}>{s.name[1].toUpperCase()}</div>
                         <div className="ledger-info">
                           <div className="n">{s.name}</div>
-                          <div className="s">{s.rating} · {s.jobs}</div>
+                          <div className="s" style={{ color: TRUST_COLOR[s.trustTier] }}>{s.trustBadge} · {s.rating}★</div>
                         </div>
                         <div className={"ledger-status " + s.status}>{STATUS_LABEL[s.status]}</div>
                       </div>
+
+                      {s.submission && (
+                        <div className="ledger-submission">
+                          <div className="lbl">Work submission</div>
+                          {s.submission}
+                        </div>
+                      )}
 
                       {s.status === "completed" && s.givenRating && (
                         <div className="rating-given">
@@ -314,7 +441,9 @@ export default function HiveworkJobDetail() {
 
                       {s.status === "submitted" && (
                         <div className="ledger-cta">
-                          <button className="app-btn" onClick={() => markComplete(s.id)}>Mark reviewed & complete</button>
+                          <button className="app-btn" style={{ background: "var(--violet)", color: "white" }} onClick={() => markComplete(s.id)}>
+                            Mark reviewed & complete — release {perSlotBudget}π
+                          </button>
                         </div>
                       )}
                     </div>
