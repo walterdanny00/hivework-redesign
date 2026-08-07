@@ -43,7 +43,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ❌ Not designed | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Used in Layout, Job Detail (×2), Post Job. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ❌ Not designed | See Section 7. "This week/This month/All", calendar-based not rolling. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ⚠️ Mockups actively wrong, needs correction | See Section 7. Our mockups tie it to the same toggle as the avatar menu — real component is a separate dropdown panel with live unread count, polling, and a real notification list. |
 
@@ -62,7 +62,8 @@ something to design for.
 `HiveworkOnboarding.jsx`, `hivework-job-detail.html` / `HiveworkJobDetail.jsx`
 (provisional, pending comparison), `hivework-post-job.html` /
 `HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
-`HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route).
+`HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route),
+`HiveworkContactSupport.jsx` (canonical, done — reusable component).
 
 ---
 
@@ -224,7 +225,7 @@ the app.
 
 - Job Detail: pending comparison between Claude's build and the user's own
   version; worker (non-owner) view untouched
-- Contact Support widget (Section 6)
+- Contact Support widget (Section 6) — ✅ done, see below
 - Range Filter + correcting Notification Bell (Section 7)
 - Wiring the profile-menu's items (log out, notification settings, contact
   support) to real functionality — menu itself is being kept, not removed
@@ -266,6 +267,21 @@ not a design decision.
 token system (likely close to `.field` textarea styling + a `.chip`-style
 text link for the collapsed state), that slots into Job Detail and Post
 Job's error states.
+
+**Status: ✅ Done.** Built `HiveworkContactSupport.jsx` as a reusable
+component (`subject`/`label` props), not a per-screen copy. Collapsed:
+underlined violet text link. Expanded: soft-shadow card (not a modal),
+optional "Re: {subject}" chip-style context pill, textarea (4000-char
+limit, live counter, warns in the last 200 chars), Send/Cancel. After
+submit: a mint checkmark success card, or a danger-toned error card with
+a "Try again" button that returns to the form — reusing existing
+`--mint`/`--danger` tokens, no new colors introduced. Verified against a
+wired-in preview showing all 4 real usage contexts (Layout "Need help?",
+Job Detail ×2, Post Job) with mock error banners for realistic placement.
+No real backend endpoint was found in the sweep, so Send is simulated
+(comment flags `POST /api/support` as the real call site, unchanged from
+the live app's pattern). Not yet recompiled into Job Detail/Post Job's
+actual mockup files — still a standalone component pending that wiring.
 
 ---
 
