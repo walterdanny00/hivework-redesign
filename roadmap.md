@@ -37,7 +37,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
 | Job Detail | `jobs/:id` | ⚠️ Multi-worker owner view built, pending comparison | Claude built `hivework-job-detail.html`/`HiveworkJobDetail.jsx` (owner view, mixed slot states, applicant review + inline per-slot rating). User building their own version to compare before picking one. Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code. Worker (non-owner) view not yet redesigned. |
-| Post Job | `post-job` | ⚠️ Step 1 only | Wizard steps 2 (Details) and 3 (Review) still placeholders |
+| Post Job | `post-job` | ✅ Done | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). |
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
@@ -60,7 +60,8 @@ something to design for.
 **Current baseline files:** `hivework-app-v4-3.html`, `HiveworkApp.jsx`,
 `HiveworkLanding.jsx` / `hivework-landing.html`, `hivework-onboarding.html`,
 `HiveworkOnboarding.jsx`, `hivework-job-detail.html` / `HiveworkJobDetail.jsx`
-(provisional, pending comparison).
+(provisional, pending comparison), `hivework-post-job.html` /
+`HiveworkPostJob.jsx` (canonical, done).
 
 ---
 
@@ -99,6 +100,14 @@ original 8-screen set, again on a later upload which had regressed them):
 
 Also: logo text capitalized to "Hivework" (was lowercase "hivework" in the
 app header only; landing already had it right).
+
+7. **Post Job combobox function-name bug** — dynamically-generated onclick
+   handlers used the raw field ID (e.g. `f-device-search`) as part of a JS
+   function name; hyphens aren't valid in identifiers, so
+   `f-device-search_select(...)` parsed as subtraction, throwing
+   `ReferenceError: f is not defined`. Fixed by sanitizing the ID into a
+   safe function-name key before use. Worth checking on any future
+   component that builds function/handler names from a DOM element ID.
 
 ---
 
@@ -190,7 +199,6 @@ the app.
 - The real `/onboarding` (profile-completion form) — see Section 3
 - Job Detail: pending comparison between Claude's build and the user's own
   version; worker (non-owner) view untouched
-- Post Job wizard steps 2–3
 - Contact Support widget (Section 6)
 - Range Filter + correcting Notification Bell (Section 7)
 - Wiring the profile-menu's items (log out, notification settings, contact
@@ -322,3 +330,49 @@ gap. None of its three items are wired to actually function yet:
 **Action needed:** none for now at the design level — the menu stays as-is
 across all screens. Wiring each item to real functionality is deferred to a
 later implementation pass.
+
+---
+
+## 9. Post Job — reconciled with real code, done
+
+**Finding:** `PostJob.tsx` is not a wizard — one continuous form (title,
+category, budget w/ live 7% fee breakdown, description 1000-char,
+requirements 500-char, optional device/language free-text, worker_slots,
+conditional deadline fields when multi-worker) → `review` state (recap
+cards + payment breakdown) → `paying` → `done`/`error`, driven by
+`window.Pi.createPayment` callbacks. No separate `Job` type file exists.
+
+**Real product gap found, separate from the redesign:** single-worker jobs
+have no deadline field anywhere in the real code —
+`deadline_mode`/`deadline_at`/`slot_duration_days` only exist inside the
+`isMultiWorker` conditional. Single-worker jobs stay open indefinitely with
+no due date. Same bucket as the missing log-out feature (Section 8) — a
+real gap to flag back, not something this redesign pass fixes.
+
+**Decision:** keep the step-wizard as a deliberate UX improvement over the
+real flat form. Field grouping: **Basics** (title, category, budget) →
+**Details** (description, requirements, device/language) → **Workers &
+Deadline** (worker count, conditional deadline fields) → **Review & Pay**
+(unchanged from the real `review` state). An accordion-style alternative
+was built and compared, then rejected in favor of the wizard.
+
+**Categories expanded 3→7:** real set was only `bug-testing`,
+`translation`, `ui-feedback`. Now: Bug Testing, Translation, UI/UX
+Feedback (renamed for clarity against the new Usability category),
+Usability Testing, Content Review, Survey / Data Collection, Localization
+Testing. Emoji icons were tried and rejected (inconsistent across
+platforms, mismatched visual weight against the app's SVG icon system) —
+replaced with matching stroke-based SVG icons.
+
+**Device & Language redesigned:** real code has both as plain free text.
+Redesign uses a shared searchable multi-select combobox — pick from a
+suggestion list (Android/iOS/Web-Browser/Desktop/Any device; ~40 common
+languages) or type a custom value and an "Add '...'" option appears, so
+specific entries (e.g. "Samsung Galaxy S23," "Android 13+") work the same
+as picking a suggestion. Multiple chips allowed on both.
+
+**Files:** `hivework-post-job.html` / `HiveworkPostJob.jsx` — both
+canonical and done. JSX ported matching `HiveworkJobDetail.jsx`'s
+conventions. Not yet recompiled into the shell
+(`hivework-app-v4-3.html` / `HiveworkApp.jsx`) — its `#post` section is
+still the old flat single-step placeholder. See `sessions/session-03.md`.

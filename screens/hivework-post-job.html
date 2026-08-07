@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hivework — Post a Job</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
+    --violet:#6C5CE7; --violet-deep:#5643D9;
+    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
+    --line:#E7E3DA; --card:#FFFFFF; --danger:#E5484D;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Sora',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  svg{display:block;}
+
+  .frame{width:100%;max-width:560px;margin:0 auto;background:var(--cream);position:relative;min-height:100vh;}
+  .scroll-area{padding:0 24px 100px;}
+
+  .page-head{padding-top:26px;margin-bottom:22px;}
+  .kicker{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--violet-deep);margin-bottom:6px;}
+  .page-head h1{font-weight:800;font-size:24px;letter-spacing:-.5px;margin:0;}
+
+  /* wizard track */
+  .wizard-track{display:flex;margin-bottom:28px;}
+  .wz-seg{flex:1;text-align:center;position:relative;}
+  .wz-seg:not(:last-child):after{content:"";position:absolute;top:12px;left:56%;width:88%;height:2px;background:var(--line);}
+  .wz-seg.done:not(:last-child):after{background:var(--violet);}
+  .wz-dot{width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--line);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);position:relative;z-index:1;}
+  .wz-seg.done .wz-dot{background:var(--violet);border-color:var(--violet);color:white;}
+  .wz-seg.active .wz-dot{border-color:var(--violet);color:var(--violet);}
+  .wz-label{font-size:10px;color:var(--ink-soft);font-weight:600;}
+  .wz-seg.active .wz-label{color:var(--ink);}
+
+  .wz-step{display:none;}
+  .wz-step.active{display:block;}
+
+  .field{margin-bottom:18px;}
+  .field label{font-size:13px;font-weight:600;display:block;margin-bottom:7px;}
+  .field .hint{font-size:11.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+  .field .counter{font-size:11px;color:var(--ink-soft);text-align:right;margin-top:2px;}
+  .field .counter.warn{color:var(--danger);}
+  .field input,.field textarea,.field select{width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:14px;font-family:'Inter';box-shadow:0 8px 18px -14px rgba(27,26,31,.1);appearance:none;}
+  .field textarea{resize:none;height:88px;}
+  .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6874' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:36px;}
+
+  .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .cat-opt{padding:14px 8px 12px;border-radius:14px;border:1.5px solid var(--line);text-align:center;font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .cat-opt svg{stroke:var(--ink-soft);}
+  .cat-opt.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+  .cat-opt.selected svg{stroke:var(--violet-deep);}
+
+  .fee-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.8;}
+  .fee-box .row{display:flex;justify-content:space-between;}
+  .fee-box .total{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-weight:700;color:var(--ink);}
+  .fee-box .total span:last-child{color:var(--violet-deep);}
+
+  .worker-stepper{display:flex;align-items:center;gap:14px;}
+  .worker-stepper button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:18px;font-weight:700;color:var(--ink);}
+  .worker-stepper .n{flex:1;text-align:center;font-family:'Sora';font-weight:800;font-size:22px;border:none;background:transparent;color:var(--ink);width:100%;appearance:textfield;}
+  .worker-stepper .n::-webkit-outer-spin-button,.worker-stepper .n::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+
+  .deadline-mode{display:flex;flex-direction:column;gap:8px;}
+  .dl-opt{padding:14px 16px;border-radius:14px;border:1.5px solid var(--line);cursor:pointer;}
+  .dl-opt.selected{border-color:var(--violet);background:#EFEAFB;}
+  .dl-opt .t{font-size:13.5px;font-weight:700;margin-bottom:2px;}
+  .dl-opt .d{font-size:11.5px;color:var(--ink-soft);}
+
+  .review-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;}
+  .review-card .rc-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .review-card .rc-val{font-weight:700;font-size:14.5px;}
+  .review-card p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.6;}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .chip-outline{border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 12px;border-radius:100px;color:var(--ink-soft);}
+
+  .btn-row{display:flex;gap:10px;}
+  .btn{padding:16px;border-radius:100px;font-weight:700;font-size:15px;border:none;cursor:pointer;}
+  .btn-primary{flex:1;background:var(--violet);color:white;box-shadow:0 14px 28px -10px rgba(108,92,231,.55);}
+  .btn-ghost{background:var(--card);border:1px solid var(--line);color:var(--ink-soft);width:64px;}
+  .err-msg{color:var(--danger);font-size:13px;margin-bottom:14px;}
+
+  /* searchable multi-select combobox (device / language) */
+  .lang-combobox{position:relative;}
+  .lang-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 30px -16px rgba(27,26,31,.25);max-height:180px;overflow-y:auto;z-index:10;}
+  .lang-dropdown.open{display:block;}
+  .lang-opt{padding:11px 16px;font-size:13.5px;cursor:pointer;}
+  .lang-opt:hover,.lang-opt.hl{background:var(--cream);}
+  .lang-opt.empty{color:var(--ink-soft);cursor:default;}
+  .lang-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 8px 6px 12px;border-radius:100px;color:var(--ink);background:var(--card);}
+  .lang-chip button{border:none;background:var(--line);color:var(--ink-soft);width:18px;height:18px;border-radius:50%;font-size:12px;line-height:1;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="scroll-area">
+    <div class="page-head"><div class="kicker">New job</div><h1>Post a job.</h1></div>
+
+    <div class="wizard-track" id="wzTrack">
+      <div class="wz-seg active" data-step="1"><div class="wz-dot">1</div><div class="wz-label">Basics</div></div>
+      <div class="wz-seg" data-step="2"><div class="wz-dot">2</div><div class="wz-label">Details</div></div>
+      <div class="wz-seg" data-step="3"><div class="wz-dot">3</div><div class="wz-label">Workers</div></div>
+      <div class="wz-seg" data-step="4"><div class="wz-dot">4</div><div class="wz-label">Review</div></div>
+    </div>
+
+    <!-- STEP 1: BASICS -->
+    <div class="wz-step active" id="step1">
+      <div class="field">
+        <label>Job title</label>
+        <input id="f-title" placeholder="e.g. Test payment flow on Android">
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <div class="cat-grid" id="catGrid">
+          <div class="cat-opt selected" data-val="bug-testing">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9V7a3 3 0 1 1 6 0v2"/><rect x="6" y="9" width="12" height="10" rx="5"/><path d="M6 13H3M6 16.5 3.5 18M18 13h3M18 16.5l2.5 1.5M12 9v10M9 5 7.5 3.5M15 5l1.5-1.5"/></svg>
+            Bug Testing
+          </div>
+          <div class="cat-opt" data-val="translation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+            Translation
+          </div>
+          <div class="cat-opt" data-val="ui-ux-feedback">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 9h18M8 20h8M12 17v3"/></svg>
+            UI/UX Feedback
+          </div>
+          <div class="cat-opt" data-val="usability-testing">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m14.5 9.5-2 5-5 2 2-5z"/></svg>
+            Usability Testing
+          </div>
+          <div class="cat-opt" data-val="content-review">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>
+            Content Review
+          </div>
+          <div class="cat-opt" data-val="survey-data-collection">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/><path d="M3 20h18"/></svg>
+            Survey / Data
+          </div>
+          <div class="cat-opt" data-val="localization-testing">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            Localization
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label id="budgetLabel">Budget (Pi)</label>
+        <input id="f-budget" type="number" min="1" placeholder="e.g. 5" oninput="updateFee()">
+        <div class="fee-box" id="feeBox">
+          <div class="row"><span>Worker gets</span><span id="feeBudget">0π</span></div>
+          <div class="row"><span>Platform fee (7%)</span><span id="feePlatform">0π</span></div>
+          <div class="row total"><span>Total (escrow)</span><span id="feeTotal">0π</span></div>
+        </div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="goStep(2)">Continue →</button></div>
+    </div>
+
+    <!-- STEP 2: DETAILS -->
+    <div class="wz-step" id="step2">
+      <div class="field">
+        <label>Description</label>
+        <textarea id="f-desc" maxlength="1000" placeholder="Describe exactly what needs to be done..." oninput="count('f-desc','descCount',1000)"></textarea>
+        <div class="counter" id="descCount">0 / 1000</div>
+      </div>
+      <div class="field">
+        <label>Requirements</label>
+        <textarea id="f-req" maxlength="500" placeholder="What skills, device, or experience does the worker need?" oninput="count('f-req','reqCount',500)"></textarea>
+        <div class="counter" id="reqCount">0 / 500</div>
+      </div>
+      <div class="field">
+        <label>Device required <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>
+        <div class="lang-combobox">
+          <input id="f-device-search" placeholder="Type to search or add a device..." autocomplete="off" oninput="filterDevices(this.value)" onfocus="filterDevices(this.value)">
+          <div class="lang-dropdown" id="deviceDropdown"></div>
+        </div>
+        <div class="chip-row" id="deviceChips"></div>
+      </div>
+      <div class="field">
+        <label>Language required <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>
+        <div class="lang-combobox">
+          <input id="f-lang-search" placeholder="Type to search or add a language..." autocomplete="off" oninput="filterLangs(this.value)" onfocus="filterLangs(this.value)">
+          <div class="lang-dropdown" id="langDropdown"></div>
+        </div>
+        <div class="chip-row" id="langChips"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(1)">←</button>
+        <button class="btn btn-primary" onclick="goStep(3)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: WORKERS & DEADLINE -->
+    <div class="wz-step" id="step3">
+      <div class="field">
+        <label>Number of workers</label>
+        <div class="worker-stepper">
+          <button onclick="stepWorkers(-1)">−</button>
+          <input class="n" id="workerN" type="number" min="1" value="1" oninput="setWorkers(this.value)">
+          <button onclick="stepWorkers(1)">+</button>
+        </div>
+        <div class="hint" id="workerHint">Single worker gets the full budget.</div>
+      </div>
+      <div id="multiWorkerFields" style="display:none;">
+        <div class="field">
+          <label>Deadline type</label>
+          <div class="deadline-mode">
+            <div class="dl-opt selected" data-mode="per_worker" onclick="setDeadlineMode('per_worker')">
+              <div class="t">Per-worker deadline</div>
+              <div class="d">Each worker's countdown starts the moment they're approved.</div>
+            </div>
+            <div class="dl-opt" data-mode="fixed" onclick="setDeadlineMode('fixed')">
+              <div class="t">Shared deadline</div>
+              <div class="d">Every approved worker must finish by the same date.</div>
+            </div>
+          </div>
+        </div>
+        <div class="field" id="perWorkerField">
+          <label>Days per worker</label>
+          <input id="f-slot-days" type="number" min="1" placeholder="e.g. 3" value="3">
+        </div>
+        <div class="field" id="fixedDateField" style="display:none;">
+          <label>Shared deadline date</label>
+          <input id="f-deadline-date" type="date">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(2)">←</button>
+        <button class="btn btn-primary" onclick="goStep(4)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: REVIEW & PAY -->
+    <div class="wz-step" id="step4">
+      <div class="review-card">
+        <div class="rc-label">Job title</div>
+        <div class="rc-val" id="rv-title">—</div>
+      </div>
+      <div class="review-card">
+        <div class="rc-label">Category</div>
+        <div class="rc-val" id="rv-cat">—</div>
+      </div>
+      <div class="review-card" id="rv-workers-card" style="display:none;">
+        <div class="rc-label">Workers</div>
+        <div class="rc-val" id="rv-workers">—</div>
+        <p id="rv-deadline" style="margin-top:6px;"></p>
+      </div>
+      <div class="review-card">
+        <div class="rc-label">Description</div>
+        <p id="rv-desc">—</p>
+      </div>
+      <div class="review-card">
+        <div class="rc-label">Requirements</div>
+        <p id="rv-req">—</p>
+        <div class="chip-row" id="rv-chips"></div>
+      </div>
+      <div class="review-card">
+        <div class="rc-label" style="margin-bottom:10px;">Payment breakdown</div>
+        <div class="fee-box" style="margin-top:0;border:none;padding:0;">
+          <div class="row"><span>Worker budget</span><span id="rv-fee-budget">0π</span></div>
+          <div class="row"><span>Platform fee (7%)</span><span id="rv-fee-platform">0π</span></div>
+          <div class="row total"><span>Total (escrow)</span><span id="rv-fee-total">0π</span></div>
+        </div>
+      </div>
+      <div class="err-msg" id="rv-err" style="display:none;"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(3)">←</button>
+        <button class="btn btn-primary" id="payBtn" onclick="alert('Pay & Post → triggers window.Pi.createPayment, unchanged from real flow')">Pay & Post Job</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const PLATFORM_FEE_RATE = 0.07;
+const CATEGORY_LABELS = {
+  'bug-testing':'Bug Testing','translation':'Translation','ui-ux-feedback':'UI/UX Feedback',
+  'usability-testing':'Usability Testing','content-review':'Content Review',
+  'survey-data-collection':'Survey / Data Collection','localization-testing':'Localization Testing'
+};
+let selectedCategory = 'bug-testing';
+let workerCount = 1;
+let deadlineMode = 'per_worker';
+
+document.querySelectorAll('.cat-opt').forEach(el => el.addEventListener('click', () => {
+  document.querySelectorAll('.cat-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedCategory = el.dataset.val;
+}));
+
+// Generic searchable multi-select combobox (used for both Device and Language)
+function makeCombobox({ inputId, dropdownId, chipsId, options }) {
+  let selected = [];
+  const safeId = inputId.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  function filter(query) {
+    const dd = document.getElementById(dropdownId);
+    const q = query.trim();
+    const ql = q.toLowerCase();
+    const matches = options.filter(o => !selected.includes(o) && o.toLowerCase().includes(ql)).slice(0, 8);
+    let html = matches.map(o => `<div class="lang-opt" onclick="${safeId}_select('${o.replace(/'/g, "\\'")}')">${o}</div>`).join('');
+    if (q && !options.some(o => o.toLowerCase() === ql) && !selected.includes(q)) {
+      html += `<div class="lang-opt" onclick="${safeId}_select('${q.replace(/'/g, "\\'")}')">Add "${q}"</div>`;
+    }
+    dd.innerHTML = html || `<div class="lang-opt empty">Start typing to search or add</div>`;
+    dd.classList.add('open');
+  }
+
+  function select(value) {
+    if (!selected.includes(value)) selected.push(value);
+    document.getElementById(inputId).value = '';
+    document.getElementById(dropdownId).classList.remove('open');
+    render();
+  }
+
+  function remove(value) {
+    selected = selected.filter(v => v !== value);
+    render();
+  }
+
+  function render() {
+    document.getElementById(chipsId).innerHTML = selected.map(v =>
+      `<span class="lang-chip">${v}<button onclick="${safeId}_remove('${v.replace(/'/g, "\\'")}')">&times;</button></span>`).join('');
+  }
+
+  window[safeId + '_select'] = select;
+  window[safeId + '_remove'] = remove;
+  return { filter, getSelected: () => selected };
+}
+
+const DEVICES = ['Android', 'iOS', 'Web / Browser', 'Desktop', 'Any device'];
+const LANGUAGES = ['English','Mandarin Chinese','Spanish','Hindi','Arabic','Bengali','Portuguese','Russian','French','Urdu',
+  'Indonesian','German','Japanese','Swahili','Vietnamese','Turkish','Tagalog','Korean','Italian','Thai',
+  'Persian','Polish','Ukrainian','Dutch','Romanian','Greek','Hungarian','Hebrew','Malay','Amharic',
+  'Yoruba','Igbo','Hausa','Zulu','Burmese','Khmer','Nepali','Sinhala','Punjabi','Tamil'];
+
+const deviceBox = makeCombobox({ inputId: 'f-device-search', dropdownId: 'deviceDropdown', chipsId: 'deviceChips', options: DEVICES });
+const langBox = makeCombobox({ inputId: 'f-lang-search', dropdownId: 'langDropdown', chipsId: 'langChips', options: LANGUAGES });
+
+function filterDevices(q) { deviceBox.filter(q); }
+function filterLangs(q) { langBox.filter(q); }
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.lang-combobox')) {
+    document.getElementById('langDropdown').classList.remove('open');
+    document.getElementById('deviceDropdown').classList.remove('open');
+  }
+});
+
+function count(fieldId, counterId, max) {
+  const len = document.getElementById(fieldId).value.length;
+  const el = document.getElementById(counterId);
+  el.textContent = `${len} / ${max}`;
+  el.classList.toggle('warn', len > max * 0.9);
+}
+
+function updateFee() {
+  const budget = parseFloat(document.getElementById('f-budget').value) || 0;
+  const fee = +(budget * PLATFORM_FEE_RATE).toFixed(4);
+  const total = +(budget + fee).toFixed(4);
+  document.getElementById('feeBudget').textContent = budget + 'π';
+  document.getElementById('feePlatform').textContent = fee + 'π';
+  document.getElementById('feeTotal').textContent = total + 'π';
+}
+
+function applyWorkerCount() {
+  document.getElementById('workerN').value = workerCount;
+  const multi = workerCount > 1;
+  document.getElementById('multiWorkerFields').style.display = multi ? 'block' : 'none';
+  const budget = parseFloat(document.getElementById('f-budget').value) || 0;
+  document.getElementById('workerHint').textContent = multi
+    ? `Budget splits evenly — each of ${workerCount} workers gets ${budget ? (budget/workerCount).toFixed(4) : '0'}π.`
+    : 'Single worker gets the full budget.';
+  document.getElementById('budgetLabel').textContent = multi ? 'Total budget, all workers combined (Pi)' : 'Budget (Pi)';
+}
+
+function stepWorkers(delta) {
+  workerCount = Math.max(1, workerCount + delta);
+  applyWorkerCount();
+}
+
+function setWorkers(val) {
+  const n = parseInt(val, 10);
+  workerCount = (!n || n < 1) ? 1 : n;
+  applyWorkerCount();
+}
+
+function setDeadlineMode(mode) {
+  deadlineMode = mode;
+  document.querySelectorAll('.dl-opt').forEach(o => o.classList.toggle('selected', o.dataset.mode === mode));
+  document.getElementById('perWorkerField').style.display = mode === 'per_worker' ? 'block' : 'none';
+  document.getElementById('fixedDateField').style.display = mode === 'fixed' ? 'block' : 'none';
+}
+
+function goStep(n) {
+  document.querySelectorAll('.wz-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+  document.querySelectorAll('.wz-seg').forEach(seg => {
+    const step = +seg.dataset.step;
+    seg.classList.toggle('active', step === n);
+    seg.classList.toggle('done', step < n);
+  });
+  if (n === 4) populateReview();
+}
+
+function populateReview() {
+  document.getElementById('rv-title').textContent = document.getElementById('f-title').value || '—';
+  document.getElementById('rv-cat').textContent = CATEGORY_LABELS[selectedCategory];
+  document.getElementById('rv-desc').textContent = document.getElementById('f-desc').value || '—';
+  document.getElementById('rv-req').textContent = document.getElementById('f-req').value || '—';
+
+  const chips = [];
+  deviceBox.getSelected().forEach(d => chips.push(d));
+  langBox.getSelected().forEach(l => chips.push(l));
+  document.getElementById('rv-chips').innerHTML = chips.map(c => `<span class="chip-outline">${c}</span>`).join('');
+
+  const budget = parseFloat(document.getElementById('f-budget').value) || 0;
+  const fee = +(budget * PLATFORM_FEE_RATE).toFixed(4);
+  const total = +(budget + fee).toFixed(4);
+  document.getElementById('rv-fee-budget').textContent = budget + 'π';
+  document.getElementById('rv-fee-platform').textContent = fee + 'π';
+  document.getElementById('rv-fee-total').textContent = total + 'π';
+  document.getElementById('payBtn').textContent = `Pay ${total}π & Post Job`;
+
+  const workersCard = document.getElementById('rv-workers-card');
+  if (workerCount > 1) {
+    workersCard.style.display = 'block';
+    const perSlot = budget ? +(budget / workerCount).toFixed(4) : 0;
+    document.getElementById('rv-workers').textContent = `${workerCount} workers · ${perSlot}π each`;
+    document.getElementById('rv-deadline').textContent = deadlineMode === 'per_worker'
+      ? `Each worker has ${document.getElementById('f-slot-days').value || '?'} day(s) from when they're approved.`
+      : `All workers must finish by ${document.getElementById('f-deadline-date').value || '(no date set)'}.`;
+  } else {
+    workersCard.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>
