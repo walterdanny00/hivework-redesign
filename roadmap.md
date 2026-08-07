@@ -44,7 +44,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. |
-| Range Filter | *(no route — shared component on the 3 History pages)* | ❌ Not designed | See Section 7. "This week/This month/All", calendar-based not rolling. |
+| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. |
 
 **Nav structure — settled:** Home / Browse / Post / Dashboard (4 items). Every
@@ -64,7 +64,8 @@ something to design for.
 `HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
 `HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route),
 `HiveworkContactSupport.jsx` (canonical, done — reusable component),
-`HiveworkNotificationBell.jsx` (canonical, done — reusable component).
+`HiveworkNotificationBell.jsx` (canonical, done — reusable component),
+`HiveworkRangeFilter.jsx` (canonical, done — reusable component).
 
 ---
 
@@ -227,7 +228,7 @@ the app.
 - Job Detail: pending comparison between Claude's build and the user's own
   version; worker (non-owner) view untouched
 - Contact Support widget (Section 6) — ✅ done, see below
-- Range Filter (Section 7) — Notification Bell correction done, see below
+- Range Filter + Notification Bell correction (Section 7) — ✅ both done, see below
 - Wiring the profile-menu's items (log out, notification settings, contact
   support) to real functionality — menu itself is being kept, not removed
   (Section 8)
@@ -305,6 +306,17 @@ period near boundary days, which reads as wrong to a user expecting "this
 week" to mean the calendar week. Design task: add this filter to History →
 Work/Jobs/Withdrawals, styled as a segmented pill selector (visually close
 to the existing `segnav` pattern — violet-filled active segment).
+
+**Status: ✅ Done.** Built `HiveworkRangeFilter.jsx` as a reusable
+component (`value`/`onChange` props), exporting a `getRangeBoundary(key)`
+helper alongside it so the calendar-math (Monday-of-this-week,
+1st-of-this-month) lives in one place rather than being reimplemented per
+screen. Styled as the suggested segmented pill, violet-filled active
+segment. Verified against a wired-in preview (`RangeFilterPreview.jsx`,
+non-shipping) that actually filters a mock Withdrawal History list against
+sample entries spread across today/this-week/this-month/older — confirmed
+the calendar boundary (not rolling window) behaves as intended. Not yet
+recompiled into the three actual History mockup files.
 
 ### Notification Bell — correction, not just an addition
 **Our mockups have been representing this wrong.** The bell icon's `onClick`
