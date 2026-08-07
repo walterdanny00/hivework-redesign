@@ -33,7 +33,7 @@ Section 6/7/8's findings surfaced in the first place.
 |---|---|---|---|
 | Landing | `/` (logged out) | ✅ Done | Nav "Get started" + hero CTAs route into onboarding with intent (`?intent=find` / `?intent=post`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). |
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. |
-| Real `onboarding` (profile-completion form) | `onboarding` | ❌ Not designed | Single reactive form, triggered when a worker tries to apply without skills. Required skills field, optional devices/languages/bio, 200-char bio limit, `returnTo` redirect. See Section 3. |
+| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
 | Job Detail | `jobs/:id` | ⚠️ Multi-worker owner view built, pending comparison | Claude built `hivework-job-detail.html`/`HiveworkJobDetail.jsx` (owner view, mixed slot states, applicant review + inline per-slot rating). User building their own version to compare before picking one. Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code. Worker (non-owner) view not yet redesigned. |
@@ -61,7 +61,8 @@ something to design for.
 `HiveworkLanding.jsx` / `hivework-landing.html`, `hivework-onboarding.html`,
 `HiveworkOnboarding.jsx`, `hivework-job-detail.html` / `HiveworkJobDetail.jsx`
 (provisional, pending comparison), `hivework-post-job.html` /
-`HiveworkPostJob.jsx` (canonical, done).
+`HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
+`HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route).
 
 ---
 
@@ -108,6 +109,17 @@ app header only; landing already had it right).
    `ReferenceError: f is not defined`. Fixed by sanitizing the ID into a
    safe function-name key before use. Worth checking on any future
    component that builds function/handler names from a DOM element ID.
+8. **Missing design-token block (`HiveworkProfileComplete.jsx`)** — the
+   file didn't define its own `:root` token block, so `var(--violet)` etc.
+   resolved to nothing in standalone preview: the head-icon's gradient
+   background and its white-stroked SVG both went invisible. Fixed by
+   adding the `:root` block into the file's `STYLES` string. Checked
+   `HiveworkJobDetail.jsx` and `HiveworkPostJob.jsx` directly — both
+   already self-contain their own token block, confirming the real
+   convention is that **every screen file defines its own tokens**, none
+   rely on the external `hivework-tokens.css` at render time. Worth
+   checking on every future screen file, same as the Landing
+   double-background bug above.
 
 ---
 
@@ -166,19 +178,33 @@ step exists anywhere today, and arguably should. It's just not what the
 already used by `chip-gold`, `status-pill`, and `cat-opt.selected` elsewhere in
 the app.
 
-### The real `/onboarding` — not yet designed
+### The real `/onboarding` — reconciled with real code, done
 
-- Single form, not a wizard
+- Single form, not a wizard — matches the real form's structure (only 4
+  fields; a wizard would be overkill, unlike Post Job's genuinely large
+  multi-section flow)
 - **Skills required** (marked `*`) — skip button explicitly warns "you won't
-  be able to apply yet"
-- Devices, Languages — plain comma-separated text inputs, not chip toggles
-  (worth deciding whether the redesign keeps text inputs or upgrades to
-  chips — real behavioral difference, not just visual)
-- Bio — optional, hard 200-char limit, live counter
-- Shares its form component (`ProfileForm`) with Profile.tsx's edit mode —
-  worth keeping that sharing intact in the redesign too
+  be able to apply yet". Redesigned as a real chip-input (type + Enter/comma
+  to commit, Backspace-on-empty pops last chip, × removes any), since
+  skills are open-ended/user-generated — real code has this as a plain
+  comma-separated text input
+- Devices, Languages — real code has both as plain comma-separated text
+  inputs. Redesign upgrades both to the same searchable multi-select
+  combobox already built for Post Job (same suggestion lists: Android/iOS/
+  Web-Browser/Desktop/Any device; ~40 languages; same custom "Add '...'"
+  behavior) — deliberate cross-screen component reuse, not just visual
+  similarity
+- Bio — optional, hard 200-char limit, live counter (matches real behavior
+  as-is)
+- Shares its form component (`ProfileForm`) with `Profile.tsx`'s edit mode
+  in the real code; the redesign doesn't yet extend that sharing (Profile
+  screen's edit mode hasn't been redesigned to match)
 - Enters via `?returnTo=` (defaults to `/jobs`), exits back to wherever the
   user was trying to go
+- **Files:** `hivework-profile-complete.html` / `HiveworkProfileComplete.jsx`
+  — both canonical and done. JSX ported matching `HiveworkJobDetail.jsx`'s
+  and `HiveworkPostJob.jsx`'s conventions. Not yet recompiled into the
+  shell. See `sessions/session-04.md`.
 
 ---
 
@@ -196,7 +222,6 @@ the app.
 
 ## 5. Not Yet Started
 
-- The real `/onboarding` (profile-completion form) — see Section 3
 - Job Detail: pending comparison between Claude's build and the user's own
   version; worker (non-owner) view untouched
 - Contact Support widget (Section 6)
@@ -376,3 +401,33 @@ canonical and done. JSX ported matching `HiveworkJobDetail.jsx`'s
 conventions. Not yet recompiled into the shell
 (`hivework-app-v4-3.html` / `HiveworkApp.jsx`) — its `#post` section is
 still the old flat single-step placeholder. See `sessions/session-03.md`.
+
+---
+
+## 10. Profile Complete (real `/onboarding`) — reconciled with real code, done
+
+**Finding:** `Onboarding.tsx` (see Section 3) is a single reactive
+profile-completion form, not a wizard. `ProfileForm` is exported inline
+from the same file and reused by `Profile.tsx`'s edit mode. Real fields:
+Skills (required, plain comma-separated text with live badge-chip preview),
+Devices (optional, same pattern), Languages (optional, same pattern), Bio
+(optional, 200-char hard limit with live counter). Save disabled until
+Skills has ≥1 entry.
+
+**Decision:** single screen, not a wizard — only 4 fields, matches the
+real form's structure. Skills upgraded to a real chip-input; Devices and
+Languages upgraded to the same searchable combobox already built for Post
+Job (Section 9) — deliberate component reuse across screens, not
+duplicated logic. Bio kept as a plain textarea + counter, already matching
+the real pattern.
+
+**Bug found and fixed (standalone preview only):** the ported JSX didn't
+define its own `:root` design-token block, so the head-icon's gradient and
+white SVG stroke both resolved to nothing outside the real shell. Fixed by
+adding the token block directly into the file — see Bug Fix Log #8. This
+also confirmed the real convention: every screen file self-contains its
+own tokens; none depend on the external `hivework-tokens.css`.
+
+**Files:** `hivework-profile-complete.html` / `HiveworkProfileComplete.jsx`
+— both canonical and done. Not yet recompiled into the shell. See
+`sessions/session-04.md`.
