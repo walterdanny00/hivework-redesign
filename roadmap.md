@@ -45,7 +45,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ❌ Not designed | See Section 7. "This week/This month/All", calendar-based not rolling. |
-| Notification Bell | *(no route — component in Layout, header-level)* | ⚠️ Mockups actively wrong, needs correction | See Section 7. Our mockups tie it to the same toggle as the avatar menu — real component is a separate dropdown panel with live unread count, polling, and a real notification list. |
+| Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. |
 
 **Nav structure — settled:** Home / Browse / Post / Dashboard (4 items). Every
 real route maps cleanly onto one of these four or is a drill-in reached from
@@ -63,7 +63,8 @@ something to design for.
 (provisional, pending comparison), `hivework-post-job.html` /
 `HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
 `HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route),
-`HiveworkContactSupport.jsx` (canonical, done — reusable component).
+`HiveworkContactSupport.jsx` (canonical, done — reusable component),
+`HiveworkNotificationBell.jsx` (canonical, done — reusable component).
 
 ---
 
@@ -226,7 +227,7 @@ the app.
 - Job Detail: pending comparison between Claude's build and the user's own
   version; worker (non-owner) view untouched
 - Contact Support widget (Section 6) — ✅ done, see below
-- Range Filter + correcting Notification Bell (Section 7)
+- Range Filter (Section 7) — Notification Bell correction done, see below
 - Wiring the profile-menu's items (log out, notification settings, contact
   support) to real functionality — menu itself is being kept, not removed
   (Section 8)
@@ -327,6 +328,21 @@ is a fully separate component:
 `setMenuOpen`, give it its own open/closed state and dropdown panel, and
 design that panel's content (list item style, empty state, unread badge)
 using the existing token system.
+
+**Status: ✅ Done.** Built `HiveworkNotificationBell.jsx` as a reusable
+component (`notifications`/`onNavigate` props), fully decoupled from the
+avatar/profile menu — its own click-outside-aware open state. Real unread
+badge (coral, caps at "9+"), not a static dot; disappears immediately on
+open via optimistic mark-all-read. Unread items get a subtle violet-tinted
+row background + violet dot; read items lose both. Empty state reuses the
+bell glyph itself (dimmed, circled) rather than a generic icon, so it
+still reads as "notifications," matching the real "No notifications yet."
+copy. 45s polling stubbed in as a comment (`GET /api/notifications/poll`,
+no-op) since no real endpoint was exercised in the sweep — same simulated
+pattern as Contact Support's Send. Verified against a wired-in preview
+(`NotificationBellPreview.jsx`, non-shipping) showing it in a mock header
+in both populated and empty states. Not yet recompiled into the actual
+shell/Layout mockup files.
 
 ---
 
