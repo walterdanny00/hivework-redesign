@@ -17,7 +17,44 @@ clickable demo is specifically wanted.
 `hivework-redesign`, kept separate from the main Piwork codebase repo so
 they're accessible from any chat/account. `roadmap.md` is edited in place to
 always reflect current state; `sessions/` holds one dated file per session,
-numbered (`session-01.md`, `session-02.md`, ...).
+numbered (`session-01.md`, `session-02.md`, ...). Screen files
+(`.html`/`.jsx`) live in `screens/`.
+
+**Push workflow — two independent repos, no git-native sync:**
+`~/Piwork/hivework-redesign/` and `~/hivework-redesign/` are **not** a
+submodule and **not** two clones of the same repo — confirmed via
+`ls -la ~/Piwork/hivework-redesign/.git` (no `.git` there at all — it's
+plain content tracked inside the `Piwork` repo) and `git remote -v` in each
+(`walterdanny00/Piwork.git` vs `walterdanny00/hivework-redesign.git`,
+separate histories). Nothing enforces they stay in sync; a push can
+succeed on one and silently fail on the other.
+
+Standard push routine:
+```
+cd ~/Piwork && git pull
+cd ~/hivework-redesign && git pull
+
+# always check for drift before copying anything new in
+diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git
+# silent output = clean. Anything printed = resolve which side is
+# current before proceeding — don't layer a new commit on top of it.
+
+cp <files> ~/Piwork/hivework-redesign/<screens|sessions>/  (or repo root for roadmap.md)
+cp <files> ~/hivework-redesign/<screens|sessions>/          (or repo root for roadmap.md)
+
+cd ~/Piwork
+git add hivework-redesign/
+git commit -m "<message>"
+git push
+
+cd ~/hivework-redesign
+git add .
+git commit -m "<message>"
+git push
+```
+Since commit hashes will never match between the two (unrelated
+histories), the `diff -rq` check is the only reliable way to verify
+they're actually in sync — `git log` can't be used for that.
 
 **Standing rule — sweep before designing:** before redesigning any
 particular screen, always do a thorough sweep of the code/files on Termux
@@ -36,7 +73,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
-| Job Detail | `jobs/:id` | ⚠️ Multi-worker owner view built, pending comparison | Claude built `hivework-job-detail.html`/`HiveworkJobDetail.jsx` (owner view, mixed slot states, applicant review + inline per-slot rating). User building their own version to compare before picking one. Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code. Worker (non-owner) view not yet redesigned. |
+| Job Detail | `jobs/:id` | ⚠️ Owner view pending comparison · ✅ Worker view done | Owner view: Claude built `hivework-job-detail.html`/`HiveworkJobDetail.jsx` (mixed slot states, applicant review + inline per-slot rating); user building their own version to compare before picking one. Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`. |
 | Post Job | `post-job` | ✅ Done | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). |
@@ -65,7 +102,9 @@ something to design for.
 `HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route),
 `HiveworkContactSupport.jsx` (canonical, done — reusable component),
 `HiveworkNotificationBell.jsx` (canonical, done — reusable component),
-`HiveworkRangeFilter.jsx` (canonical, done — reusable component).
+`HiveworkRangeFilter.jsx` (canonical, done — reusable component),
+`hivework-job-detail-worker.html` (canonical, done — Job Detail worker/non-owner view),
+`HiveworkJobDetailWorker.jsx` (canonical, done — same, ported to JSX).
 
 ---
 
@@ -225,8 +264,8 @@ the app.
 
 ## 5. Not Yet Started
 
-- Job Detail: pending comparison between Claude's build and the user's own
-  version; worker (non-owner) view untouched
+- Job Detail: owner view pending comparison between Claude's build and the
+  user's own version. Worker (non-owner) view — ✅ done, see Section 11
 - Contact Support widget (Section 6) — ✅ done, see below
 - Range Filter + Notification Bell correction (Section 7) — ✅ both done, see below
 - Wiring the profile-menu's items (log out, notification settings, contact
@@ -475,3 +514,42 @@ own tokens; none depend on the external `hivework-tokens.css`.
 **Files:** `hivework-profile-complete.html` / `HiveworkProfileComplete.jsx`
 — both canonical and done. Not yet recompiled into the shell. See
 `sessions/session-04.md`.
+
+---
+
+## 11. Job Detail — Worker (non-owner) view — reconciled with real code, done
+
+**Finding:** the worker branch of `JobDetail.tsx` is a single dynamic
+slot — exactly one of 11 states renders at a time, gated in this priority
+order: wallet unverified → wallet-verify error → profile incomplete →
+ready to apply → apply form open → application pending → approved/submit
+work → work submitted → slot paid (rate) → slot paid (rated). Full state
+map and the exact code condition each maps to: see `sessions/session-08.md`.
+
+**Design decision:** built two competing structures (isolated state cards
+vs. a 5-stage ledger/timeline with only the current stage expanded) and
+picked the ledger. It ties into the app's existing signature idiom
+(escrow ticker, mono-type amounts, dark statement-style header) rather
+than reading as generic, and its stage-progression naturally matches the
+real code's gating order.
+
+**Real gap found, separate from the redesign:** the live code has no
+render branch for a rejected application (`myApp?.status === 'rejected'`)
+— a rejected worker currently sees the same "Apply for this Job" button as
+someone who never applied. Same bucket as the missing log-out feature
+(Section 8) and the missing single-worker deadline field (Section 9). The
+"Not selected" state in the design is a proposed addition, not a
+reconciled existing feature.
+
+**Attachments — proposed, not real:** the real `submit-work` call only
+ever sends a plain-text `submission` field, no file upload exists anywhere
+in the code. Kept in the design as a deliberate UX addition (same
+precedent as the Wallet Connect flow, Section 3), not shipped as if it
+already exists.
+
+**Files:** `hivework-job-detail-worker.html` / `HiveworkJobDetailWorker.jsx`
+— both canonical, done. Shows the "approved — submit work" state as the
+representative example; the other 10 states follow the identical
+entry/panel pattern (JSX version exposes a `state` prop covering all 11,
+matching the state keys in `sessions/session-08.md`). Not yet recompiled
+into the shell.
