@@ -68,21 +68,31 @@ Section 6/7/8's findings surfaced in the first place.
 
 | Screen | Route | Status | Notes |
 |---|---|---|---|
-| Landing | `/` (logged out) | ✅ Done | Nav "Get started" + hero CTAs route into onboarding with intent (`?intent=find` / `?intent=post`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). |
-| "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. |
-| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. |
+| Landing | `/` (logged out) | ✅ Done · ✅ Recompiled (JSX) | Nav "Get started" + hero CTAs route into the Wallet Connect flow with intent (`find`/`post`/`none`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). In `HiveworkApp.jsx`, this is now the shell's actual entry screen (`screen="landing"` default), rendered full-page without the persistent header/segnav. |
+| "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). |
+| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
-| Job Detail | `jobs/:id` | ⚠️ Owner view pending comparison · ✅ Worker view done | Owner view: Claude built `hivework-job-detail.html`/`HiveworkJobDetail.jsx` (mixed slot states, applicant review + inline per-slot rating); user building their own version to compare before picking one. Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`. |
-| Post Job | `post-job` | ✅ Done | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. |
+| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). |
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. |
-| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. |
-| Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Not yet wired into shell | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Not yet placed into History/error states in either shell file — next up. |
+| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ⚠️ Not yet wired into shell | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Not yet placed into the 3 History screens in either shell file — next up. |
+| Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
+
+**Shell recompile status (2026-08-08):** `HiveworkApp.jsx` now has every
+screen above fully wired — Landing is the entry point, Wallet Connect and
+Profile Complete are correctly split into two separate destinations, Job
+Detail branches owner/worker, Post Job's wizard replaced the old flat form,
+and the bell/avatar + standalone-Applicants bugs are fixed. Only Range
+Filter and Contact Support remain unwired. **`hivework-app-v4-3.html` (the
+vanilla-JS shell) has NOT received any of this** — it only has the very
+first fix (bell/avatar decouple + Applicants removal) and is now
+significantly behind the JSX file. See Section 12.
 
 **Nav structure — settled:** Home / Browse / Post / Dashboard (4 items). Every
 real route maps cleanly onto one of these four or is a drill-in reached from
@@ -94,17 +104,23 @@ settings" (a profile-menu item in the mockups) has zero matches anywhere in
 the codebase — it's a static label with no real feature behind it, not
 something to design for.
 
-**Current baseline files:** `hivework-app-v4-3.html`, `HiveworkApp.jsx`,
-`HiveworkLanding.jsx` / `hivework-landing.html`, `hivework-onboarding.html`,
-`HiveworkOnboarding.jsx`, `hivework-job-detail.html` / `HiveworkJobDetail.jsx`
-(provisional, pending comparison), `hivework-post-job.html` /
+**Current baseline files:** `hivework-app-v4-3.html` (behind, see Section 12),
+`HiveworkApp.jsx` (fully recompiled except Range Filter/Contact Support),
+`HiveworkLanding.jsx` / `hivework-landing.html` (canonical, done),
+`hivework-onboarding.html` / `HiveworkOnboarding.jsx` (canonical, done —
+proposed Wallet Connect pattern, reached from Landing),
+`hivework-job-detail.html` / `HiveworkJobDetail.jsx` (canonical, done —
+comparison closed 2026-08-07), `hivework-post-job.html` /
 `HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
-`HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route),
-`HiveworkContactSupport.jsx` (canonical, done — reusable component),
-`HiveworkNotificationBell.jsx` (canonical, done — reusable component),
-`HiveworkRangeFilter.jsx` (canonical, done — reusable component),
-`hivework-job-detail-worker.html` (canonical, done — Job Detail worker/non-owner view),
-`HiveworkJobDetailWorker.jsx` (canonical, done — same, ported to JSX).
+`HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route,
+reached only from Dashboard's nudge), `HiveworkContactSupport.jsx`
+(canonical, done — reusable component, not yet wired into shell),
+`HiveworkNotificationBell.jsx` (canonical, done — reusable component;
+shell approximates its behavior with inline sample data rather than this
+file verbatim), `HiveworkRangeFilter.jsx` (canonical, done — reusable
+component, not yet wired into shell), `hivework-job-detail-worker.html` /
+`HiveworkJobDetailWorker.jsx` (canonical, done — Job Detail worker/non-owner
+view).
 
 ---
 
@@ -162,6 +178,27 @@ app header only; landing already had it right).
    rely on the external `hivework-tokens.css` at render time. Worth
    checking on every future screen file, same as the Landing
    double-background bug above.
+9. **Shell (`HiveworkApp.jsx`) had zero `:root` token block** — same class
+   of bug as #8, but in the compiled shell itself: it relied entirely on a
+   `./hivework-tokens.css` import that doesn't exist anywhere in the user's
+   preview environment, so the shell preview showed no styling at all.
+   Fixed by inlining the same token values directly into the shell's own
+   `<style>` block and dropping the external import — the shell is now
+   fully self-contained, matching the established per-file convention.
+   `HiveworkLanding.jsx` had the identical bug (relied on the same missing
+   import) and got the same fix, plus a `--radius` token its own CSS needed
+   but had never defined anywhere.
+10. **Landing's CTAs wrongly routed to Profile Complete instead of Wallet
+    Connect** — during shell recompile, Landing's "Get started"/hero CTAs
+    were wired to `HiveworkProfileCompleteScreen` (the real `/onboarding`
+    profile-completion form). That's wrong: per Section 3, the proposed
+    Wallet Connect flow (`HiveworkOnboarding.jsx`) is what Landing's CTAs
+    are supposed to open — Profile Complete is reached only from
+    Dashboard's "Finish →" nudge. User caught this on review. Fixed by
+    giving the Wallet Connect flow its own `welcome` screen key in the
+    shell, distinct from `onboarding` (which now serves only the Dashboard
+    nudge path). Worth double-checking on any future recompile step that
+    touches more than one screen with similar naming/purpose.
 
 ---
 
@@ -481,9 +518,9 @@ as picking a suggestion. Multiple chips allowed on both.
 
 **Files:** `hivework-post-job.html` / `HiveworkPostJob.jsx` — both
 canonical and done. JSX ported matching `HiveworkJobDetail.jsx`'s
-conventions. Not yet recompiled into the shell
-(`hivework-app-v4-3.html` / `HiveworkApp.jsx`) — its `#post` section is
-still the old flat single-step placeholder. See `sessions/session-03.md`.
+conventions. Recompiled into `HiveworkApp.jsx` 2026-08-08 — its `#post`
+section now runs the full 4-step wizard, replacing the old flat form.
+Not yet recompiled into `hivework-app-v4-3.html`. See `sessions/session-03.md`.
 
 ---
 
@@ -512,8 +549,10 @@ also confirmed the real convention: every screen file self-contains its
 own tokens; none depend on the external `hivework-tokens.css`.
 
 **Files:** `hivework-profile-complete.html` / `HiveworkProfileComplete.jsx`
-— both canonical and done. Not yet recompiled into the shell. See
-`sessions/session-04.md`.
+— both canonical and done. Recompiled into `HiveworkApp.jsx` 2026-08-08,
+reached only via Dashboard's nudge (which was itself bugged to route to
+`profile` instead — see Bug Fix Log). Not yet recompiled into
+`hivework-app-v4-3.html`. See `sessions/session-04.md`.
 
 ---
 
@@ -551,5 +590,65 @@ already exists.
 — both canonical, done. Shows the "approved — submit work" state as the
 representative example; the other 10 states follow the identical
 entry/panel pattern (JSX version exposes a `state` prop covering all 11,
-matching the state keys in `sessions/session-08.md`). Not yet recompiled
-into the shell.
+matching the state keys in `sessions/session-08.md`). Recompiled into
+`HiveworkApp.jsx` 2026-08-08, defaulting to the `ready` state on the
+shell's one non-owner job; the component self-drives further transitions.
+Not yet recompiled into `hivework-app-v4-3.html`.
+
+---
+
+## 12. Shell Recompile — JSX shell done, HTML shell lagging
+
+**Approach:** screen-by-screen into the shell rather than one full-file
+pass — too much interdependent state (`screen`, `menuOpen`, `detailKey`,
+`workView`) for a safe single-shot swap, and some fixes are structural
+(bell/avatar decouple, removing the standalone Applicants screen) and
+needed to land before later screen swaps could build on top cleanly.
+
+**Order followed:**
+1. Bell/avatar decouple + remove standalone Applicants screen (applied to
+   **both** `HiveworkApp.jsx` and `hivework-app-v4-3.html`)
+2. Profile-menu item decision — kept "Edit profile," cut "Wallet settings"
+   (never part of any earlier decision)
+3. `isOwner` data-model stub + Job Detail owner/worker swap-in
+4. Post Job wizard swap-in
+5. Landing + Wallet Connect + real Onboarding wired in as reachable screens
+6. Range Filter + Contact Support wiring into History/error states — **not
+   done yet, next up**
+
+Steps 1 through 5 are all done in `HiveworkApp.jsx`. Only step 1 made it
+into `hivework-app-v4-3.html` — the vanilla-JS shell is now significantly
+behind and needs its own dedicated recompile pass covering steps 3–5
+(different state model than React, can't reuse the JSX work directly).
+
+**Bell/avatar + Applicants fix, both files:** avatar keeps the profile
+menu (now 5 items); bell gets its own separate notification panel — real
+unread-count badge, optimistic mark-all-read-on-open, click-outside-to-
+close overlay for both panels. Standalone Applicants screen removed
+entirely; "Review applicants →" buttons on Dashboard now open Job Detail
+directly, matching the real-code decision that applicant review lives
+inline there.
+
+**Job Detail swap, `HiveworkApp.jsx` only:** added `isOwner` to the shell's
+flat job data (`mine`/`translate` → true, both appear in Dashboard's "Jobs
+you've posted"; `bug` → false). Ported the full canonical owner component
+in wholesale; ported the full canonical worker component in wholesale once
+its JSX source was uploaded. Job Detail now branches on `job.isOwner`.
+
+**Post Job swap, `HiveworkApp.jsx` only:** ported the full 4-step wizard
+in wholesale, removing the shell's orphaned old `category` state and dead
+CSS that only served the flat form.
+
+**Landing / Wallet Connect / Onboarding swap, `HiveworkApp.jsx` only:** app
+now starts at `screen="landing"` (matches the real `/` route), rendered
+full-page without the shell's persistent header/segnav. Landing's CTAs set
+an `onboardingIntent` state (`'find'`/`'post'`/`'none'`) and route to the
+`welcome` screen (Wallet Connect flow) — corrected from an earlier mistaken
+wiring to Profile Complete, see Bug Fix Log #10. Dashboard's nudge routes
+directly to the separate `onboarding` screen (Profile Complete), fixing a
+pre-existing bug where it pointed at `profile` instead.
+
+**Still open:** Range Filter and Contact Support are built as canonical
+reusable components but not placed into either shell file's History screens
+or error states yet. `hivework-app-v4-3.html` needs its own pass through
+steps 3–5.

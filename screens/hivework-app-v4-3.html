@@ -38,6 +38,22 @@
   .header-actions{display:flex;align-items:center;gap:16px;}
   .icon-wrap{position:relative;cursor:pointer;color:var(--ink);}
   .badge-dot{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--coral);border:2px solid var(--cream);}
+  .badge-dot.badge-count{width:auto;height:auto;min-width:15px;padding:1.5px 4px;border-radius:100px;font-size:9px;font-weight:800;line-height:1.3;color:white;top:-6px;right:-7px;text-align:center;}
+  .menu-overlay{position:fixed;inset:0;z-index:25;background:transparent;display:none;}
+  .menu-overlay.open{display:block;}
+  .notif-panel{position:absolute;top:64px;right:20px;width:290px;max-height:360px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 60px -20px rgba(27,26,31,.28);z-index:30;display:none;}
+  .notif-panel.open{display:block;}
+  .notif-head{padding:14px 16px;font-weight:700;font-size:13px;font-family:'Sora';border-bottom:1px solid var(--line);}
+  .notif-row{display:flex;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);}
+  .notif-row:last-child{border-bottom:none;}
+  .notif-row.clickable{cursor:pointer;}
+  .notif-row.unread{background:#F5F2FC;}
+  .notif-dot{width:7px;height:7px;border-radius:50%;background:var(--violet);flex-shrink:0;margin-top:5px;}
+  .notif-body{flex:1;min-width:0;}
+  .notif-title{font-weight:700;font-size:12.5px;margin-bottom:2px;}
+  .notif-text{font-size:12px;color:var(--ink-soft);line-height:1.4;}
+  .notif-time{font-size:10.5px;color:var(--ink-soft);margin-top:4px;}
+  .notif-empty{padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:12.5px;}
   .avatar-btn{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 
   .profile-menu{
@@ -245,14 +261,16 @@
     <header>
       <div class="logo"><span class="logo-text">Hive<span class="accent">work</span></span><span class="testnet-badge" onclick="toggleTestnetTip(event)">Testnet</span></div>
       <div class="header-actions">
-        <div class="icon-wrap" onclick="toggleMenu()">
+        <div class="icon-wrap" onclick="toggleNotif()">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <div class="badge-dot"></div>
+          <div class="badge-dot badge-count" id="notifBadge">2</div>
         </div>
         <div class="avatar-btn" onclick="toggleMenu()">O</div>
       </div>
     </header>
     <div class="testnet-tip" id="testnetTip">Hivework is running on the Pi Testnet. Balances and payments shown are Test-Pi and carry no real-world value.</div>
+
+    <div class="menu-overlay" id="menuOverlay" onclick="closeMenus()"></div>
 
     <div class="profile-menu" id="menu">
       <div class="who">
@@ -261,10 +279,36 @@
       </div>
       <div class="menu-item" onclick="showScreen('profile')">View profile</div>
       <div class="menu-item">Edit profile</div>
-      <div class="menu-item">Wallet settings</div>
       <div class="menu-item">Notification settings</div>
       <div class="menu-item">Contact support</div>
       <div class="menu-item">Log out</div>
+    </div>
+
+    <div class="notif-panel" id="notifPanel">
+      <div class="notif-head">Notifications</div>
+      <div class="notif-row unread clickable" onclick="openDetail('mine')">
+        <div class="notif-dot"></div>
+        <div class="notif-body">
+          <div class="notif-title">Application approved</div>
+          <div class="notif-text">You were approved for &ldquo;Test payment flow on Android.&rdquo;</div>
+          <div class="notif-time">2h ago</div>
+        </div>
+      </div>
+      <div class="notif-row unread clickable" onclick="openDetail('translate')">
+        <div class="notif-dot"></div>
+        <div class="notif-body">
+          <div class="notif-title">New applicant</div>
+          <div class="notif-text">@walterdanny00 applied to &ldquo;Localize onboarding copy.&rdquo;</div>
+          <div class="notif-time">5h ago</div>
+        </div>
+      </div>
+      <div class="notif-row">
+        <div class="notif-body">
+          <div class="notif-title">Payment released</div>
+          <div class="notif-text">1&pi; was released to your balance.</div>
+          <div class="notif-time">1d ago</div>
+        </div>
+      </div>
     </div>
 
     <nav class="segnav" id="segnav">
@@ -454,7 +498,7 @@
             <span class="jp-applicants">1 applicant</span>
           </div>
           <div class="jp-divider"></div>
-          <div class="jp-manage" onclick="showScreen('applicants')">Review applicants →</div>
+          <div class="jp-manage" onclick="openDetail('mine')">Review applicants →</div>
         </div>
         <div class="job-post-row">
           <div class="jp-top">
@@ -466,7 +510,7 @@
             <span class="jp-applicants">2 applicants</span>
           </div>
           <div class="jp-divider"></div>
-          <div class="jp-manage" onclick="showScreen('applicants')">Review applicants →</div>
+          <div class="jp-manage" onclick="openDetail('translate')">Review applicants →</div>
         </div>
         <button class="btn" style="margin-top:10px;" onclick="showScreen('post')">Post a new job →</button>
       </div>
@@ -509,25 +553,10 @@
       <div class="hist-row"><div><h4>1π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">0.99π</span></div>
     </div>
 
-    <!-- APPLICANTS -->
-    <div class="screen" id="applicants">
-      <div class="back-btn" onclick="showScreen('dashboard')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>
-        Back
-      </div>
-      <div class="page-head" style="padding-top:8px;">
-        <div class="kicker">Test payment flow on Android</div>
-        <h1 style="font-size:24px;">Applicants</h1>
-      </div>
-      <div class="applicant-row">
-        <div class="app-avatar">W</div>
-        <div class="app-info"><div class="n">@walterdanny00</div><div class="s">4.6★ · 42 jobs done</div></div>
-        <div class="app-actions">
-          <button class="app-btn approve">Approve</button>
-          <button class="app-btn decline">Decline</button>
-        </div>
-      </div>
-    </div>
+    <!-- Applicants review now lives inline inside Job Detail's owner view
+         (real JobDetail.tsx has no separate route). Swapping the canonical
+         HiveworkJobDetail owner markup in is the next recompile step; the
+         flat job-detail screen above is a placeholder until then. -->
   </div>
 </div>
 
@@ -544,10 +573,33 @@ function showScreen(id, el){
   document.getElementById('segnav').style.display = mainScreens.includes(id) ? 'flex' : 'none';
   document.querySelectorAll('.segnav a').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
 
-  document.getElementById('menu').classList.remove('open');
+  closeMenus();
   window.scrollTo(0,0);
 }
-function toggleMenu(){ document.getElementById('menu').classList.toggle('open'); }
+function toggleMenu(){
+  document.getElementById('notifPanel').classList.remove('open');
+  const menu = document.getElementById('menu');
+  menu.classList.toggle('open');
+  document.getElementById('menuOverlay').classList.toggle('open', menu.classList.contains('open'));
+}
+function toggleNotif(){
+  document.getElementById('menu').classList.remove('open');
+  const panel = document.getElementById('notifPanel');
+  const opening = !panel.classList.contains('open');
+  panel.classList.toggle('open');
+  document.getElementById('menuOverlay').classList.toggle('open', panel.classList.contains('open'));
+  if (opening) {
+    // Optimistic mark-all-read on open, matching HiveworkNotificationBell.
+    document.querySelectorAll('.notif-row.unread .notif-dot').forEach(d => d.remove());
+    document.querySelectorAll('.notif-row').forEach(r => r.classList.remove('unread'));
+    document.getElementById('notifBadge').style.display = 'none';
+  }
+}
+function closeMenus(){
+  document.getElementById('menu').classList.remove('open');
+  document.getElementById('notifPanel').classList.remove('open');
+  document.getElementById('menuOverlay').classList.remove('open');
+}
 function toggleTestnetTip(e){ e.stopPropagation(); document.getElementById('testnetTip').classList.toggle('open'); }
 function dismissNudge(){ document.getElementById('nudge-banner').style.display = 'none'; }
 
