@@ -245,6 +245,9 @@
   .hist-row .hist-sub{font-size:11.5px;color:var(--ink-soft);}
   .hist-row .hist-sub.pos{color:#1A9E92;}
   .hist-row .hist-amt{font-family:'JetBrains Mono';font-weight:700;font-size:14px;flex-shrink:0;}
+  .hist-load-more{display:block;width:100%;margin-top:14px;padding:12px;border-radius:100px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-weight:600;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s;}
+  .hist-load-more:hover{border-color:var(--violet);color:var(--violet-deep);}
+  .hist-empty-more{text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:14px;}
 
   /* ===== FLOATING DOCK NAV ===== */
   .segnav{
@@ -253,9 +256,526 @@
   }
   .segnav a{flex:1;text-align:center;padding:9px 0;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
   .segnav a.active{background:var(--ink);color:white;}
+
+  /* ===== JOB DETAIL — OWNER (canonical .jdo, ported from HiveworkJobDetail.jsx) ===== */
+  .jdo .slot-bar{display:flex;gap:4px;margin-bottom:10px;}
+  .jdo .slot-seg{flex:1;height:8px;border-radius:5px;background:var(--line);}
+  .jdo .slot-seg.completed{background:var(--mint);}
+  .jdo .slot-seg.progress{background:var(--violet);}
+  .jdo .slot-seg.submitted{background:var(--butter);}
+  .jdo .slot-summary{font-size:12.5px;color:var(--ink-soft);margin-bottom:24px;}
+  .jdo .slot-summary b{color:var(--ink);font-weight:700;}
+  .jdo .detail-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
+  .jdo .posted-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
+  .jdo .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:#FFF3DC;color:#B8860B;text-transform:capitalize;}
+  .jdo .toggle-row{display:flex;gap:6px;background:#EFECE5;border-radius:100px;padding:5px;margin-bottom:20px;}
+  .jdo .toggle-btn{flex:1;text-align:center;padding:10px 6px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
+  .jdo .toggle-btn.active{background:var(--card);color:var(--ink);box-shadow:0 6px 16px -10px rgba(27,26,31,.25);}
+  .jdo .tab-card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);padding:22px 20px;margin-bottom:26px;}
+  .jdo .ov-block{margin-bottom:22px;}
+  .jdo .ov-block:last-child{margin-bottom:0;}
+  .jdo .ov-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  .jdo .ov-block p{font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:0;}
+  .jdo .applicant-row{padding:16px 0;border-bottom:1px solid var(--line);}
+  .jdo .applicant-row:last-child{border-bottom:none;}
+  .jdo .app-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+  .jdo .avatar-sm{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .jdo .app-info{flex:1;min-width:0;}
+  .jdo .app-info .n{font-weight:700;font-size:13.5px;}
+  .jdo .app-info .trust{font-size:11px;font-weight:700;margin-top:2px;}
+  .jdo .app-rating{font-size:12px;color:var(--ink-soft);white-space:nowrap;flex-shrink:0;padding-top:2px;}
+  .jdo .app-rating b{color:var(--ink);}
+  .jdo .app-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .jdo .app-chip{font-size:11px;font-weight:600;padding:4px 10px;border-radius:100px;background:#EFECE5;color:var(--ink-soft);}
+  .jdo .app-chip.device{background:#EFEAFB;color:var(--violet-deep);}
+  .jdo .app-note{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:12px;}
+  .jdo .app-actions{display:flex;gap:6px;}
+  .jdo .app-btn{padding:8px 13px;border-radius:100px;font-size:11.5px;font-weight:700;border:none;cursor:pointer;}
+  .jdo .app-btn.approve{background:var(--violet);color:white;flex:1;}
+  .jdo .app-btn.decline{background:#EFECE5;color:var(--ink-soft);}
+  .jdo .empty-note{font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+  .jdo .close-slots-card{background:#FDFBF7;border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
+  .jdo .close-slots-card .cs-label{font-size:12.5px;font-weight:700;margin-bottom:4px;}
+  .jdo .close-slots-card .cs-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;}
+  .jdo .cs-row{display:flex;gap:10px;align-items:center;}
+  .jdo .cs-input{width:52px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 6px;font-family:'JetBrains Mono';font-weight:700;font-size:13px;background:var(--card);}
+  .jdo .cs-btn{flex:1;background:var(--ink);color:white;border:none;border-radius:100px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+  .jdo .ledger{position:relative;padding-left:0;}
+  .jdo .ledger:before{content:"";position:absolute;left:19px;top:44px;bottom:14px;width:2px;background:var(--line);border-radius:2px;}
+  .jdo .ledger-item{position:relative;padding:16px 0;border-bottom:1px solid var(--line);}
+  .jdo .ledger-item:first-child{padding-top:0;}
+  .jdo .ledger-item:last-child{padding-bottom:0;border-bottom:none;}
+  .jdo .ledger-row{display:flex;align-items:center;gap:12px;}
+  .jdo .ledger-dot{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;position:relative;z-index:1;border:3px solid var(--cream);}
+  .jdo .ledger-dot.completed{background:var(--mint);}
+  .jdo .ledger-dot.progress{background:linear-gradient(135deg,var(--violet),var(--violet-deep));}
+  .jdo .ledger-dot.submitted{background:var(--butter);color:#8A6512;}
+  .jdo .ledger-info{flex:1;min-width:0;}
+  .jdo .ledger-info .n{font-weight:700;font-size:13.5px;}
+  .jdo .ledger-info .s{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .jdo .ledger-status{flex-shrink:0;font-size:10.5px;font-weight:700;padding:5px 11px;border-radius:100px;white-space:nowrap;}
+  .jdo .ledger-status.completed{background:#E4F8F6;color:#1A9E92;}
+  .jdo .ledger-status.progress{background:#EFEAFB;color:var(--violet-deep);}
+  .jdo .ledger-status.submitted{background:#FFF3DC;color:#B8860B;}
+  .jdo .ledger-submission{margin:12px 0 0 50px;background:#F7F5F1;border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
+  .jdo .ledger-submission .lbl{font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .jdo .rating-given{font-size:12px;color:var(--ink-soft);margin:12px 0 0 50px;}
+  .jdo .rating-given .stars{color:var(--butter);letter-spacing:1px;}
+  .jdo .rate-widget{margin:12px 0 0 50px;display:flex;align-items:center;gap:12px;}
+  .jdo .rate-stars{display:flex;gap:4px;cursor:pointer;}
+  .jdo .rate-stars svg{color:var(--line);}
+  .jdo .rate-stars .on svg{color:var(--butter);}
+  .jdo .rate-confirm{font-size:11.5px;font-weight:700;color:white;background:var(--violet);border:none;border-radius:100px;padding:7px 13px;cursor:pointer;opacity:.35;pointer-events:none;}
+  .jdo .rate-confirm.enabled{opacity:1;pointer-events:auto;}
+  .jdo .ledger-cta{margin:12px 0 0 50px;}
+  .jdo .ledger-open{padding:14px 0;}
+  .jdo .ledger-open .ledger-row{gap:12px;}
+  .jdo .ledger-open .ledger-dot{background:var(--card);border:2px dashed var(--line);}
+  .jdo .ledger-open .label{font-size:12.5px;color:var(--ink-soft);}
+  .jdo .open-note{display:flex;gap:10px;background:#EFEAFB;border:1px solid #D9CFFB;border-radius:14px;padding:12px 14px;margin-top:18px;font-size:12.5px;color:var(--violet-deep);line-height:1.5;}
+  .jdo .open-note svg{flex-shrink:0;margin-top:1px;}
+
+  /* ===== JOB DETAIL — WORKER (canonical .hw-jdw, ported from HiveworkJobDetailWorker.jsx) ===== */
+  .hw-jdw{
+    --radius:16px; --radius-sm:10px; --cream-deep:#EFEBE1;
+    background:var(--cream); color:var(--ink); font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:60px;
+  }
+  .hw-jdw *{box-sizing:border-box;}
+  .hw-jdw h1,.hw-jdw h2,.hw-jdw h3{font-family:'Sora',sans-serif;margin:0;}
+  .hw-jdw .mono{font-family:'JetBrains Mono',monospace;}
+  .hw-jdw .wrap{max-width:520px;margin:0 auto;padding:20px 0 0;}
+  .hw-jdw .back-btn{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-soft);padding:4px 0 14px;cursor:pointer;background:none;border:none;}
+  .hw-jdw .job-head{background:var(--ink);color:var(--cream);border-radius:var(--radius);padding:18px 18px 16px;margin-bottom:22px;}
+  .hw-jdw .job-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#B9B3E0;margin-bottom:8px;}
+  .hw-jdw .job-title{font-size:17px;font-weight:700;line-height:1.35;margin-bottom:10px;}
+  .hw-jdw .job-figures{display:flex;justify-content:space-between;align-items:flex-end;}
+  .hw-jdw .job-figures .amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:20px;color:#F4D584;}
+  .hw-jdw .job-figures .amt span{font-size:12px;color:#B9B3E0;font-weight:500;}
+  .hw-jdw .job-figures .who{font-size:12px;color:#B9B3E0;}
+  .hw-jdw .ledger{position:relative;padding-left:26px;margin-bottom:24px;}
+  .hw-jdw .ledger::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:1.5px;background:var(--line);}
+  .hw-jdw .entry{position:relative;padding-bottom:22px;}
+  .hw-jdw .entry:last-child{padding-bottom:0;}
+  .hw-jdw .entry-dot{position:absolute;left:-26px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--cream);border:2px solid var(--line);z-index:2;}
+  .hw-jdw .entry.done .entry-dot{background:var(--violet);border-color:var(--violet);}
+  .hw-jdw .entry.current .entry-dot{background:var(--cream);border-color:var(--violet);box-shadow:0 0 0 3px rgba(108,92,231,.15);}
+  .hw-jdw .entry.rejected .entry-dot{background:var(--coral);border-color:var(--coral);box-shadow:0 0 0 3px rgba(255,107,93,.15);}
+  .hw-jdw .entry.upcoming{opacity:.4;}
+  .hw-jdw .entry-time{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+  .hw-jdw .entry-label{font-size:13.5px;font-weight:700;margin-bottom:2px;}
+  .hw-jdw .entry.current .entry-label{color:var(--violet-deep);}
+  .hw-jdw .entry.rejected .entry-label{color:var(--coral);}
+  .hw-jdw .entry-note{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+  .hw-jdw .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-top:10px;}
+  .hw-jdw .panel-title{font-size:13px;font-weight:700;margin-bottom:8px;}
+  .hw-jdw .field-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:6px;}
+  .hw-jdw textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;min-height:100px;background:var(--cream-deep);}
+  .hw-jdw textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:#fff;}
+  .hw-jdw .counter-row{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .hw-jdw .btn{border:none;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;font-size:13.5px;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:12px;}
+  .hw-jdw .btn-primary{background:var(--violet);color:#fff;}
+  .hw-jdw .btn-primary:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
+  .hw-jdw .btn-primary:hover:not(:disabled){background:var(--violet-deep);}
+  .hw-jdw .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .hw-jdw .btn-row{display:flex;gap:8px;}
+  .hw-jdw .btn-row .btn{margin-top:0;}
+  .hw-jdw .error-note{font-size:12px;color:var(--coral);margin-top:10px;line-height:1.5;}
+  .hw-jdw .error-note a{color:var(--coral);font-weight:700;text-decoration:underline;cursor:pointer;}
+  .hw-jdw .paid-strip{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:14px 16px;margin-top:10px;}
+  .hw-jdw .paid-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:#1A9E92;}
+  .hw-jdw .paid-amt span{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:4px;}
+  .hw-jdw .paid-sub{font-size:11px;color:var(--ink-soft);text-align:right;font-family:'JetBrains Mono',monospace;}
+  .hw-jdw .rate-given{text-align:center;padding:4px 0;}
+  .hw-jdw .rate-given .stars{color:var(--butter);font-size:20px;letter-spacing:3px;}
+  .hw-jdw .rate-given p{font-size:13px;color:var(--ink-soft);margin:8px 0 0;line-height:1.5;}
+  .hw-jdw .attach-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .hw-jdw .attach-row2{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--cream-deep);border:1px solid var(--line);border-radius:var(--radius-sm);}
+  .hw-jdw .attach-icon{width:34px;height:34px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .hw-jdw .attach-info{flex:1;min-width:0;}
+  .hw-jdw .attach-name{font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hw-jdw .attach-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);margin-top:2px;}
+  .hw-jdw .attach-x{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--ink-soft);font-size:15px;cursor:pointer;flex-shrink:0;}
+  .hw-jdw .attach-add-wide{width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:1.5px dashed var(--line);background:transparent;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .hw-jdw .attach-hint{font-size:11px;color:var(--ink-soft);line-height:1.4;margin-top:8px;}
+  .hw-jdw .stars{display:flex;gap:4px;margin:8px 0 12px;}
+  .hw-jdw .star{font-size:22px;cursor:pointer;opacity:.25;background:none;border:none;padding:0;}
+  .hw-jdw .star.filled{opacity:1;}
+
+  /* ===== POST JOB — 4-step wizard (canonical .hivework-post-job, ported
+     from HiveworkPostJob.jsx). .frame/.scroll-area/.page-head rules below
+     are unused here (shell's own outer page-head is reused instead) but
+     kept for fidelity with the canonical file, same "harmless duplicate"
+     convention already used for the worker detail view and landing page. */
+  :root{ --danger:#E5484D; }
+  .hivework-post-job{color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .hivework-post-job h1,.hivework-post-job h2,.hivework-post-job h3{font-family:'Sora',sans-serif;}
+  .hivework-post-job svg{display:block;}
+  .hivework-post-job .wizard-track{display:flex;margin-bottom:28px;}
+  .hivework-post-job .wz-seg{flex:1;text-align:center;position:relative;}
+  .hivework-post-job .wz-seg:not(:last-child):after{content:"";position:absolute;top:12px;left:56%;width:88%;height:2px;background:var(--line);}
+  .hivework-post-job .wz-seg.done:not(:last-child):after{background:var(--violet);}
+  .hivework-post-job .wz-dot{width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--line);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);position:relative;z-index:1;}
+  .hivework-post-job .wz-seg.done .wz-dot{background:var(--violet);border-color:var(--violet);color:white;}
+  .hivework-post-job .wz-seg.active .wz-dot{border-color:var(--violet);color:var(--violet);}
+  .hivework-post-job .wz-label{font-size:10px;color:var(--ink-soft);font-weight:600;}
+  .hivework-post-job .wz-seg.active .wz-label{color:var(--ink);}
+  .hivework-post-job .field{margin-bottom:18px;}
+  .hivework-post-job .field label{font-size:13px;font-weight:600;display:block;margin-bottom:7px;}
+  .hivework-post-job .field .hint{font-size:11.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+  .hivework-post-job .field .counter{font-size:11px;color:var(--ink-soft);text-align:right;margin-top:2px;}
+  .hivework-post-job .field .counter.warn{color:var(--danger);}
+  .hivework-post-job .field input,.hivework-post-job .field textarea,.hivework-post-job .field select{width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:14px;font-family:'Inter';box-shadow:0 8px 18px -14px rgba(27,26,31,.1);appearance:none;}
+  .hivework-post-job .field textarea{resize:none;height:88px;}
+  .hivework-post-job .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .hivework-post-job .cat-opt{padding:14px 8px 12px;border-radius:14px;border:1.5px solid var(--line);text-align:center;font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--card);}
+  .hivework-post-job .cat-opt svg{stroke:var(--ink-soft);}
+  .hivework-post-job .cat-opt.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+  .hivework-post-job .cat-opt.selected svg{stroke:var(--violet-deep);}
+  .hivework-post-job .fee-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.8;}
+  .hivework-post-job .fee-box .row{display:flex;justify-content:space-between;}
+  .hivework-post-job .fee-box .total{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-weight:700;color:var(--ink);}
+  .hivework-post-job .fee-box .total span:last-child{color:var(--violet-deep);}
+  .hivework-post-job .worker-stepper{display:flex;align-items:center;gap:14px;}
+  .hivework-post-job .worker-stepper button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:18px;font-weight:700;color:var(--ink);}
+  .hivework-post-job .worker-stepper .n{flex:1;text-align:center;font-family:'Sora';font-weight:800;font-size:22px;border:none;background:transparent;color:var(--ink);width:100%;}
+  .hivework-post-job .worker-stepper .n::-webkit-outer-spin-button,.hivework-post-job .worker-stepper .n::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .hivework-post-job .deadline-mode{display:flex;flex-direction:column;gap:8px;}
+  .hivework-post-job .dl-opt{padding:14px 16px;border-radius:14px;border:1.5px solid var(--line);cursor:pointer;background:var(--card);}
+  .hivework-post-job .dl-opt.selected{border-color:var(--violet);background:#EFEAFB;}
+  .hivework-post-job .dl-opt .t{font-size:13.5px;font-weight:700;margin-bottom:2px;}
+  .hivework-post-job .dl-opt .d{font-size:11.5px;color:var(--ink-soft);}
+  .hivework-post-job .lang-combobox{position:relative;}
+  .hivework-post-job .lang-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 30px -16px rgba(27,26,31,.25);max-height:180px;overflow-y:auto;z-index:10;}
+  .hivework-post-job .lang-dropdown.open{display:block;}
+  .hivework-post-job .lang-opt{padding:11px 16px;font-size:13.5px;cursor:pointer;}
+  .hivework-post-job .lang-opt:hover{background:var(--cream);}
+  .hivework-post-job .lang-opt.empty{color:var(--ink-soft);cursor:default;}
+  .hivework-post-job .lang-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 8px 6px 12px;border-radius:100px;color:var(--ink);background:var(--card);}
+  .hivework-post-job .lang-chip button{border:none;background:var(--line);color:var(--ink-soft);width:18px;height:18px;border-radius:50%;font-size:12px;line-height:1;cursor:pointer;}
+  .hivework-post-job .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .hivework-post-job .chip-outline{border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 12px;border-radius:100px;color:var(--ink-soft);}
+  .hivework-post-job .review-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;}
+  .hivework-post-job .review-card .rc-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .hivework-post-job .review-card .rc-val{font-weight:700;font-size:14.5px;}
+  .hivework-post-job .review-card p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.6;}
+  .hivework-post-job .btn-row{display:flex;gap:10px;}
+  .hivework-post-job .btn{padding:16px;border-radius:100px;font-weight:700;font-size:15px;border:none;cursor:pointer;}
+  .hivework-post-job .btn-primary{flex:1;background:var(--violet);color:white;box-shadow:0 14px 28px -10px rgba(108,92,231,.55);}
+  .hivework-post-job .btn-ghost{background:var(--card);border:1px solid var(--line);color:var(--ink-soft);width:64px;}
+  .hivework-post-job .err-msg{color:var(--danger);font-size:13px;margin-bottom:14px;}
+
+  /* ===== LANDING — full standalone page (canonical .hivework-landing,
+     ported from HiveworkLanding.jsx). Reached only when app boots; its own
+     nav bypasses the shell header/segnav entirely (handled in showScreen). */
+  .hivework-landing *{box-sizing:border-box;}
+  .hivework-landing{margin:0;background:var(--cream);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;scroll-behavior:smooth;}
+  .hivework-landing h1,.hivework-landing h2,.hivework-landing h3{font-family:'Sora',sans-serif;}
+  .hivework-landing .mono{font-family:'JetBrains Mono',monospace;}
+  .hivework-landing a{color:inherit;text-decoration:none;}
+  .hivework-landing nav{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:24px 24px 0;position:relative;}
+  .hivework-landing .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;}
+  .hivework-landing .testnet-badge{font-family:'Inter';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 9px;border-radius:100px;background:var(--line);color:var(--ink-soft);cursor:pointer;}
+  .hivework-landing .testnet-tip{position:absolute;top:60px;left:24px;max-width:280px;background:var(--ink);color:var(--cream);font-size:12px;line-height:1.5;padding:12px 14px;border-radius:14px;z-index:30;box-shadow:0 20px 40px -16px rgba(27,26,31,.35);}
+  .hivework-landing .logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--violet),var(--violet-deep));display:flex;align-items:center;justify-content:center;color:white;font-size:16px;flex-shrink:0;}
+  .hivework-landing .nav-links{display:flex;gap:6px;align-items:center;}
+  .hivework-landing .nav-links a{padding:9px 16px;border-radius:100px;font-weight:600;font-size:14.5px;color:var(--ink-soft);transition:background .15s,color .15s;cursor:pointer;}
+  .hivework-landing .nav-links a:hover{background:#EFEBE3;color:var(--ink);}
+  .hivework-landing .nav-cta{background:var(--ink);color:white!important;padding:10px 20px!important;}
+  .hivework-landing .nav-cta:hover{background:var(--violet-deep)!important;color:white!important;}
+  @media (max-width:820px){ .hivework-landing .nav-links a:not(.nav-cta){display:none;} }
+  .hivework-landing .hero{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;padding:64px 24px 40px;align-items:center;}
+  @media (max-width:900px){ .hivework-landing .hero{grid-template-columns:1fr;padding-top:40px;} }
+  .hivework-landing .eyebrow{display:inline-flex;align-items:center;gap:8px;background:#EFEAFB;color:var(--violet-deep);padding:7px 14px;border-radius:100px;font-size:13px;font-weight:600;margin-bottom:22px;}
+  .hivework-landing .eyebrow-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);flex-shrink:0;box-shadow:0 0 0 0 rgba(46,196,182,.5);animation:hw-pulse 2s infinite;}
+  @keyframes hw-pulse{0%{box-shadow:0 0 0 0 rgba(46,196,182,.45);}70%{box-shadow:0 0 0 8px rgba(46,196,182,0);}100%{box-shadow:0 0 0 0 rgba(46,196,182,0);}}
+  .hivework-landing .hero h1{font-size:clamp(36px,5vw,58px);line-height:1.04;font-weight:800;letter-spacing:-1.5px;margin:0 0 20px;}
+  .hivework-landing .hero h1 .accent{color:var(--violet);}
+  .hivework-landing .hero p.sub{font-size:17px;line-height:1.6;color:var(--ink-soft);max-width:460px;margin:0 0 32px;}
+  .hivework-landing .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px;}
+  .hivework-landing .btn{width:auto;padding:14px 26px;border-radius:100px;font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px;transition:transform .12s,box-shadow .12s;border:none;cursor:pointer;}
+  .hivework-landing .btn:active{transform:scale(.97);}
+  .hivework-landing .btn-primary{background:var(--violet);color:white;box-shadow:0 10px 24px -8px rgba(108,92,231,.55);}
+  .hivework-landing .btn-primary:hover{background:var(--violet-deep);}
+  .hivework-landing .btn-ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
+  .hivework-landing .btn-ghost:hover{border-color:var(--ink);}
+  .hivework-landing .trust-row{display:flex;gap:28px;flex-wrap:wrap;}
+  .hivework-landing .trust-item{display:flex;flex-direction:column;}
+  .hivework-landing .trust-item .num{font-family:'Sora';font-weight:800;font-size:22px;}
+  .hivework-landing .trust-item .label{font-size:12.5px;color:var(--ink-soft);}
+  .hivework-landing .ticker-wrap{position:relative;height:420px;}
+  .hivework-landing .ticker-card{position:absolute;left:0;right:0;background:var(--card);border-radius:18px;padding:18px 20px;box-shadow:0 20px 45px -18px rgba(27,26,31,.18);border:1px solid var(--line);display:flex;align-items:center;gap:14px;opacity:0;transform:translateY(14px);}
+  .hivework-landing .ticker-icon{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .hivework-landing .ticker-body{flex:1;min-width:0;}
+  .hivework-landing .ticker-title{font-weight:600;font-size:14.5px;margin-bottom:2px;}
+  .hivework-landing .ticker-sub{font-size:12.5px;color:var(--ink-soft);}
+  .hivework-landing .ticker-amount{font-family:'JetBrains Mono';font-weight:500;font-size:14px;flex-shrink:0;}
+  .hivework-landing .t1{top:0;} .hivework-landing .t2{top:98px;} .hivework-landing .t3{top:196px;} .hivework-landing .t4{top:294px;}
+  .hivework-landing .t1 .ticker-icon{background:#EFEAFB;color:var(--violet);}
+  .hivework-landing .t2 .ticker-icon{background:#FFF3DC;color:#B8860B;}
+  .hivework-landing .t3 .ticker-icon,.hivework-landing .t4 .ticker-icon{background:#E4F8F6;color:#1A9E92;}
+  .hivework-landing .t2 .ticker-amount{color:#B8860B;}
+  .hivework-landing .t3 .ticker-amount,.hivework-landing .t4 .ticker-amount{color:#1A9E92;}
+  @keyframes hw-rise{0%{opacity:0;transform:translateY(18px);}8%{opacity:1;transform:translateY(0);}92%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-10px);}}
+  .hivework-landing .t1{animation:hw-rise 7s ease-in-out infinite;}
+  .hivework-landing .t2{animation:hw-rise 7s ease-in-out infinite 1.75s;}
+  .hivework-landing .t3{animation:hw-rise 7s ease-in-out infinite 3.5s;}
+  .hivework-landing .t4{animation:hw-rise 7s ease-in-out infinite 5.25s;}
+  .hivework-landing .ticker-frame{position:absolute;inset:-16px -16px auto -16px;height:452px;border-radius:28px;background:linear-gradient(180deg,#EFEAFB 0%,transparent 60%);z-index:-1;}
+  .hivework-landing section{max-width:1180px;margin:0 auto;padding:20px 24px 72px;}
+  .hivework-landing .section-head{margin-bottom:32px;}
+  .hivework-landing .section-head .kicker{color:var(--violet);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .hivework-landing .section-head h2{font-size:32px;font-weight:800;letter-spacing:-.6px;margin:0;}
+  .hivework-landing .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  @media (max-width:800px){ .hivework-landing .cat-grid{grid-template-columns:1fr;} }
+  .hivework-landing .cat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius,18px);padding:26px;transition:transform .15s,box-shadow .15s;}
+  .hivework-landing .cat-card:hover{transform:translateY(-4px);box-shadow:0 18px 36px -16px rgba(27,26,31,.14);}
+  .hivework-landing .cat-blob{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:18px;}
+  .hivework-landing .cat-card:nth-child(1) .cat-blob{background:#FFE8E5;}
+  .hivework-landing .cat-card:nth-child(2) .cat-blob{background:#FFF3DC;}
+  .hivework-landing .cat-card:nth-child(3) .cat-blob{background:#E4F8F6;}
+  .hivework-landing .cat-card h3{font-size:18px;margin:0 0 6px;font-weight:700;}
+  .hivework-landing .cat-card p{color:var(--ink-soft);font-size:14px;margin:0 0 16px;line-height:1.5;}
+  .hivework-landing .cat-card .open{font-size:13px;font-weight:600;color:var(--violet-deep);display:flex;align-items:center;gap:6px;}
+  .hivework-landing .flow{background:var(--ink);border-radius:28px;padding:56px 44px;color:white;position:relative;overflow:hidden;}
+  .hivework-landing .flow:before{content:"";position:absolute;top:-80px;right:-80px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(108,92,231,.35),transparent 70%);}
+  .hivework-landing .flow-head{margin-bottom:36px;position:relative;}
+  .hivework-landing .flow-head .kicker{color:#B8A9FF;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .hivework-landing .flow-head h2{font-size:30px;font-weight:800;margin:0;letter-spacing:-.5px;}
+  .hivework-landing .flow-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;position:relative;}
+  @media (max-width:800px){ .hivework-landing .flow-steps{grid-template-columns:1fr;} }
+  .hivework-landing .flow-step{border-left:2px solid rgba(255,255,255,.15);padding-left:20px;}
+  .hivework-landing .flow-step .idx{font-family:'JetBrains Mono';color:#B8A9FF;font-size:13px;margin-bottom:10px;}
+  .hivework-landing .flow-step h3{font-size:17px;margin:0 0 8px;font-weight:700;}
+  .hivework-landing .flow-step p{color:#B4B1BC;font-size:14px;line-height:1.55;margin:0;}
+  .hivework-landing footer{max-width:1180px;margin:0 auto;padding:40px 24px 60px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);color:var(--ink-soft);font-size:13.5px;flex-wrap:wrap;gap:16px;}
+  .hivework-landing footer .logo{font-size:15px;}
+  .hivework-landing footer .logo-mark{width:26px;height:26px;font-size:13px;border-radius:8px;}
+
+  /* ===== Real /onboarding (Profile Complete) — full standalone page
+     (canonical .hwpc-*, ported from HiveworkProfileComplete.jsx). Reached
+     only from Dashboard's "Finish →" nudge. */
+  .hwpc-frame{width:100%;max-width:560px;margin:0 auto;background:var(--cream);position:relative;min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .hwpc-frame *{box-sizing:border-box;}
+  .hwpc-frame h1{font-family:'Sora',sans-serif;}
+  .hwpc-frame svg{display:block;}
+  .hwpc-scroll{padding:0 24px 100px;}
+  .hwpc-head{padding-top:44px;margin-bottom:28px;text-align:center;}
+  .hwpc-head-icon{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,var(--violet),var(--violet-deep));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 14px 28px -12px rgba(108,92,231,.5);}
+  .hwpc-head h1{font-weight:800;font-size:22px;letter-spacing:-.4px;margin:0 0 8px;}
+  .hwpc-head p{font-size:13.5px;color:var(--ink-soft);line-height:1.6;max-width:320px;margin:0 auto;}
+  .hwpc-field{margin-bottom:20px;}
+  .hwpc-field label{font-size:13px;font-weight:600;display:block;margin-bottom:7px;}
+  .hwpc-req{color:var(--coral);}
+  .hwpc-opt{font-weight:400;color:var(--ink-soft);}
+  .hwpc-hint{font-size:11.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+  .hwpc-counter{font-size:11px;color:var(--ink-soft);text-align:right;margin-top:2px;}
+  .hwpc-counter.hwpc-warn{color:var(--danger);}
+  .hwpc-field textarea{width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:14px;font-family:'Inter';box-shadow:0 8px 18px -14px rgba(27,26,31,.1);resize:none;height:88px;}
+  .hwpc-combobox{position:relative;padding:9px 10px;border-radius:14px;border:1px solid var(--line);background:var(--card);box-shadow:0 8px 18px -14px rgba(27,26,31,.1);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .hwpc-combobox.hwpc-empty-required{border-color:#F3C6C2;}
+  .hwpc-combobox input{border:none;outline:none;background:transparent;font-size:14px;font-family:'Inter';flex:1;min-width:120px;padding:5px 4px;}
+  .hwpc-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);font-size:12px;font-weight:600;padding:6px 8px 6px 12px;border-radius:100px;color:var(--ink);background:var(--cream);}
+  .hwpc-chip button{border:none;background:var(--line);color:var(--ink-soft);width:16px;height:16px;border-radius:50%;font-size:11px;line-height:1;cursor:pointer;flex-shrink:0;}
+  .hwpc-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 30px -16px rgba(27,26,31,.25);max-height:180px;overflow-y:auto;z-index:10;}
+  .hwpc-dropdown.hwpc-open{display:block;}
+  .hwpc-dd-opt{padding:11px 16px;font-size:13.5px;cursor:pointer;}
+  .hwpc-dd-opt:hover{background:var(--cream);}
+  .hwpc-dd-opt.hwpc-empty{color:var(--ink-soft);cursor:default;}
+  .hwpc-save-btn{width:100%;padding:16px;border-radius:100px;font-weight:700;font-size:15px;border:none;cursor:pointer;background:var(--violet);color:white;box-shadow:0 14px 28px -10px rgba(108,92,231,.55);margin-bottom:12px;}
+  .hwpc-save-btn:disabled{background:var(--line);color:var(--ink-soft);box-shadow:none;cursor:not-allowed;}
+  .hwpc-skip-hint{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-bottom:10px;}
+  .hwpc-skip-btn{width:100%;padding:14px;border-radius:100px;font-weight:700;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;}
+
+  /* ===== Welcome (Wallet-Connect Onboarding) — full standalone page
+     (canonical .hw-onboard, ported from HiveworkOnboarding.jsx). Proposed
+     3-step flow reached from Landing's CTAs — distinct from the real
+     /onboarding Profile Complete form above. */
+  .hw-onboard *{box-sizing:border-box;}
+  .hw-onboard{margin:0;background:#EAE7DF;color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .hw-onboard h1,.hw-onboard h2,.hw-onboard h3{font-family:'Sora',sans-serif;}
+  .hw-onboard .mono{font-family:'JetBrains Mono',monospace;}
+  .hw-onboard .hw-onboard-frame{width:100%;max-width:560px;margin:0 auto;background:var(--cream);position:relative;min-height:80vh;border-radius:0 0 28px 28px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(27,26,31,.3);}
+  .hw-onboard .pad{padding:0 24px 40px;}
+  .hw-onboard header{padding:24px 24px 4px;}
+  .hw-onboard .logo{font-family:'Sora';font-weight:800;font-size:17px;}
+  .hw-onboard .logo span{color:var(--violet);}
+  .hw-onboard .wizard-track{display:flex;margin:26px 0 30px;}
+  .hw-onboard .wz-seg{flex:1;text-align:center;position:relative;}
+  .hw-onboard .wz-seg:not(:last-child):after{content:"";position:absolute;top:12px;left:56%;width:88%;height:2px;background:var(--line);}
+  .hw-onboard .wz-seg.done:not(:last-child):after{background:var(--violet);}
+  .hw-onboard .wz-dot{width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--line);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);position:relative;z-index:1;}
+  .hw-onboard .wz-seg.done .wz-dot{background:var(--violet);border-color:var(--violet);color:white;}
+  .hw-onboard .wz-seg.active .wz-dot{border-color:var(--violet);color:var(--violet);}
+  .hw-onboard .wz-label{font-size:10.5px;color:var(--ink-soft);font-weight:600;}
+  .hw-onboard .wz-seg.active .wz-label{color:var(--ink);}
+  .hw-onboard .step-head{margin-bottom:24px;}
+  .hw-onboard .step-head h1{font-size:26px;font-weight:800;letter-spacing:-.6px;margin:0 0 8px;line-height:1.15;}
+  .hw-onboard .step-head p{font-size:14px;color:var(--ink-soft);line-height:1.55;margin:0;}
+  .hw-onboard .back-btn{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-soft);padding:22px 0 0;cursor:pointer;background:none;border:none;}
+  .hw-onboard .wallet-card{background:linear-gradient(135deg,var(--violet),var(--violet-deep));border-radius:20px;padding:22px;color:white;margin-bottom:26px;position:relative;overflow:hidden;box-shadow:0 20px 40px -18px rgba(108,92,231,.5);}
+  .hw-onboard .wallet-card:before{content:"";position:absolute;top:-50px;right:-50px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);}
+  .hw-onboard .wallet-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;}
+  .hw-onboard .wallet-pi{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'Sora';font-weight:800;font-size:17px;}
+  .hw-onboard .wallet-status{font-size:11px;font-weight:700;background:rgba(255,255,255,.15);padding:5px 11px;border-radius:100px;}
+  .hw-onboard .wallet-status.connected{background:rgba(46,196,182,.35);}
+  .hw-onboard .wallet-label{font-size:12px;opacity:.8;margin-top:22px;}
+  .hw-onboard .wallet-value{font-family:'JetBrains Mono';font-size:15px;margin-top:3px;opacity:.95;}
+  .hw-onboard .kyc-pill{display:flex;align-items:center;gap:10px;background:#FFF3DC;border:1px solid #F4DFA8;border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;}
+  .hw-onboard .kyc-pill svg{color:#B8860B;flex-shrink:0;}
+  .hw-onboard .kyc-pill span{font-size:12.5px;font-weight:700;color:#8A6512;flex:1;}
+  .hw-onboard .kyc-detail{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+  .hw-onboard .kyc-detail.open{max-height:220px;}
+  .hw-onboard .kyc-detail-inner{font-size:12px;color:var(--ink-soft);line-height:1.6;padding:12px 14px 18px;}
+  .hw-onboard .testnet-note{font-size:11.5px;color:var(--ink-soft);margin:14px 2px 28px;line-height:1.5;}
+  .hw-onboard .tos-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer;}
+  .hw-onboard .tos-check{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);background:var(--card);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:.15s;}
+  .hw-onboard .tos-check.checked{background:var(--violet);border-color:var(--violet);}
+  .hw-onboard .tos-row p{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0;}
+  .hw-onboard .tos-row a{color:var(--violet-deep);font-weight:600;text-decoration:none;}
+  .hw-onboard .btn{width:100%;padding:16px;border-radius:100px;font-weight:700;font-size:15px;border:none;cursor:pointer;transition:.15s;}
+  .hw-onboard .btn-primary{background:var(--violet);color:white;box-shadow:0 14px 28px -10px rgba(108,92,231,.55);}
+  .hw-onboard .btn-primary:disabled{background:#DCD8CD;color:#A7A296;box-shadow:none;cursor:not-allowed;}
+  .hw-onboard .btn-text{background:none;border:none;color:var(--ink-soft);font-weight:600;font-size:13.5px;cursor:pointer;width:100%;padding:14px;text-align:center;}
+  .hw-onboard .pibrowser-note{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:12px;line-height:1.5;}
+  .hw-onboard .profile-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 22px;margin-bottom:26px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);}
+  .hw-onboard .pc-row{padding:18px 0;border-bottom:1px solid var(--line);}
+  .hw-onboard .pc-row:last-child{border-bottom:none;}
+  .hw-onboard .pc-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;}
+  .hw-onboard .pc-identity{display:flex;align-items:center;gap:14px;}
+  .hw-onboard .pp-avatar{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:800;font-family:'Sora';font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hw-onboard .pp-name{font-family:'JetBrains Mono';font-size:15px;font-weight:600;}
+  .hw-onboard .pp-tag{font-size:11px;font-weight:700;color:var(--violet-deep);background:#EFEAFB;padding:4px 9px;border-radius:100px;display:inline-block;margin-top:4px;}
+  .hw-onboard .pc-bio textarea{width:100%;border:none;background:none;padding:0;font-size:14px;font-family:'Inter';color:var(--ink);resize:none;height:44px;outline:none;}
+  .hw-onboard .pc-bio textarea::placeholder{color:#A7A296;}
+  .hw-onboard .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .hw-onboard .chip-toggle{padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .hw-onboard .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+  .hw-onboard .notif-visual{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:26px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);}
+  .hw-onboard .notif-row{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
+  .hw-onboard .notif-row:last-child{border-bottom:none;}
+  .hw-onboard .notif-ic{width:30px;height:30px;border-radius:9px;background:#E4F8F6;color:#1A9E92;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+  .hw-onboard .notif-row div h4{margin:0 0 2px;font-size:13px;font-weight:700;}
+  .hw-onboard .notif-row div p{margin:0;font-size:11.5px;color:var(--ink-soft);}
+  .hw-onboard .routing{text-align:center;padding:60px 24px;}
+  .hw-onboard .routing .spin{width:44px;height:44px;border-radius:50%;border:3px solid #EFEAFB;border-top-color:var(--violet);margin:0 auto 20px;animation:hwSpin .8s linear infinite;}
+  @keyframes hwSpin{to{transform:rotate(360deg);}}
+  .hw-onboard .routing h2{font-size:19px;font-weight:800;margin:0 0 6px;}
+  .hw-onboard .routing p{font-size:13px;color:var(--ink-soft);margin:0;}
+
+  /* ===== Range Filter (ported from HiveworkRangeFilter spec) — used in
+     all 3 History pages. Calendar-based boundaries: This week = since
+     Monday 00:00 local, This month = since the 1st. */
+  .hw-range-filter{display:flex;gap:6px;margin-bottom:18px;}
+  .hw-range-pill{padding:8px 14px;border-radius:100px;border:1.5px solid var(--line);background:var(--card);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .hw-range-pill.active{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+
+  /* ===== Contact Support (ported from HiveworkContactSupport spec) —
+     reusable inline widget: collapsed link -> in-place form. */
+  .hw-contact-link{font-size:13px;font-weight:600;color:var(--violet-deep);cursor:pointer;text-decoration:none;}
+  .menu-item .hw-contact-link{font-size:13px;font-weight:400;color:var(--ink-soft);}
+  .hw-contact-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0;}
+  .menu-item .hw-contact-form{margin:0;border:none;background:none;padding:0;}
+  .hw-contact-re{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .hw-contact-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:'Inter';font-size:13px;color:var(--ink);resize:vertical;min-height:70px;background:var(--cream);}
+  .hw-contact-counter{font-size:10.5px;color:var(--ink-soft);text-align:right;margin-top:4px;font-family:'JetBrains Mono';}
+  .hw-contact-actions{display:flex;gap:8px;margin-top:8px;}
+  .hw-contact-cancel{flex:1;background:#EFECE5;color:var(--ink-soft);border:none;border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;}
+  .hw-contact-send{flex:1;background:var(--violet);color:white;border:none;border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;}
+  .hw-contact-send:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
+  .hw-contact-sent{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#1A9E92;font-weight:600;padding:4px 0;}
+  .hw-contact-sent svg{flex-shrink:0;}
 </style>
 </head>
 <body>
+<!-- Fullpage screens (Landing/Welcome/Onboarding) bypass the shell's
+     header/segnav entirely, matching the JSX top-level render branch.
+     showScreen() hides .frame and shows the matching #page-* div instead. -->
+<div class="fullpage" id="page-landing" style="display:none">
+<div class="hivework-landing">
+  <nav>
+    <div class="logo">
+      <div class="logo-mark">π</div>Hivework
+      <span class="testnet-badge" onclick="toggleLandingTestnetTip(event)">Testnet</span>
+    </div>
+    <div class="testnet-tip" id="landing-testnet-tip" style="display:none">Hivework is running on the Pi Testnet. Balances and payments shown are Test-Pi and carry no real-world value.</div>
+    <div class="nav-links">
+      <a onclick="goToWelcome('none')">Browse</a>
+      <a onclick="goToWelcome('none')">Post a job</a>
+      <a onclick="goToWelcome('none')">Dashboard</a>
+      <a class="nav-cta" onclick="goToWelcome('none')">Get started</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span>Powered by Sentinel Trust Layer</div>
+      <h1>Work gets done.<br>Pi gets <span class="accent">released</span>, instantly.</h1>
+      <p class="sub">Hivework is the freelance and testing marketplace for the Pi ecosystem. Post a task, lock the budget in escrow, and pay the moment the work's approved — no invoices, no waiting.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="goToWelcome('find')">Find work →</button>
+        <button class="btn btn-ghost" onclick="goToWelcome('post')">Post a job</button>
+      </div>
+      <div class="trust-row">
+        <div class="trust-item"><span class="num">116π</span><span class="label">paid out this week</span></div>
+        <div class="trust-item"><span class="num">7%</span><span class="label">platform fee</span></div>
+        <div class="trust-item"><span class="num">3</span><span class="label">job categories</span></div>
+      </div>
+    </div>
+
+    <div class="ticker-wrap">
+      <div class="ticker-frame"></div>
+      <div class="ticker-card t1">
+        <div class="ticker-icon">📝</div>
+        <div class="ticker-body"><div class="ticker-title">Job posted</div><div class="ticker-sub">"Test payment flow on Android"</div></div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t2">
+        <div class="ticker-icon">🔒</div>
+        <div class="ticker-body"><div class="ticker-title">Pi locked in escrow</div><div class="ticker-sub">Held safely until work is approved</div></div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t3">
+        <div class="ticker-icon">✅</div>
+        <div class="ticker-body"><div class="ticker-title">Worker approved</div><div class="ticker-sub">@Olawalt · report submitted</div></div>
+        <div class="ticker-amount mono">10π</div>
+      </div>
+      <div class="ticker-card t4">
+        <div class="ticker-icon">💸</div>
+        <div class="ticker-body"><div class="ticker-title">Pi released to wallet</div><div class="ticker-sub mono">GB33VY…OFXX</div></div>
+        <div class="ticker-amount mono">9.3π</div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head"><div class="kicker">Categories</div><h2>Find the kind of work you're good at</h2></div>
+    <div class="cat-grid">
+      <div class="cat-card"><div class="cat-blob">🐛</div><h3>Bug testing</h3><p>Break things on purpose. Report exactly what happened, on real devices.</p><div class="open">1 open job →</div></div>
+      <div class="cat-card"><div class="cat-blob">🎨</div><h3>UI feedback</h3><p>Give developers a clear read on what's confusing before it ships.</p><div class="open">0 open jobs →</div></div>
+      <div class="cat-card"><div class="cat-blob">🌍</div><h3>Translation</h3><p>Help apps speak your language, literally. Any device, any locale.</p><div class="open">0 open jobs →</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="flow">
+      <div class="flow-head"><div class="kicker">How escrow works</div><h2>Three steps, no middleman holding your Pi longer than it has to</h2></div>
+      <div class="flow-steps">
+        <div class="flow-step"><div class="idx">01 — post</div><h3>Developer posts a job</h3><p>Sets the task, requirements, and locks the Pi budget in escrow up front.</p></div>
+        <div class="flow-step"><div class="idx">02 — work</div><h3>Pioneer applies and works</h3><p>Claims the task, does the work, submits a structured report for review.</p></div>
+        <div class="flow-step"><div class="idx">03 — release</div><h3>Approved and paid</h3><p>Developer approves. Pi releases straight to the worker's wallet — instantly.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="logo"><div class="logo-mark">π</div>Hivework</div>
+    <div>© 2026 Hivework · Built for the Pi Network ecosystem</div>
+  </footer>
+</div>
+</div>
+<div class="fullpage" id="page-welcome" style="display:none"></div>
+<div class="fullpage" id="page-onboarding" style="display:none"></div>
 <div class="frame">
   <div class="scroll-area">
     <header>
@@ -280,7 +800,7 @@
       <div class="menu-item" onclick="showScreen('profile')">View profile</div>
       <div class="menu-item">Edit profile</div>
       <div class="menu-item">Notification settings</div>
-      <div class="menu-item">Contact support</div>
+      <div class="menu-item" id="menu-contact-support"></div>
       <div class="menu-item">Log out</div>
     </div>
 
@@ -314,7 +834,7 @@
     <nav class="segnav" id="segnav">
       <a class="active" data-id="home" onclick="showScreen('home',this)">Home</a>
       <a data-id="browse" onclick="showScreen('browse',this)">Browse</a>
-      <a data-id="post" onclick="showScreen('post',this)">Post</a>
+      <a data-id="post" onclick="goToPostJob()">Post</a>
       <a data-id="dashboard" onclick="showScreen('dashboard',this)">Dashboard</a>
     </nav>
 
@@ -364,55 +884,17 @@
       </div>
     </div>
 
-    <!-- JOB DETAIL -->
+    <!-- JOB DETAIL — branches to owner (tabbed ledger) or worker (11-state
+         ledger) view at render time based on jobData[key].isOwner. See
+         renderOwnerDetail()/renderWorkerDetail() in the script block. -->
     <div class="screen" id="job-detail">
-      <div class="back-btn" onclick="goBack()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>
-        Back
-      </div>
-      <div class="detail-hero">
-        <div class="detail-cat" id="d-cat">Bug testing</div>
-        <div class="detail-title" id="d-title">This is a test job</div>
-      </div>
-      <div class="detail-meta-row">
-        <div class="detail-meta"><div class="l">Budget</div><div class="v mono" id="d-amt">10π</div></div>
-        <div class="detail-meta"><div class="l">Applicants</div><div class="v" id="d-app">0</div></div>
-        <div class="detail-meta"><div class="l">Posted</div><div class="v" id="d-posted">1m ago</div></div>
-      </div>
-      <div class="detail-body">
-        <p id="d-desc">This is a bug test job from @Olawalt. Test the payment flow end to end on Android and report anything that breaks, including screenshots and exact repro steps.</p>
-      </div>
-      <div class="section-title">Requirements</div>
-      <ul class="req-list" id="d-reqs">
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Test on a real Android device, not an emulator</li>
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Submit a structured report with screenshots</li>
-        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Complete within 48 hours of approval</li>
-      </ul>
-      <div class="section-title">Device & language</div>
-      <div class="chip-row" id="d-chips">
-        <span class="chip-outline">Android</span>
-        <span class="chip-outline">English</span>
-      </div>
-      <div class="sticky-cta">
-        <button class="btn" id="d-cta">Apply now →</button>
-      </div>
+      <div id="jd-render"></div>
     </div>
 
-    <!-- POST -->
+    <!-- POST — 4-step wizard rendered by renderPostJob() into #pj-render -->
     <div class="screen" id="post">
       <div class="page-head"><div class="kicker">New job</div><h1>Post a job.</h1></div>
-      <div class="wizard-track">
-        <div class="wz-seg active"><div class="wz-dot">1</div><div class="wz-label">Basics</div></div>
-        <div class="wz-seg"><div class="wz-dot">2</div><div class="wz-label">Details</div></div>
-        <div class="wz-seg"><div class="wz-dot">3</div><div class="wz-label">Review</div></div>
-      </div>
-      <div class="field"><label>Job title</label><input placeholder="e.g. Test payment flow on Android"></div>
-      <div class="field"><label>Category</label>
-        <div class="cat-select"><div class="cat-opt selected">Bug</div><div class="cat-opt">UI</div><div class="cat-opt">Translation</div></div>
-      </div>
-      <div class="field"><label>Budget (Pi)</label><input placeholder="e.g. 5"></div>
-      <div class="field"><label>Description</label><textarea placeholder="Describe exactly what needs to be done..."></textarea></div>
-      <button class="btn">Continue →</button>
+      <div id="pj-render"></div>
     </div>
 
     <!-- PROFILE -->
@@ -451,7 +933,7 @@
           <div class="nudge-sub">Add skills and devices to get better job matches.</div>
         </div>
         <div class="nudge-actions">
-          <span class="nudge-cta" onclick="showScreen('profile')">Finish →</span>
+          <span class="nudge-cta" onclick="onboardingIntent=null; goToOnboarding();">Finish →</span>
           <span class="nudge-dismiss" onclick="dismissNudge()">✕</span>
         </div>
       </div>
@@ -470,14 +952,14 @@
 
         <div class="section-title-row">
           <div class="section-title" style="margin:0;">Your work</div>
-          <span class="see-all" onclick="showScreen('history-work')">See all →</span>
+          <span class="see-all" onclick="goToHistWork()">See all →</span>
         </div>
         <div class="hist-row"><div><h4>Test flow on hivework multi worker job post</h4><span class="hist-sub">submitted · 7/6/2026</span></div><span class="hist-amt">10π</span></div>
         <div class="hist-row"><div><h4>A test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
 
         <div class="section-title-row" style="margin-top:22px;">
           <div class="section-title" style="margin:0;">Withdrawals</div>
-          <span class="see-all" onclick="showScreen('history-withdrawals')">See all →</span>
+          <span class="see-all" onclick="goToHistWithdrawals()">See all →</span>
         </div>
         <div class="hist-row"><div><h4>2π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">1.99π</span></div>
         <div class="hist-row"><div><h4>1π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">0.99π</span></div>
@@ -486,7 +968,7 @@
       <div id="myjobs-panel" style="display:none;">
         <div class="section-title-row">
           <div class="section-title" style="margin:0;">Jobs you've posted</div>
-          <span class="see-all" onclick="showScreen('history-jobs')">See all →</span>
+          <span class="see-all" onclick="goToHistJobs()">See all →</span>
         </div>
         <div class="job-post-row">
           <div class="jp-top">
@@ -512,7 +994,7 @@
           <div class="jp-divider"></div>
           <div class="jp-manage" onclick="openDetail('translate')">Review applicants →</div>
         </div>
-        <button class="btn" style="margin-top:10px;" onclick="showScreen('post')">Post a new job →</button>
+        <button class="btn" style="margin-top:10px;" onclick="goToPostJob()">Post a new job →</button>
       </div>
     </div>
 
@@ -523,10 +1005,7 @@
         Back
       </div>
       <div class="page-head" style="padding-top:8px;"><h1 style="font-size:22px;">Work history</h1></div>
-      <div class="hist-row"><div><h4>Test flow on hivework multi worker job post</h4><span class="hist-sub">submitted · 7/6/2026</span></div><span class="hist-amt">10π</span></div>
-      <div class="hist-row"><div><h4>A test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
-      <div class="hist-row"><div><h4>This is a test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
-      <div class="hist-row"><div><h4>A test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
+      <div id="hist-work-render"></div>
     </div>
 
     <!-- HISTORY: JOBS POSTED -->
@@ -536,9 +1015,7 @@
         Back
       </div>
       <div class="page-head" style="padding-top:8px;"><h1 style="font-size:22px;">Posted jobs</h1></div>
-      <div class="hist-row"><div><h4>Test payment flow on Android</h4><span class="hist-sub">1 applicant · in escrow</span></div><span class="hist-amt">10π</span></div>
-      <div class="hist-row"><div><h4>Localize onboarding copy</h4><span class="hist-sub">2 applicants · open</span></div><span class="hist-amt">6π</span></div>
-      <div class="hist-row"><div><h4>This is a test job</h4><span class="hist-sub pos">completed · closed 6/28/2026</span></div><span class="hist-amt">5π</span></div>
+      <div id="hist-jobs-render"></div>
     </div>
 
     <!-- HISTORY: WITHDRAWALS -->
@@ -548,9 +1025,7 @@
         Back
       </div>
       <div class="page-head" style="padding-top:8px;"><h1 style="font-size:22px;">Withdrawal history</h1></div>
-      <div class="hist-row"><div><h4>2π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">1.99π</span></div>
-      <div class="hist-row"><div><h4>1π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">0.99π</span></div>
-      <div class="hist-row"><div><h4>1π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">0.99π</span></div>
+      <div id="hist-withdrawals-render"></div>
     </div>
 
     <!-- Applicants review now lives inline inside Job Detail's owner view
@@ -561,9 +1036,24 @@
 </div>
 
 <script>
-let lastScreen = 'home';
+let lastScreen = 'landing';
 
+const FULLPAGE_SCREENS = ['landing','welcome','onboarding'];
 function showScreen(id, el){
+  if(FULLPAGE_SCREENS.includes(id)){
+    lastScreen = document.querySelector('.frame').style.display==='none'
+      ? lastScreen // already on a fullpage screen, keep prior lastScreen
+      : (document.querySelector('.screen.active') ? document.querySelector('.screen.active').id : lastScreen);
+    document.querySelector('.frame').style.display = 'none';
+    document.querySelectorAll('.fullpage').forEach(p=>p.style.display='none');
+    document.getElementById('page-'+id).style.display = 'block';
+    closeMenus();
+    window.scrollTo(0,0);
+    return;
+  }
+  document.querySelector('.frame').style.display = '';
+  document.querySelectorAll('.fullpage').forEach(p=>p.style.display='none');
+
   const current = document.querySelector('.screen.active');
   if(current) lastScreen = current.id;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -607,29 +1097,987 @@ const jobData = {
   mine: {cat:'Bug testing', title:'Test payment flow on Android', amt:'10π', app:'0', posted:'1m ago',
     desc:"Bug test job from @Olawalt. Test the payment flow end to end on Android and report anything that breaks, including screenshots and exact repro steps.",
     reqs:['Test on a real Android device, not an emulator','Submit a structured report with screenshots','Complete within 48 hours of approval'],
-    chips:['Android','English'], cta:'Submit report →'},
+    chips:['Android','English'], cta:'Submit report →', isOwner:true},
   bug: {cat:'Bug testing', title:'This is a test job', amt:'10π', app:'0', posted:'1m ago',
     desc:"This is a bug test job from @Olawalt. Break things on purpose and report exactly what happened, with clear repro steps.",
     reqs:['Test on a real device, not an emulator','Submit a structured report with screenshots','Complete within 48 hours of approval'],
-    chips:['Android','iOS','English'], cta:'Apply now →'},
+    chips:['Android','iOS','English'], cta:'Apply now →', isOwner:false,
+    // Worker-view fields: no real per-job slot data exists in flat JOB_DATA,
+    // same placeholder assumption already flagged for this job in HiveworkApp.jsx.
+    eyebrow:'BUG TESTING', client:'@Olawalt', slotsFilled:2, slotsTotal:5, perSlot:2},
   translate: {cat:'Translation', title:'Localize onboarding copy', amt:'6π', app:'2', posted:'3 days ago',
     desc:"Translate the onboarding flow copy (about 40 short strings) into your target language. Tone should stay casual and friendly, matching the English original.",
     reqs:['Native or fluent speaker of the target language','Familiar with mobile app UI copy conventions','Delivered as a single spreadsheet'],
-    chips:['Any device','Swahili, Tagalog, or Vietnamese'], cta:'Apply now →'}
+    chips:['Any device','Swahili, Tagalog, or Vietnamese'], cta:'Apply now →', isOwner:true}
 };
 
+/* ===== JOB DETAIL — OWNER: state + render (vanilla port of JobDetailOwner) ===== */
+const TOTAL_SLOTS = 5;
+const PER_SLOT_BUDGET = 2;
+const TRUST_COLOR = { Gold:'var(--butter)', Silver:'#9CA3AF', Bronze:'#B45309', Unverified:'var(--ink-soft)' };
+const STATUS_LABEL = { completed:'Completed', progress:'In progress', submitted:'Submitted' };
+const STAR_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+const BACK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>';
+
+const INITIAL_APPLICANTS = [
+  { id:'a1', name:'@sam_k', rating:4.8, skills:['Android testing','Bug reports','QA'], devices:['Android'], trustBadge:'★ Gold', trustTier:'Gold',
+    coverNote:"I've tested payment flows on 6 different Android devices for two other Pi apps — happy to send examples of past reports." },
+  { id:'a2', name:'@devMia', rating:4.5, skills:['Android testing'], devices:['Android'], trustBadge:'Silver', trustTier:'Silver',
+    coverNote:'New to Hivework but have a Pixel 8 and a Galaxy S22 to test on — can turn this around same day.' },
+];
+const INITIAL_SLOTS = [
+  { id:'s1', name:'@walterdanny00', rating:4.6, skills:['Android testing','Bug reports'], devices:['Android'], trustBadge:'★ Gold', trustTier:'Gold',
+    status:'completed', submission:'Tested on Pixel 7 + Samsung A54. Found one issue: payment confirmation screen flashes blank for ~1s on slow connections. Screenshots attached.', givenRating:5, draftRating:0 },
+  { id:'s2', name:'@ola_t', rating:4.9, skills:['Android testing','Translations'], devices:['Android'], trustBadge:'★ Gold', trustTier:'Gold',
+    status:'completed', submission:'No issues found on OnePlus 11. Full flow works end to end, retested 3 times.', givenRating:null, draftRating:0 },
+  { id:'s3', name:'@kwame_b', rating:4.2, skills:['Android testing'], devices:['Android'], trustBadge:'Bronze', trustTier:'Bronze',
+    status:'progress', submission:null, givenRating:null, draftRating:0 },
+  { id:'s4', name:'@leah_r', rating:4.7, skills:['Android testing','QA'], devices:['Android'], trustBadge:'Silver', trustTier:'Silver',
+    status:'submitted', submission:'Confirmed the flow on a Moto G Power. Payment went through fine but the success toast is cut off on smaller screens — screenshot attached.', givenRating:null, draftRating:0 },
+];
+
+let currentJobKey = null;
+let ownerState = null;
+let workerState = null;
+
+function initOwnerState(){
+  ownerState = {
+    activeTab:'overview',
+    applicants: JSON.parse(JSON.stringify(INITIAL_APPLICANTS)),
+    slots: JSON.parse(JSON.stringify(INITIAL_SLOTS)),
+    closeCount:1, closeCountText:'1', closing:false, closedCount:0
+  };
+}
+function setOwnerTab(t){ ownerState.activeTab = t; renderOwnerDetail(); }
+function approveApplicant(id){
+  const a = ownerState.applicants.find(x=>x.id===id);
+  if(!a) return;
+  ownerState.applicants = ownerState.applicants.filter(x=>x.id!==id);
+  ownerState.slots.push(Object.assign({}, a, {status:'progress', submission:null, givenRating:null, draftRating:0}));
+  renderOwnerDetail();
+}
+function declineApplicant(id){ ownerState.applicants = ownerState.applicants.filter(x=>x.id!==id); renderOwnerDetail(); }
+function setDraftRating(id,n){ const sl = ownerState.slots.find(x=>x.id===id); if(sl) sl.draftRating=n; renderOwnerDetail(); }
+function confirmRating(id){ const sl = ownerState.slots.find(x=>x.id===id); if(sl && sl.draftRating) sl.givenRating = sl.draftRating; renderOwnerDetail(); }
+function markComplete(id){ const sl = ownerState.slots.find(x=>x.id===id); if(sl) sl.status='completed'; renderOwnerDetail(); }
+function closeSlots(){
+  ownerState.closing = true;
+  const btn = document.querySelector('.cs-btn'); if(btn){ btn.disabled=true; btn.textContent='Closing…'; }
+  setTimeout(()=>{
+    ownerState.closedCount += ownerState.closeCount;
+    ownerState.closeCount = 1; ownerState.closeCountText = '1'; ownerState.closing = false;
+    renderOwnerDetail();
+  }, 400);
+}
+// Patches the input/button directly (no full re-render) so the text field
+// keeps focus while typing — a full innerHTML swap on every keystroke would
+// drop cursor position, unlike React's controlled-input diffing.
+function handleCloseCountChange(raw){
+  const openCount = TOTAL_SLOTS - ownerState.slots.length - ownerState.closedCount;
+  const digits = raw.replace(/[^0-9]/g,'');
+  const input = document.querySelector('.cs-input');
+  if(digits===''){ ownerState.closeCountText=''; return; }
+  const n = parseInt(digits,10);
+  const clamped = Math.max(1, Math.min(openCount, n));
+  ownerState.closeCount = clamped;
+  ownerState.closeCountText = String(clamped);
+  if(input) input.value = ownerState.closeCountText;
+  const btn = document.querySelector('.cs-btn');
+  if(btn) btn.textContent = 'Close '+clamped+' · refund '+(PER_SLOT_BUDGET*clamped).toFixed(2)+'π';
+}
+function blurCloseCount(){
+  const openCount = TOTAL_SLOTS - ownerState.slots.length - ownerState.closedCount;
+  const n = parseInt(ownerState.closeCountText,10);
+  const clamped = isNaN(n) ? 1 : Math.max(1, Math.min(openCount, n));
+  ownerState.closeCount = clamped; ownerState.closeCountText = String(clamped);
+  renderOwnerDetail();
+}
+
+function renderOwnerDetail(){
+  const job = jobData[currentJobKey];
+  const s = ownerState;
+  const openCount = TOTAL_SLOTS - s.slots.length - s.closedCount;
+  const counts = {completed:0, progress:0, submitted:0};
+  s.slots.forEach(sl=>counts[sl.status]++);
+  const summaryParts=[];
+  if(counts.completed) summaryParts.push(counts.completed+' completed');
+  if(counts.progress) summaryParts.push(counts.progress+' in progress');
+  if(counts.submitted) summaryParts.push(counts.submitted+' awaiting review');
+
+  let html = '<div class="jdo">';
+  html += '<button class="back-btn" onclick="goBack()" style="background:none;border:none;">'+BACK_ICON_SVG+'Back</button>';
+  html += '<div class="detail-hero"><div class="detail-cat">'+job.cat+'</div><div class="detail-title">'+job.title+'</div></div>';
+  html += '<div class="detail-meta-row">'
+    + '<div class="detail-meta"><div class="l">Budget</div><div class="v mono">'+job.amt+'</div></div>'
+    + '<div class="detail-meta"><div class="l">Per slot</div><div class="v mono">'+PER_SLOT_BUDGET+'π</div></div>'
+    + '<div class="detail-meta"><div class="l">Posted</div><div class="v">'+job.posted+'</div></div>'
+    + '</div>';
+  html += '<div class="detail-sub">👥 '+s.slots.length+'/'+TOTAL_SLOTS+' workers · '+PER_SLOT_BUDGET+'π each</div>';
+  html += '<div class="posted-row"><span style="font-size:13px;color:var(--ink-soft);">Posted by @you</span><span class="status-chip">in progress</span></div>';
+
+  html += '<div class="slot-bar">';
+  for(let i=0;i<TOTAL_SLOTS;i++){
+    const slot = s.slots[i];
+    html += '<div class="slot-seg'+(slot?' '+slot.status:'')+'"></div>';
+  }
+  html += '</div>';
+  html += '<div class="slot-summary"><b>'+s.slots.length+' of '+TOTAL_SLOTS+' slots filled</b>'+(summaryParts.length?' — '+summaryParts.join(', '):'')+'</div>';
+
+  html += '<div class="toggle-row">'
+    + '<button class="toggle-btn'+(s.activeTab==='overview'?' active':'')+'" onclick="setOwnerTab(\'overview\')">Overview</button>'
+    + '<button class="toggle-btn'+(s.activeTab==='applicants'?' active':'')+'" onclick="setOwnerTab(\'applicants\')">Applicants ('+s.applicants.length+')</button>'
+    + '<button class="toggle-btn'+(s.activeTab==='slots'?' active':'')+'" onclick="setOwnerTab(\'slots\')">Slots</button>'
+    + '</div>';
+
+  if(s.activeTab==='overview'){
+    html += '<div class="tab-card">'
+      + '<div class="ov-block"><div class="ov-label">Description</div><p>'+job.desc+'</p></div>'
+      + '<div class="ov-block"><div class="ov-label">Requirements</div><p>'+job.reqs.join(' ')+'</p></div>'
+      + '<div class="ov-block"><div class="ov-label">Device & language</div><div class="chip-row">'+job.chips.map(c=>'<span class="chip-outline">'+c+'</span>').join('')+'</div></div>'
+      + '</div>';
+  } else if(s.activeTab==='applicants'){
+    html += '<div class="tab-card">';
+    if(s.applicants.length===0){
+      html += '<p class="empty-note">No pending applicants.</p>';
+    } else {
+      s.applicants.forEach(a=>{
+        html += '<div class="applicant-row">'
+          + '<div class="app-top"><div class="avatar-sm">'+a.name[1].toUpperCase()+'</div>'
+          + '<div class="app-info"><div class="n">'+a.name+'</div><div class="trust" style="color:'+TRUST_COLOR[a.trustTier]+'">'+a.trustBadge+'</div></div>'
+          + '<div class="app-rating"><b>'+a.rating+'</b> ★</div></div>'
+          + '<div class="app-chips">'+a.skills.slice(0,3).map(sk=>'<span class="app-chip">'+sk+'</span>').join('')
+            + (a.skills.length>3?'<span class="app-chip">+'+(a.skills.length-3)+' more</span>':'')
+            + a.devices.map(d=>'<span class="app-chip device">📱 '+d+'</span>').join('') + '</div>'
+          + '<p class="app-note">'+a.coverNote+'</p>'
+          + '<div class="app-actions"><button class="app-btn approve" onclick="approveApplicant(\''+a.id+'\')">Approve & Assign</button>'
+          + '<button class="app-btn decline" onclick="declineApplicant(\''+a.id+'\')">Decline</button></div>'
+          + '</div>';
+      });
+    }
+    html += '</div>';
+  } else if(s.activeTab==='slots'){
+    html += '<div class="tab-card">';
+    if(openCount>0){
+      html += '<div class="close-slots-card">'
+        + '<div class="cs-label">Close unfilled slots</div>'
+        + '<div class="cs-sub">'+openCount+' slot'+(openCount===1?'':'s')+' still unfilled. Closing refunds '+PER_SLOT_BUDGET+'π per slot back to you.</div>'
+        + '<div class="cs-row">'
+        + '<input class="cs-input" type="text" inputmode="numeric" value="'+s.closeCountText+'" oninput="handleCloseCountChange(this.value)" onblur="blurCloseCount()">'
+        + '<button class="cs-btn" '+(s.closing?'disabled':'')+' onclick="closeSlots()">'+(s.closing?'Closing…':'Close '+s.closeCount+' · refund '+(PER_SLOT_BUDGET*s.closeCount).toFixed(2)+'π')+'</button>'
+        + '</div></div>';
+    }
+    html += '<div class="ledger">';
+    s.slots.forEach(sl=>{
+      html += '<div class="ledger-item">'
+        + '<div class="ledger-row"><div class="ledger-dot '+sl.status+'">'+sl.name[1].toUpperCase()+'</div>'
+        + '<div class="ledger-info"><div class="n">'+sl.name+'</div><div class="s" style="color:'+TRUST_COLOR[sl.trustTier]+'">'+sl.trustBadge+' · '+sl.rating+'★</div></div>'
+        + '<div class="ledger-status '+sl.status+'">'+STATUS_LABEL[sl.status]+'</div></div>';
+      if(sl.submission){
+        html += '<div class="ledger-submission"><div class="lbl">Work submission</div>'+sl.submission+'</div>';
+      }
+      if(sl.status==='completed' && sl.givenRating){
+        html += '<div class="rating-given"><span class="stars">'+('★'.repeat(sl.givenRating)+'☆'.repeat(5-sl.givenRating))+'</span> You rated this worker</div>';
+      }
+      if(sl.status==='completed' && !sl.givenRating){
+        html += '<div class="rate-widget"><div class="rate-stars">';
+        [1,2,3,4,5].forEach(n=>{
+          html += '<span onclick="setDraftRating(\''+sl.id+'\','+n+')" class="'+(n<=sl.draftRating?'on':'')+'">'+STAR_ICON_SVG+'</span>';
+        });
+        html += '</div><button class="rate-confirm'+(sl.draftRating?' enabled':'')+'" onclick="confirmRating(\''+sl.id+'\')">Confirm rating</button></div>';
+      }
+      if(sl.status==='submitted'){
+        html += '<div class="ledger-cta"><button class="app-btn" style="background:var(--violet);color:white;" onclick="markComplete(\''+sl.id+'\')">Mark reviewed & complete — release '+PER_SLOT_BUDGET+'π</button></div>';
+      }
+      html += '</div>';
+    });
+    for(let i=0;i<openCount;i++){
+      html += '<div class="ledger-item ledger-open"><div class="ledger-row"><div class="ledger-dot"></div><div class="label">Open slot — awaiting an applicant</div></div></div>';
+    }
+    html += '</div></div>';
+  }
+
+  if(openCount>0){
+    html += '<div class="open-note" style="display:flex;">'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'
+      + '<span>'+openCount+' slot'+(openCount>1?'s':'')+' still open — approving an applicant fills one.</span></div>';
+  }
+  html += '</div>';
+  document.getElementById('jd-render').innerHTML = html;
+}
+
+/* ===== JOB DETAIL — WORKER: state + render (vanilla port of JobDetailWorker/JDWPanel) ===== */
+const HW_JDW_STAGES = [
+  { key:'verify', label:'Wallet verification', note:'One-time 0.01π confirmation payment' },
+  { key:'profile', label:'Profile complete', note:'Skills, devices & languages on file' },
+  { key:'apply', label:'Application', note:'Cover note reviewed by client' },
+  { key:'work', label:'Work submission', note:'Findings submitted for review' },
+  { key:'paid', label:'Payment settled', note:'Funds released to your balance' },
+];
+const HW_JDW_STATE_META = {
+  wallet_off:{stage:0}, wallet_error:{stage:0}, profile_off:{stage:1},
+  ready:{stage:2}, form:{stage:2}, pending:{stage:2}, rejected:{stage:2, rejected:true},
+  approved:{stage:3}, submitted:{stage:3},
+  completed_unrated:{stage:4}, completed_rated:{stage:4}
+};
+
+function initWorkerState(){
+  workerState = { currentState:'ready', coverNote:'', submission:'', applying:false, submitting:false,
+    ratingSubmitting:false, rateScore:0, rateComment:'', myRatingScore:null, verifyError:'Verification failed — try again.' };
+}
+function verifyWallet(){ workerState.currentState = 'profile_off'; renderWorkerDetail(); }
+function setupProfile(){ workerState.currentState = 'ready'; renderWorkerDetail(); }
+function openApplyForm(){ workerState.currentState = 'form'; renderWorkerDetail(); }
+function cancelApply(){ workerState.currentState = 'ready'; renderWorkerDetail(); }
+function submitApply(){
+  workerState.applying = true;
+  setTimeout(()=>{ workerState.applying=false; workerState.currentState='pending'; renderWorkerDetail(); }, 300);
+}
+function submitWork(){
+  workerState.submitting = true;
+  setTimeout(()=>{ workerState.submitting=false; workerState.currentState='submitted'; renderWorkerDetail(); }, 300);
+}
+function setRateScore(n){ workerState.rateScore = n; renderWorkerDetail(); }
+function submitRating(){
+  workerState.ratingSubmitting = true;
+  setTimeout(()=>{ workerState.ratingSubmitting=false; workerState.myRatingScore=workerState.rateScore; workerState.currentState='completed_rated'; renderWorkerDetail(); }, 300);
+}
+// Same focus-preserving direct-patch approach as the owner Close-slots field.
+function updateCoverNote(v){ workerState.coverNote = v; const btn = document.querySelector('.btn-row .btn-primary'); if(btn) btn.disabled = !v.trim(); }
+function updateSubmission(v){
+  workerState.submission = v;
+  const btn = document.querySelector('.panel .btn-primary'); if(btn) btn.disabled = !v.trim();
+  const counter = document.querySelector('.counter-row span:last-child'); if(counter) counter.textContent = v.length+' characters';
+}
+function updateRateComment(v){ workerState.rateComment = v; }
+
+function renderJDWPanel(){
+  const st = workerState;
+  switch(st.currentState){
+    case 'wallet_off':
+    case 'wallet_error':
+      return '<div class="panel"><div class="panel-title">Verify your wallet</div>'
+        + '<div class="entry-note" style="margin-bottom:10px;">A 0.01π confirmation payment tells us where to send earnings. One-time only.</div>'
+        + '<button class="btn btn-primary" onclick="verifyWallet()">Verify wallet · 0.01π</button>'
+        + (st.currentState==='wallet_error' ? '<div class="error-note">'+st.verifyError+' <span id="jdw-contact-support"></span></div>' : '')
+        + '</div>';
+    case 'profile_off':
+      return '<div class="panel"><div class="panel-title">Complete your profile</div>'
+        + '<div class="entry-note" style="margin-bottom:10px;">Clients screen applicants by skill — yours isn\'t on file yet.</div>'
+        + '<button class="btn btn-primary" onclick="setupProfile()">Set up profile →</button></div>';
+    case 'ready':
+      return '<div class="panel"><div class="panel-title">You meet the requirements</div>'
+        + '<div class="entry-note" style="margin-bottom:10px;">Send a short note explaining why you\'re a fit for this job.</div>'
+        + '<button class="btn btn-primary" onclick="openApplyForm()">Apply for this job</button></div>';
+    case 'form':
+      return '<div class="panel"><div class="panel-title">Cover note</div>'
+        + '<label class="field-label">Why are you a fit?</label>'
+        + '<textarea placeholder="Why are you a good fit?" oninput="updateCoverNote(this.value)">'+st.coverNote+'</textarea>'
+        + '<div class="btn-row" style="margin-top:12px;">'
+        + '<button class="btn btn-ghost" onclick="cancelApply()">Cancel</button>'
+        + '<button class="btn btn-primary" style="flex:2;" '+((!st.coverNote || !st.coverNote.trim())?'disabled':'')+' onclick="submitApply()">Submit application</button>'
+        + '</div></div>';
+    case 'pending':
+      return '<div class="panel"><div class="panel-title">Awaiting client review</div>'
+        + '<div class="entry-note">The client has your application. You\'ll see this update the moment a slot opens up.</div></div>';
+    case 'rejected':
+      return '<div class="panel"><div class="panel-title">Not selected this time</div>'
+        + '<div class="entry-note" style="margin-bottom:10px;">The client chose another applicant. Keep your profile sharp — new jobs matching your skills come up often.</div>'
+        + '<button class="btn btn-primary" onclick="showScreen(\'browse\')">Browse more jobs</button></div>';
+    case 'approved':
+      return '<div class="panel"><div class="panel-title">Submit your work</div>'
+        + '<label class="field-label">Report / findings</label>'
+        + '<textarea placeholder="Describe what you did, bugs found, translations completed, feedback given..." oninput="updateSubmission(this.value)">'+st.submission+'</textarea>'
+        + '<div class="counter-row"><span>&nbsp;</span><span>'+(st.submission||'').length+' characters</span></div>'
+        + '<label class="field-label" style="margin-top:16px;">Attachments <span style="text-transform:none;font-weight:500;color:var(--ink-soft);">(optional)</span></label>'
+        + '<div class="attach-list"><div class="attach-row2"><div class="attach-icon">🖼️</div>'
+        + '<div class="attach-info"><div class="attach-name">checkout-error.png</div><div class="attach-meta">2.1 MB · uploaded</div></div>'
+        + '<button class="attach-x" aria-label="Remove attachment">×</button></div></div>'
+        + '<button class="attach-add-wide">+ Add photo or video</button>'
+        + '<div class="attach-hint">Up to 5 files, 25MB each.</div>'
+        + '<button class="btn btn-primary" '+((!st.submission || !st.submission.trim())?'disabled':'')+' onclick="submitWork()">Submit Work</button></div>';
+    case 'submitted':
+      return '<div class="panel"><div class="panel-title">Awaiting payment release</div>'
+        + '<div class="entry-note">The client has your report and will release payment on review. No action needed.</div></div>';
+    case 'completed_unrated': {
+      let stars='';
+      for(let n=1;n<=5;n++){ stars += '<button class="star'+(n<=st.rateScore?' filled':'')+'" onclick="setRateScore('+n+')">⭐</button>'; }
+      return '<div class="panel"><div class="panel-title">Rate the client</div>'
+        + '<div class="stars">'+stars+'</div>'
+        + '<label class="field-label">Comment (optional)</label>'
+        + '<textarea placeholder="Clear instructions, paid promptly..." style="min-height:64px;" oninput="updateRateComment(this.value)">'+st.rateComment+'</textarea>'
+        + '<button class="btn btn-primary" '+(st.rateScore<1?'disabled':'')+' onclick="submitRating()">Submit rating</button></div>';
+    }
+    case 'completed_rated':
+      return '<div class="panel"><div class="rate-given"><div class="stars" style="justify-content:center;">'+('★'.repeat(st.myRatingScore||5))+'</div><p>Thanks for the feedback.</p></div></div>';
+    default: return '';
+  }
+}
+
+function renderWorkerDetail(){
+  const job = jobData[currentJobKey];
+  const st = workerState;
+  const meta = HW_JDW_STATE_META[st.currentState] || HW_JDW_STATE_META.ready;
+  const isPaid = meta.stage === 4;
+
+  let html = '<div class="hw-jdw"><div class="wrap">';
+  html += '<button class="back-btn" onclick="goBack()">← Back to jobs</button>';
+  html += '<div class="job-head"><div class="job-eyebrow">'+job.eyebrow+'</div><div class="job-title">'+job.title+'</div>'
+    + '<div class="job-figures"><div class="who">'+job.client+' · '+job.slotsFilled+'/'+job.slotsTotal+' workers</div>'
+    + '<div class="amt mono">'+job.perSlot.toFixed(4)+'<span> π / slot</span></div></div></div>';
+
+  html += '<div class="ledger">';
+  HW_JDW_STAGES.forEach((stg,i)=>{
+    let cls='upcoming';
+    if(meta.rejected && i===meta.stage) cls='rejected';
+    else if(i<meta.stage) cls='done';
+    else if(i===meta.stage) cls='current';
+    const showPanel = cls==='current' || cls==='rejected';
+    html += '<div class="entry '+cls+'"><div class="entry-dot"></div><div class="entry-label">'+stg.label+'</div><div class="entry-note">'+stg.note+'</div>';
+    if(showPanel){
+      if(isPaid){
+        html += '<div class="paid-strip"><div class="paid-amt mono">'+job.perSlot.toFixed(4)+'<span>π</span></div><div class="paid-sub">SETTLED<br>→ withdraw from Dashboard</div></div>';
+      }
+      html += renderJDWPanel();
+    }
+    html += '</div>';
+  });
+  html += '</div></div></div>';
+  document.getElementById('jd-render').innerHTML = html;
+  // Mount the Contact Support widget only when the wallet_error panel is
+  // actually present (currently unreachable via this shell's 'ready'
+  // default entry state, but wired for spec-fidelity — same anchor point
+  // the JSX file uses).
+  if(document.getElementById('jdw-contact-support')){
+    initContactSupport('jdw-contact-support', 'Wallet verification failed', 'Contact support');
+  }
+}
+
+/* ===== POST JOB — 4-step wizard: state + render (vanilla port of PostJobWizard/PostJobCombobox) ===== */
+const PLATFORM_FEE_RATE = 0.07;
+const CATEGORY_OPTIONS = [
+  {value:'bug-testing', label:'Bug Testing', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9V7a3 3 0 1 1 6 0v2"/><rect x="6" y="9" width="12" height="10" rx="5"/><path d="M6 13H3M6 16.5 3.5 18M18 13h3M18 16.5l2.5 1.5M12 9v10M9 5 7.5 3.5M15 5l1.5-1.5"/></svg>'},
+  {value:'translation', label:'Translation', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>'},
+  {value:'ui-ux-feedback', label:'UI/UX Feedback', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 9h18M8 20h8M12 17v3"/></svg>'},
+  {value:'usability-testing', label:'Usability Testing', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m14.5 9.5-2 5-5 2 2-5z"/></svg>'},
+  {value:'content-review', label:'Content Review', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>'},
+  {value:'survey-data-collection', label:'Survey / Data', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/><path d="M3 20h18"/></svg>'},
+  {value:'localization-testing', label:'Localization', icon:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>'}
+];
+const CATEGORY_LABELS = Object.fromEntries(CATEGORY_OPTIONS.map(c=>[c.value,c.label]));
+const DEVICE_OPTIONS = ['Android','iOS','Web / Browser','Desktop','Any device'];
+const LANGUAGE_OPTIONS = ['English','Mandarin Chinese','Spanish','Hindi','Arabic','Bengali','Portuguese','Russian','French','Urdu','Indonesian','German','Japanese','Swahili','Vietnamese','Turkish','Tagalog','Korean','Italian','Thai','Persian','Polish','Ukrainian','Dutch','Romanian','Greek','Hungarian','Hebrew','Malay','Amharic','Yoruba','Igbo','Hausa','Zulu','Burmese','Khmer','Nepali','Sinhala','Punjabi','Tamil'];
+const WIZARD_STEPS = [{n:1,label:'Basics'},{n:2,label:'Details'},{n:3,label:'Workers'},{n:4,label:'Review'}];
+
+let postJobState = null;
+
+function escAttr(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function escHtml(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function initPostJobState(){
+  postJobState = {
+    step:1, title:'', category:'bug-testing', budgetStr:'',
+    description:'', requirements:'', devices:[], languages:[], deviceQuery:'', languageQuery:'',
+    workerCount:1, deadlineMode:'per_worker', slotDays:'3', deadlineDate:''
+  };
+}
+function goToPostJob(){ initPostJobState(); renderPostJob(); showScreen('post'); }
+
+function pjDerived(){
+  const s = postJobState;
+  const budget = parseFloat(s.budgetStr) || 0;
+  const fee = +(budget * PLATFORM_FEE_RATE).toFixed(4);
+  const total = +(budget + fee).toFixed(4);
+  const isMulti = s.workerCount > 1;
+  const perSlotBudget = isMulti ? +(budget / s.workerCount).toFixed(4) : budget;
+  return {budget, fee, total, isMulti, perSlotBudget};
+}
+
+function goPJStep(n){ postJobState.step = n; renderPostJob(); }
+function setPJCategory(v){ postJobState.category = v; renderPostJob(); }
+function updatePJTitle(v){ postJobState.title = v; }
+// Direct DOM patches (no full re-render) for continuously-typed fields —
+// same focus-preserving approach used for the owner/worker detail views.
+function updatePJBudget(v){
+  postJobState.budgetStr = v;
+  const {budget, fee, total} = pjDerived();
+  const w = document.getElementById('pj-fee-worker'); if(w) w.textContent = budget+'π';
+  const f = document.getElementById('pj-fee-fee'); if(f) f.textContent = fee+'π';
+  const t = document.getElementById('pj-fee-total'); if(t) t.textContent = total+'π';
+}
+function updatePJDescription(v){
+  postJobState.description = v;
+  const c = document.getElementById('pj-desc-counter');
+  if(c){ c.textContent = v.length+' / 1000'; c.className = 'counter'+(v.length>900?' warn':''); }
+}
+function updatePJRequirements(v){
+  postJobState.requirements = v;
+  const c = document.getElementById('pj-reqs-counter');
+  if(c){ c.textContent = v.length+' / 500'; c.className = 'counter'+(v.length>450?' warn':''); }
+}
+function updatePJSlotDays(v){ postJobState.slotDays = v; }
+function updatePJDeadlineDate(v){ postJobState.deadlineDate = v; }
+
+function pjWorkerDelta(d){ postJobState.workerCount = Math.max(1, postJobState.workerCount + d); renderPostJob(); }
+function updatePJWorkerCount(v){
+  const n = parseInt(v,10);
+  postJobState.workerCount = (!n || n<1) ? 1 : n;
+  renderPostJob();
+}
+function setPJDeadlineMode(m){ postJobState.deadlineMode = m; renderPostJob(); }
+function postJobSubmit(){ alert('Pay & Post Job → triggers window.Pi.createPayment, unchanged from real flow'); }
+
+// Generalized searchable multi-select combobox (kind: 'device' | 'language')
+function pjOptionsFor(kind){ return kind==='device' ? DEVICE_OPTIONS : LANGUAGE_OPTIONS; }
+function pjSelectedFor(kind){ return kind==='device' ? postJobState.devices : postJobState.languages; }
+function pjQueryFor(kind){ return kind==='device' ? postJobState.deviceQuery : postJobState.languageQuery; }
+function pjSetQuery(kind, v){ if(kind==='device') postJobState.deviceQuery=v; else postJobState.languageQuery=v; }
+
+function renderComboboxDropdown(kind, options, selected, query){
+  const q = (query||'').trim();
+  const ql = q.toLowerCase();
+  const matches = options.filter(o=>!selected.includes(o) && o.toLowerCase().includes(ql)).slice(0,8);
+  const showAddCustom = q && !options.some(o=>o.toLowerCase()===ql) && !selected.includes(q);
+  let html = '';
+  matches.forEach(o=>{ html += '<div class="lang-opt" onmousedown="pjComboSelect(\''+kind+'\',\''+o.replace(/'/g,"\\'")+'\')">'+o+'</div>'; });
+  if(showAddCustom){ html += '<div class="lang-opt" onmousedown="pjComboSelect(\''+kind+'\',\''+q.replace(/'/g,"\\'")+'\')">Add "'+q+'"</div>'; }
+  if(!matches.length && !showAddCustom){ html += '<div class="lang-opt empty">Start typing to search or add</div>'; }
+  return html;
+}
+function renderComboboxChips(selected, kind){
+  return selected.map(v=>'<span class="lang-chip">'+v+'<button type="button" onclick="pjComboRemove(\''+kind+'\',\''+v.replace(/'/g,"\\'")+'\')">&times;</button></span>').join('');
+}
+function renderCombobox(kind, placeholder){
+  const sel = pjSelectedFor(kind);
+  return '<div class="lang-combobox">'
+    + '<input id="pj-'+kind+'-input" placeholder="'+placeholder+'" autocomplete="off" onfocus="pjComboFocus(\''+kind+'\')" onblur="pjComboBlur(\''+kind+'\')" oninput="pjComboInput(\''+kind+'\', this.value)">'
+    + '<div class="lang-dropdown" id="pj-'+kind+'-dropdown">'+renderComboboxDropdown(kind, pjOptionsFor(kind), sel, pjQueryFor(kind))+'</div>'
+    + '<div class="chip-row" id="pj-'+kind+'-chips">'+renderComboboxChips(sel, kind)+'</div>'
+    + '</div>';
+}
+function pjComboFocus(kind){ const d = document.getElementById('pj-'+kind+'-dropdown'); if(d) d.classList.add('open'); }
+function pjComboBlur(kind){ setTimeout(()=>{ const d = document.getElementById('pj-'+kind+'-dropdown'); if(d) d.classList.remove('open'); }, 120); }
+function pjComboInput(kind, v){
+  pjSetQuery(kind, v);
+  const dd = document.getElementById('pj-'+kind+'-dropdown');
+  if(dd){ dd.innerHTML = renderComboboxDropdown(kind, pjOptionsFor(kind), pjSelectedFor(kind), v); dd.classList.add('open'); }
+}
+function pjComboSelect(kind, v){
+  const sel = pjSelectedFor(kind);
+  if(!sel.includes(v)) sel.push(v);
+  pjSetQuery(kind, '');
+  const input = document.getElementById('pj-'+kind+'-input'); if(input) input.value = '';
+  const dd = document.getElementById('pj-'+kind+'-dropdown');
+  if(dd){ dd.innerHTML = renderComboboxDropdown(kind, pjOptionsFor(kind), sel, ''); dd.classList.remove('open'); }
+  const chips = document.getElementById('pj-'+kind+'-chips'); if(chips) chips.innerHTML = renderComboboxChips(sel, kind);
+}
+function pjComboRemove(kind, v){
+  if(kind==='device') postJobState.devices = postJobState.devices.filter(x=>x!==v);
+  else postJobState.languages = postJobState.languages.filter(x=>x!==v);
+  const chips = document.getElementById('pj-'+kind+'-chips'); if(chips) chips.innerHTML = renderComboboxChips(pjSelectedFor(kind), kind);
+}
+
+function renderPostJob(){
+  const s = postJobState;
+  const {budget, fee, total, isMulti, perSlotBudget} = pjDerived();
+
+  let html = '<div class="hivework-post-job"><div class="wizard-track">';
+  WIZARD_STEPS.forEach(st=>{
+    const cls = st.n===s.step ? ' active' : (st.n<s.step ? ' done' : '');
+    html += '<div class="wz-seg'+cls+'"><div class="wz-dot">'+st.n+'</div><div class="wz-label">'+st.label+'</div></div>';
+  });
+  html += '</div>';
+
+  if(s.step===1){
+    html += '<div>'
+      + '<div class="field"><label>Job title</label><input placeholder="e.g. Test payment flow on Android" value="'+escAttr(s.title)+'" oninput="updatePJTitle(this.value)"></div>'
+      + '<div class="field"><label>Category</label><div class="cat-grid">';
+    CATEGORY_OPTIONS.forEach(c=>{
+      html += '<div class="cat-opt'+(s.category===c.value?' selected':'')+'" onclick="setPJCategory(\''+c.value+'\')">'+c.icon+c.label+'</div>';
+    });
+    html += '</div></div>'
+      + '<div class="field"><label>'+(isMulti?'Total budget, all workers combined (Pi)':'Budget (Pi)')+'</label>'
+      + '<input type="number" min="1" placeholder="e.g. 5" value="'+escAttr(s.budgetStr)+'" oninput="updatePJBudget(this.value)">'
+      + '<div class="fee-box">'
+      + '<div class="row"><span>Worker gets</span><span id="pj-fee-worker">'+budget+'π</span></div>'
+      + '<div class="row"><span>Platform fee (7%)</span><span id="pj-fee-fee">'+fee+'π</span></div>'
+      + '<div class="row total"><span>Total (escrow)</span><span id="pj-fee-total">'+total+'π</span></div>'
+      + '</div></div>'
+      + '<div class="btn-row"><button class="btn btn-primary" onclick="goPJStep(2)">Continue →</button></div>'
+      + '</div>';
+  } else if(s.step===2){
+    html += '<div>'
+      + '<div class="field"><label>Description</label>'
+      + '<textarea maxlength="1000" placeholder="Describe exactly what needs to be done..." oninput="updatePJDescription(this.value)">'+escHtml(s.description)+'</textarea>'
+      + '<div class="counter'+(s.description.length>900?' warn':'')+'" id="pj-desc-counter">'+s.description.length+' / 1000</div></div>'
+      + '<div class="field"><label>Requirements</label>'
+      + '<textarea maxlength="500" placeholder="What skills, device, or experience does the worker need?" oninput="updatePJRequirements(this.value)">'+escHtml(s.requirements)+'</textarea>'
+      + '<div class="counter'+(s.requirements.length>450?' warn':'')+'" id="pj-reqs-counter">'+s.requirements.length+' / 500</div></div>'
+      + '<div class="field"><label>Device required <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>'
+      + renderCombobox('device', 'Type to search or add a device...') + '</div>'
+      + '<div class="field"><label>Language required <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>'
+      + renderCombobox('language', 'Type to search or add a language...') + '</div>'
+      + '<div class="btn-row"><button class="btn btn-ghost" onclick="goPJStep(1)">←</button><button class="btn btn-primary" onclick="goPJStep(3)">Continue →</button></div>'
+      + '</div>';
+  } else if(s.step===3){
+    html += '<div>'
+      + '<div class="field"><label>Number of workers</label>'
+      + '<div class="worker-stepper">'
+      + '<button type="button" onclick="pjWorkerDelta(-1)">−</button>'
+      + '<input class="n" type="number" min="1" value="'+s.workerCount+'" oninput="updatePJWorkerCount(this.value)">'
+      + '<button type="button" onclick="pjWorkerDelta(1)">+</button>'
+      + '</div>'
+      + '<div class="hint">'+(isMulti ? ('Budget splits evenly — each of '+s.workerCount+' workers gets '+(budget?(budget/s.workerCount).toFixed(4):'0')+'π.') : 'Single worker gets the full budget.')+'</div>'
+      + '</div>';
+    if(isMulti){
+      html += '<div class="field"><label>Deadline type</label><div class="deadline-mode">'
+        + '<div class="dl-opt'+(s.deadlineMode==='per_worker'?' selected':'')+'" onclick="setPJDeadlineMode(\'per_worker\')">'
+        + '<div class="t">Per-worker deadline</div><div class="d">Each worker\'s countdown starts the moment they\'re approved.</div></div>'
+        + '<div class="dl-opt'+(s.deadlineMode==='fixed'?' selected':'')+'" onclick="setPJDeadlineMode(\'fixed\')">'
+        + '<div class="t">Shared deadline</div><div class="d">Every approved worker must finish by the same date.</div></div>'
+        + '</div></div>';
+      if(s.deadlineMode==='per_worker'){
+        html += '<div class="field"><label>Days per worker</label><input type="number" min="1" placeholder="e.g. 3" value="'+escAttr(s.slotDays)+'" oninput="updatePJSlotDays(this.value)"></div>';
+      } else {
+        html += '<div class="field"><label>Shared deadline date</label><input type="date" value="'+escAttr(s.deadlineDate)+'" oninput="updatePJDeadlineDate(this.value)"></div>';
+      }
+    }
+    html += '<div class="btn-row"><button class="btn btn-ghost" onclick="goPJStep(2)">←</button><button class="btn btn-primary" onclick="goPJStep(4)">Continue →</button></div>'
+      + '</div>';
+  } else if(s.step===4){
+    html += '<div>'
+      + '<div class="review-card"><div class="rc-label">Job title</div><div class="rc-val">'+(s.title || '—')+'</div></div>'
+      + '<div class="review-card"><div class="rc-label">Category</div><div class="rc-val">'+CATEGORY_LABELS[s.category]+'</div></div>';
+    if(isMulti){
+      html += '<div class="review-card"><div class="rc-label">Workers</div><div class="rc-val">'+s.workerCount+' workers · '+perSlotBudget+'π each</div>'
+        + '<p style="margin-top:6px;">'+(s.deadlineMode==='per_worker'
+            ? ('Each worker has '+(s.slotDays||'?')+' day(s) from when they\'re approved.')
+            : ('All workers must finish by '+(s.deadlineDate||'(no date set)')+'.'))+'</p></div>';
+    }
+    html += '<div class="review-card"><div class="rc-label">Description</div><p>'+(s.description || '—')+'</p></div>'
+      + '<div class="review-card"><div class="rc-label">Requirements</div><p>'+(s.requirements || '—')+'</p>';
+    if(s.devices.length>0 || s.languages.length>0){
+      html += '<div class="chip-row">'+s.devices.map(d=>'<span class="chip-outline">'+d+'</span>').join('')+s.languages.map(l=>'<span class="chip-outline">'+l+'</span>').join('')+'</div>';
+    }
+    html += '</div>'
+      + '<div class="review-card"><div class="rc-label" style="margin-bottom:10px;">Payment breakdown</div>'
+      + '<div class="fee-box" style="margin-top:0;border:none;padding:0;">'
+      + '<div class="row"><span>Worker budget</span><span>'+budget+'π</span></div>'
+      + '<div class="row"><span>Platform fee (7%)</span><span>'+fee+'π</span></div>'
+      + '<div class="row total"><span>Total (escrow)</span><span>'+total+'π</span></div>'
+      + '</div></div>'
+      + '<div class="btn-row"><button class="btn btn-ghost" onclick="goPJStep(3)">←</button>'
+      + '<button class="btn btn-primary" onclick="postJobSubmit()">Pay '+total+'π & Post Job</button></div>'
+      + '</div>';
+  }
+
+  html += '</div>';
+  document.getElementById('pj-render').innerHTML = html;
+}
+
+/* ===== LANDING — toggle helper only, markup is static in #page-landing ===== */
+function toggleLandingTestnetTip(e){
+  e.stopPropagation();
+  const el = document.getElementById('landing-testnet-tip');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+/* ===== Onboarding routing (shared by Welcome + Profile Complete) ===== */
+let onboardingIntent = null; // 'find' | 'post' | 'none' | null
+function routeAfterOnboarding(){
+  if(onboardingIntent === 'post') goToPostJob();
+  else if(onboardingIntent === 'find') showScreen('browse');
+  else showScreen('home');
+}
+
+/* ===== WELCOME (Wallet-Connect Onboarding) — vanilla port of HiveworkOnboardingFlow ===== */
+const HW_ONBOARD_KYC_DETAIL = "Browsing is open to everyone. Posting a job or applying to paid work requires a KYC-verified, Mainnet-migrated Pi Wallet — Pi's network doesn't support Pi transfers on unverified accounts. Haven't completed KYC yet? You can still explore Hivework, and we'll prompt you to verify when you're ready to post or apply.";
+const HW_ONBOARD_SKILLS = ['Bug testing','UI feedback','Translation','Android tester'];
+const HW_ONBOARD_DEVICES = ['Android','iOS'];
+const CHECK_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
+const SHIELD_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>';
+function chevIconSvg(open){
+  return '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A6512" stroke-width="2.5" style="transform:rotate('+(open?'180deg':'0deg')+')"><path d="M6 9l6 6 6-6"/></svg>';
+}
+
+let onboardState = null;
+function initOnboardState(){
+  onboardState = { screen:'connect', tosChecked:false, kycOpen:false, walletConnected:false, skills:[], devices:[] };
+}
+function goToWelcome(intent){
+  onboardingIntent = intent;
+  initOnboardState();
+  renderWelcome();
+  showScreen('welcome');
+}
+function owGoTo(id){
+  onboardState.screen = id;
+  renderWelcome();
+  window.scrollTo(0,0);
+  if(id==='routing'){ setTimeout(routeAfterOnboarding, 1300); }
+}
+function owToggleTos(){ onboardState.tosChecked = !onboardState.tosChecked; renderWelcome(); }
+function owToggleKyc(){ onboardState.kycOpen = !onboardState.kycOpen; renderWelcome(); }
+function owConnect(){
+  if(!onboardState.tosChecked) return;
+  onboardState.walletConnected = true;
+  renderWelcome();
+  setTimeout(()=>{ owGoTo('profile'); }, 500);
+}
+function owToggleSkill(s){
+  const i = onboardState.skills.indexOf(s);
+  if(i>=0) onboardState.skills.splice(i,1); else onboardState.skills.push(s);
+  renderWelcome();
+}
+function owToggleDevice(d){
+  const i = onboardState.devices.indexOf(d);
+  if(i>=0) onboardState.devices.splice(i,1); else onboardState.devices.push(d);
+  renderWelcome();
+}
+function owFinish(){ owGoTo('routing'); }
+function owWizardTrack(step){
+  const labels = ['Connect','Profile','Notify'];
+  let html = '<div class="wizard-track">';
+  labels.forEach((label,i)=>{
+    const n = i+1;
+    const state = n<step ? 'done' : (n===step ? 'active' : '');
+    html += '<div class="wz-seg '+state+'"><div class="wz-dot">'+(n<step?'✓':n)+'</div><div class="wz-label">'+label+'</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function owChipGroup(options, selected, toggleFnName){
+  return '<div class="chip-group">'+options.map(opt=>'<div class="chip-toggle'+(selected.includes(opt)?' selected':'')+'" onclick="'+toggleFnName+'(\''+opt.replace(/'/g,"\\'")+'\')">'+opt+'</div>').join('')+'</div>';
+}
+function renderWelcome(){
+  const s = onboardState;
+  const routingCopy = {
+    find:{title:'Taking you to Browse', sub:"Let's find you some work."},
+    post:{title:'Taking you to Post a Job', sub:"Let's get your job listed."},
+    none:{title:'Taking you to Home', sub:'Welcome to Hivework.'}
+  }[onboardingIntent || 'none'];
+
+  let inner = '';
+  if(s.screen==='connect'){
+    inner = '<div>'
+      + owWizardTrack(1)
+      + '<div class="step-head"><h1>Connect your Pi Wallet</h1><p>Hivework uses the Pi Wallet for identity and escrow. We\'ll request your Pi username and payment permissions.</p></div>'
+      + '<div class="wallet-card"><div class="wallet-top"><div class="wallet-pi">π</div><span class="wallet-status'+(s.walletConnected?' connected':'')+'">'+(s.walletConnected?'Connected':'Not connected')+'</span></div>'
+      + '<div class="wallet-label">Pi Wallet</div><div class="wallet-value">'+(s.walletConnected?'@olawalt':'Waiting for connection…')+'</div></div>'
+      + '<div class="kyc-pill'+(s.kycOpen?' open':'')+'" onclick="owToggleKyc()">'+SHIELD_ICON_SVG+'<span>KYC required for paid activity — tap to learn more</span>'+chevIconSvg(s.kycOpen)+'</div>'
+      + '<div class="kyc-detail'+(s.kycOpen?' open':'')+'"><div class="kyc-detail-inner">'+HW_ONBOARD_KYC_DETAIL+'</div></div>'
+      + '<div class="testnet-note">Note: Hivework is currently on Pi Testnet — wallet activity here uses Test-Pi, not real Pi.</div>'
+      + '<div class="tos-row" onclick="owToggleTos()"><div class="tos-check'+(s.tosChecked?' checked':'')+'">'+(s.tosChecked?CHECK_ICON_SVG:'')+'</div><p>I agree to the <a href="#" onclick="event.stopPropagation()">Terms of Service</a> and <a href="#" onclick="event.stopPropagation()">Privacy Policy</a>.</p></div>'
+      + '<button class="btn btn-primary" '+(s.tosChecked?'':'disabled')+' onclick="owConnect()">Connect with Pi Wallet</button>'
+      + '</div>';
+  } else if(s.screen==='profile'){
+    inner = '<div>'
+      + '<button class="back-btn" onclick="owGoTo(\'connect\')">'+BACK_ICON_SVG+'Back</button>'
+      + owWizardTrack(2)
+      + '<div class="step-head"><h1>Set up your profile</h1><p>This helps us match you with the right jobs. You can always finish this later.</p></div>'
+      + '<div class="profile-card">'
+      + '<div class="pc-row pc-identity"><div class="pp-avatar">O</div><div><div class="pp-name">@olawalt</div><span class="pp-tag">From Pi Wallet</span></div></div>'
+      + '<div class="pc-row pc-bio"><div class="pc-label">Bio · optional</div><textarea placeholder="A short line about what you do..."></textarea></div>'
+      + '<div class="pc-row"><div class="pc-label">Skills · optional</div>'+owChipGroup(HW_ONBOARD_SKILLS, s.skills, 'owToggleSkill')+'</div>'
+      + '<div class="pc-row"><div class="pc-label">Devices · optional</div>'+owChipGroup(HW_ONBOARD_DEVICES, s.devices, 'owToggleDevice')+'</div>'
+      + '</div>'
+      + '<button class="btn btn-primary" style="margin-top:8px;" onclick="owGoTo(\'notify\')">Continue →</button>'
+      + '<button class="btn-text" onclick="owGoTo(\'notify\')">Skip for now</button>'
+      + '</div>';
+  } else if(s.screen==='notify'){
+    inner = '<div>'
+      + '<button class="back-btn" onclick="owGoTo(\'profile\')">'+BACK_ICON_SVG+'Back</button>'
+      + owWizardTrack(3)
+      + '<div class="step-head"><h1>Stay in the loop</h1><p>Get notified the moment your work is approved or paid, or when someone applies to your job.</p></div>'
+      + '<div class="notif-visual">'
+      + '<div class="notif-row"><div class="notif-ic">✓</div><div><h4>Work approved</h4><p>Know instantly when a job you applied to gets approved</p></div></div>'
+      + '<div class="notif-row"><div class="notif-ic">π</div><div><h4>Pi released</h4><p>Get notified the moment Pi lands in your wallet</p></div></div>'
+      + '<div class="notif-row"><div class="notif-ic">👤</div><div><h4>New applicant</h4><p>See when someone applies to a job you posted</p></div></div>'
+      + '</div>'
+      + '<button class="btn btn-primary" onclick="owFinish()">Enable notifications</button>'
+      + '<button class="btn-text" onclick="owFinish()">Not now</button>'
+      + '</div>';
+  } else if(s.screen==='routing'){
+    inner = '<div class="routing"><div class="spin"></div><h2>'+routingCopy.title+'</h2><p>'+routingCopy.sub+'</p></div>';
+  }
+
+  document.getElementById('page-welcome').innerHTML =
+    '<div class="hw-onboard"><div class="hw-onboard-frame"><header><div class="logo">Hive<span>work</span></div></header><div class="pad">'+inner+'</div></div></div>';
+}
+
+/* ===== Real /onboarding (Profile Complete) — vanilla port of HiveworkProfileCompleteScreen ===== */
+const HWPC_DEVICES = ['Android','iOS','Web / Browser','Desktop','Any device'];
+const HWPC_LANGUAGES = ['English','Mandarin Chinese','Spanish','Hindi','Arabic','Bengali','Portuguese','Russian','French','Urdu','Indonesian','German','Japanese','Swahili','Vietnamese','Turkish','Tagalog','Korean','Italian','Thai','Persian','Polish','Ukrainian','Dutch','Romanian','Greek','Hungarian','Hebrew','Malay','Amharic','Yoruba','Igbo','Hausa','Zulu','Burmese','Khmer','Nepali','Sinhala','Punjabi','Tamil'];
+
+let profileCompleteState = null;
+function initProfileCompleteState(){
+  profileCompleteState = { skills:[], skillDraft:'', devices:[], languages:[], deviceQuery:'', languageQuery:'', bio:'' };
+}
+function goToOnboarding(){ initProfileCompleteState(); renderProfileComplete(); showScreen('onboarding'); }
+
+function pcOptionsFor(kind){ return kind==='device' ? HWPC_DEVICES : HWPC_LANGUAGES; }
+function pcSelectedFor(kind){ return kind==='device' ? profileCompleteState.devices : profileCompleteState.languages; }
+function pcQueryFor(kind){ return kind==='device' ? profileCompleteState.deviceQuery : profileCompleteState.languageQuery; }
+function pcSetQuery(kind, v){ if(kind==='device') profileCompleteState.deviceQuery=v; else profileCompleteState.languageQuery=v; }
+
+function pcRenderDropdown(kind){
+  const options = pcOptionsFor(kind), selected = pcSelectedFor(kind), query = pcQueryFor(kind);
+  const q = (query||'').trim(); const ql = q.toLowerCase();
+  const matches = options.filter(o=>!selected.includes(o) && o.toLowerCase().includes(ql)).slice(0,8);
+  const showAdd = q && !options.some(o=>o.toLowerCase()===ql) && !selected.includes(q);
+  let html = '';
+  matches.forEach(o=>{ html += '<div class="hwpc-dd-opt" onmousedown="pcComboSelect(\''+kind+'\',\''+o.replace(/'/g,"\\'")+'\')">'+o+'</div>'; });
+  if(showAdd){ html += '<div class="hwpc-dd-opt" onmousedown="pcComboSelect(\''+kind+'\',\''+q.replace(/'/g,"\\'")+'\')">Add "'+q+'"</div>'; }
+  if(!matches.length && !showAdd){ html += '<div class="hwpc-dd-opt hwpc-empty">Start typing to search or add</div>'; }
+  return html;
+}
+function pcRenderChips(kind){
+  return pcSelectedFor(kind).map(v=>'<span class="hwpc-chip">'+v+'<button type="button" onclick="pcComboRemove(\''+kind+'\',\''+v.replace(/'/g,"\\'")+'\')">&times;</button></span>').join('');
+}
+function pcRenderCombobox(kind, placeholder){
+  return '<div class="hwpc-combobox">'
+    + '<span id="pc-'+kind+'-chips" style="display:contents">'+pcRenderChips(kind)+'</span>'
+    + '<input id="pc-'+kind+'-input" placeholder="'+placeholder+'" autocomplete="off" onfocus="pcComboFocus(\''+kind+'\')" onblur="pcComboBlur(\''+kind+'\')" oninput="pcComboInput(\''+kind+'\', this.value)">'
+    + '<div class="hwpc-dropdown" id="pc-'+kind+'-dropdown">'+pcRenderDropdown(kind)+'</div>'
+    + '</div>';
+}
+function pcComboFocus(kind){ const d = document.getElementById('pc-'+kind+'-dropdown'); if(d) d.classList.add('hwpc-open'); }
+function pcComboBlur(kind){ setTimeout(()=>{ const d = document.getElementById('pc-'+kind+'-dropdown'); if(d) d.classList.remove('hwpc-open'); }, 120); }
+function pcComboInput(kind, v){
+  pcSetQuery(kind, v);
+  const d = document.getElementById('pc-'+kind+'-dropdown');
+  if(d){ d.innerHTML = pcRenderDropdown(kind); d.classList.add('hwpc-open'); }
+}
+function pcComboSelect(kind, v){
+  const sel = pcSelectedFor(kind);
+  if(!sel.includes(v)) sel.push(v);
+  pcSetQuery(kind, '');
+  const input = document.getElementById('pc-'+kind+'-input'); if(input) input.value = '';
+  const d = document.getElementById('pc-'+kind+'-dropdown');
+  if(d){ d.innerHTML = pcRenderDropdown(kind); d.classList.remove('hwpc-open'); }
+  const chips = document.getElementById('pc-'+kind+'-chips'); if(chips) chips.innerHTML = pcRenderChips(kind);
+}
+function pcComboRemove(kind, v){
+  if(kind==='device') profileCompleteState.devices = profileCompleteState.devices.filter(x=>x!==v);
+  else profileCompleteState.languages = profileCompleteState.languages.filter(x=>x!==v);
+  const chips = document.getElementById('pc-'+kind+'-chips'); if(chips) chips.innerHTML = pcRenderChips(kind);
+}
+
+// Skills chip-input keeps focus after each Enter/comma commit by patching
+// the chips row directly, same convention as every other continuously-
+// typed field ported so far.
+function patchSkillsUI(){
+  const s = profileCompleteState;
+  const chips = document.getElementById('pc-skills-chips');
+  if(chips) chips.innerHTML = s.skills.map(sk=>'<span class="hwpc-chip">'+escHtml(sk)+'<button type="button" onclick="pcRemoveSkill(\''+sk.replace(/'/g,"\\'")+'\')">&times;</button></span>').join('');
+  const box = document.getElementById('pc-skills-combobox');
+  if(box) box.classList.toggle('hwpc-empty-required', s.skills.length===0);
+  const saveBtn = document.getElementById('pc-save-btn');
+  if(saveBtn) saveBtn.disabled = s.skills.length===0;
+  const hint = document.getElementById('pc-skip-hint');
+  if(hint) hint.style.display = s.skills.length===0 ? '' : 'none';
+}
+function pcSkillInput(v){ profileCompleteState.skillDraft = v; }
+function pcSkillKeydown(e){
+  if(e.key==='Enter' || e.key===','){
+    e.preventDefault();
+    pcCommitSkill();
+  } else if(e.key==='Backspace' && !profileCompleteState.skillDraft && profileCompleteState.skills.length){
+    profileCompleteState.skills.pop();
+    patchSkillsUI();
+  }
+}
+function pcCommitSkill(){
+  const v = (profileCompleteState.skillDraft||'').trim().replace(/,$/,'');
+  if(v && !profileCompleteState.skills.includes(v)) profileCompleteState.skills.push(v);
+  profileCompleteState.skillDraft = '';
+  const input = document.getElementById('pc-skill-input'); if(input) input.value = '';
+  patchSkillsUI();
+}
+function pcRemoveSkill(s){
+  profileCompleteState.skills = profileCompleteState.skills.filter(x=>x!==s);
+  patchSkillsUI();
+}
+function pcUpdateBio(v){
+  profileCompleteState.bio = v;
+  const c = document.getElementById('pc-bio-counter');
+  if(c){ c.textContent = v.length+' / 200'; c.className = 'hwpc-counter'+(v.length>180?' hwpc-warn':''); }
+}
+function pcHandleSave(){
+  if(profileCompleteState.skills.length===0) return;
+  routeAfterOnboarding();
+}
+function pcHandleSkip(){ routeAfterOnboarding(); }
+
+function renderProfileComplete(){
+  const s = profileCompleteState;
+  const canSave = s.skills.length>0;
+  const html = '<div class="hwpc-scroll">'
+    + '<div class="hwpc-head"><div class="hwpc-head-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
+    + '<h1>Complete your profile.</h1><p>Clients use your profile to decide who to hire. Add your skills to unlock applying for jobs.</p></div>'
+    + '<div class="hwpc-field"><label>Skills <span class="hwpc-req">*</span></label>'
+    + '<div class="hwpc-combobox'+(s.skills.length===0?' hwpc-empty-required':'')+'" id="pc-skills-combobox">'
+    + '<span id="pc-skills-chips" style="display:contents">'+s.skills.map(sk=>'<span class="hwpc-chip">'+escHtml(sk)+'<button type="button" onclick="pcRemoveSkill(\''+sk.replace(/'/g,"\\'")+'\')">&times;</button></span>').join('')+'</span>'
+    + '<input id="pc-skill-input" value="'+escAttr(s.skillDraft)+'" placeholder="Type a skill and press Enter..." oninput="pcSkillInput(this.value)" onkeydown="pcSkillKeydown(event)" onblur="pcCommitSkill()">'
+    + '</div><div class="hwpc-hint">e.g. Android testing, UI feedback, Bug reports</div></div>'
+    + '<div class="hwpc-field"><label>Devices <span class="hwpc-opt">(optional)</span></label>'+pcRenderCombobox('device','Type to search or add a device...')+'</div>'
+    + '<div class="hwpc-field"><label>Languages <span class="hwpc-opt">(optional)</span></label>'+pcRenderCombobox('language','Type to search or add a language...')+'</div>'
+    + '<div class="hwpc-field"><label>Bio <span class="hwpc-opt">(optional)</span></label>'
+    + '<textarea id="pc-bio" maxlength="200" placeholder="A short description of your experience..." oninput="pcUpdateBio(this.value)">'+escHtml(s.bio)+'</textarea>'
+    + '<div class="hwpc-counter'+(s.bio.length>180?' hwpc-warn':'')+'" id="pc-bio-counter">'+s.bio.length+' / 200</div></div>'
+    + '<button class="hwpc-save-btn" id="pc-save-btn" '+(canSave?'':'disabled')+' onclick="pcHandleSave()">Save Profile</button>'
+    + '<div class="hwpc-skip-hint" id="pc-skip-hint" style="'+(canSave?'display:none;':'')+'">Add at least one skill to unlock applying for jobs.</div>'
+    + '<button class="hwpc-skip-btn" onclick="pcHandleSkip()">Skip for now (you won\'t be able to apply yet)</button>'
+    + '</div>';
+  document.getElementById('page-onboarding').innerHTML = '<div class="hwpc-frame">'+html+'</div>';
+}
+
+/* ===== Range Filter (ported from HiveworkRangeFilter spec) ===== */
+const HW_RANGE_OPTIONS = [{key:'all',label:'All time'},{key:'week',label:'This week'},{key:'month',label:'This month'}];
+function getRangeBoundary(key, now){
+  now = now || new Date();
+  if(key==='week'){
+    const d = new Date(now);
+    const day = d.getDay();
+    const diffToMonday = day===0 ? 6 : day-1;
+    d.setDate(d.getDate()-diffToMonday);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  if(key==='month'){
+    const d = new Date(now.getFullYear(), now.getMonth(), 1);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  return null; // 'all'
+}
+function renderRangeFilter(value, onChangeFnName){
+  return '<div class="hw-range-filter">'+HW_RANGE_OPTIONS.map(o=>'<button class="hw-range-pill'+(value===o.key?' active':'')+'" onclick="'+onChangeFnName+'(\''+o.key+'\')">'+o.label+'</button>').join('')+'</div>';
+}
+
+/* ===== Contact Support (ported from HiveworkContactSupport spec) — reusable
+   inline widget, registry-keyed by container element id so multiple
+   instances (Profile menu + Job Detail worker error state) can coexist in
+   the DOM without colliding. Real usage: Layout persistent link (here:
+   Profile menu item), JobDetail wallet-verify error (worker view), PostJob
+   payment error (not modeled — this shell's simplified wizard has no
+   payment-error state, documented gap, deferred). */
+const contactSupportState = {};
+function initContactSupport(containerId, subject, label){
+  contactSupportState[containerId] = { open:false, message:'', sending:false, sent:false, subject:subject, label: label || 'Contact support' };
+  renderContactSupport(containerId);
+}
+function renderContactSupport(containerId){
+  const el = document.getElementById(containerId);
+  const st = contactSupportState[containerId];
+  if(!el || !st) return;
+  if(st.sent){
+    el.innerHTML = '<div class="hw-contact-sent">'+CHECK_ICON_SVG+' Message sent — we\'ll get back to you soon.</div>';
+    return;
+  }
+  if(!st.open){
+    el.innerHTML = '<a class="hw-contact-link" onclick="csOpen(\''+containerId+'\')">'+st.label+'</a>';
+    return;
+  }
+  el.innerHTML = '<div class="hw-contact-form">'
+    + '<div class="hw-contact-re">Re: '+st.subject+'</div>'
+    + '<textarea maxlength="4000" placeholder="Describe the issue..." oninput="csUpdateMessage(\''+containerId+'\', this.value)">'+escHtml(st.message)+'</textarea>'
+    + '<div class="hw-contact-counter" id="'+containerId+'-counter">'+st.message.length+' / 4000</div>'
+    + '<div class="hw-contact-actions">'
+    + '<button class="hw-contact-cancel" onclick="csCancel(\''+containerId+'\')">Cancel</button>'
+    + '<button class="hw-contact-send" id="'+containerId+'-send" '+((!st.message.trim()||st.sending)?'disabled':'')+' onclick="csSend(\''+containerId+'\')">'+(st.sending?'Sending…':'Send')+'</button>'
+    + '</div></div>';
+}
+function csOpen(containerId){ contactSupportState[containerId].open = true; renderContactSupport(containerId); }
+function csCancel(containerId){ const st = contactSupportState[containerId]; st.open = false; st.message = ''; st.sent = false; renderContactSupport(containerId); }
+// Direct patch on every keystroke (no full re-render), same focus-preserving
+// convention as every other continuously-typed field ported so far.
+function csUpdateMessage(containerId, v){
+  const st = contactSupportState[containerId]; if(!st) return;
+  st.message = v;
+  const counter = document.getElementById(containerId+'-counter'); if(counter) counter.textContent = v.length+' / 4000';
+  const sendBtn = document.getElementById(containerId+'-send'); if(sendBtn) sendBtn.disabled = !v.trim() || st.sending;
+}
+function csSend(containerId){
+  const st = contactSupportState[containerId]; if(!st || !st.message.trim()) return;
+  st.sending = true; renderContactSupport(containerId);
+  setTimeout(()=>{ st.sending = false; st.sent = true; renderContactSupport(containerId); }, 500);
+}
+
+/* ===== History screens (Work/Jobs/Withdrawals) — now data-driven so the
+   Range Filter can actually filter them, ported alongside the JSX file's
+   equivalent `date` fields added to WORK_HISTORY/JOBS_HISTORY/
+   WITHDRAWAL_HISTORY. */
+const HW_WORK_HISTORY = [
+  {title:'Test flow on hivework multi worker job post', sub:'submitted · 7/6/2026', amt:'10π', positive:false, date:'2026-07-06'},
+  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
+  {title:'This is a test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
+  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
+  {title:'UI feedback on onboarding flow', sub:'completed · paid · 6/30/2026', amt:'3π', positive:true, date:'2026-06-30'},
+  {title:'Bug bash — payment retry edge cases', sub:'completed · paid · 6/22/2026', amt:'8π', positive:true, date:'2026-06-22'},
+];
+const HW_JOBS_HISTORY = [
+  {title:'Test payment flow on Android', sub:'1 applicant · in escrow', amt:'10π', positive:false, date:null},
+  {title:'Localize onboarding copy', sub:'2 applicants · open', amt:'6π', positive:false, date:null},
+  {title:'This is a test job', sub:'completed · closed 6/28/2026', amt:'5π', positive:true, date:'2026-06-28'},
+  {title:'Survey: worker satisfaction Q2', sub:'completed · closed 6/15/2026', amt:'4π', positive:true, date:'2026-06-15'},
+  {title:'Usability pass on Post Job wizard', sub:'completed · closed 5/30/2026', amt:'7π', positive:true, date:'2026-05-30'},
+];
+// Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
+// are a filtering-demo assumption, not real-code-derived (same note as JSX).
+const HW_WITHDRAWAL_HISTORY = [
+  {title:'2π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'1.99π', positive:true, date:'2026-08-07'},
+  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-08-01'},
+  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-07-15'},
+  {title:'3π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'2.98π', positive:true, date:'2026-06-20'},
+  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-05-28'},
+];
+
+// Real app backs all 3 History lists (plus withdrawals) with a shared
+// cursor-pagination hook (usePaginatedList.ts) — mockups previously just
+// showed static rows. This "Load more" affordance approximates that: each
+// list reveals HIST_PAGE_SIZE more rows per tap rather than a real cursor
+// fetch, since there's no backend to page against here.
+const HIST_PAGE_SIZE = 2;
+
+function renderHistList(rows, range, shown, loadMoreFn){
+  const boundary = getRangeBoundary(range);
+  const filtered = rows.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
+  const visible = filtered.slice(0, shown);
+  const rowsHtml = visible.map(r=>'<div class="hist-row"><div><h4>'+r.title+'</h4><span class="hist-sub'+(r.positive?' pos':'')+'">'+r.sub+'</span></div><span class="hist-amt">'+r.amt+'</span></div>').join('');
+  const hasMore = filtered.length > shown;
+  const loadMoreHtml = hasMore ? '<button class="hist-load-more" onclick="'+loadMoreFn+'()">Load more</button>' : (filtered.length ? '' : '<div class="hist-empty-more">Nothing here yet.</div>');
+  return rowsHtml + loadMoreHtml;
+}
+
+let histWorkRange = 'all', histWorkShown = HIST_PAGE_SIZE;
+function goToHistWork(){ histWorkRange = 'all'; histWorkShown = HIST_PAGE_SIZE; renderHistWork(); showScreen('history-work'); }
+function renderHistWork(){
+  document.getElementById('hist-work-render').innerHTML = renderRangeFilter(histWorkRange, 'setHistWorkRange') + renderHistList(HW_WORK_HISTORY, histWorkRange, histWorkShown, 'loadMoreHistWork');
+}
+function setHistWorkRange(k){ histWorkRange = k; histWorkShown = HIST_PAGE_SIZE; renderHistWork(); }
+function loadMoreHistWork(){ histWorkShown += HIST_PAGE_SIZE; renderHistWork(); }
+
+let histJobsRange = 'all', histJobsShown = HIST_PAGE_SIZE;
+function goToHistJobs(){ histJobsRange = 'all'; histJobsShown = HIST_PAGE_SIZE; renderHistJobs(); showScreen('history-jobs'); }
+function renderHistJobs(){
+  document.getElementById('hist-jobs-render').innerHTML = renderRangeFilter(histJobsRange, 'setHistJobsRange') + renderHistList(HW_JOBS_HISTORY, histJobsRange, histJobsShown, 'loadMoreHistJobs');
+}
+function setHistJobsRange(k){ histJobsRange = k; histJobsShown = HIST_PAGE_SIZE; renderHistJobs(); }
+function loadMoreHistJobs(){ histJobsShown += HIST_PAGE_SIZE; renderHistJobs(); }
+
+let histWithdrawalsRange = 'all', histWithdrawalsShown = HIST_PAGE_SIZE;
+function goToHistWithdrawals(){ histWithdrawalsRange = 'all'; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); showScreen('history-withdrawals'); }
+function renderHistWithdrawals(){
+  document.getElementById('hist-withdrawals-render').innerHTML = renderRangeFilter(histWithdrawalsRange, 'setHistWithdrawalsRange') + renderHistList(HW_WITHDRAWAL_HISTORY, histWithdrawalsRange, histWithdrawalsShown, 'loadMoreHistWithdrawals');
+}
+function setHistWithdrawalsRange(k){ histWithdrawalsRange = k; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); }
+function loadMoreHistWithdrawals(){ histWithdrawalsShown += HIST_PAGE_SIZE; renderHistWithdrawals(); }
+
 function openDetail(key){
-  const j = jobData[key];
-  document.getElementById('d-cat').textContent = j.cat;
-  document.getElementById('d-title').textContent = j.title;
-  document.getElementById('d-amt').textContent = j.amt;
-  document.getElementById('d-app').textContent = j.app;
-  document.getElementById('d-posted').textContent = j.posted;
-  document.getElementById('d-desc').textContent = j.desc;
-  document.getElementById('d-reqs').innerHTML = j.reqs.map(r=>
-    '<li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>'+r+'</li>').join('');
-  document.getElementById('d-chips').innerHTML = j.chips.map(c=>'<span class="chip-outline">'+c+'</span>').join('');
-  document.getElementById('d-cta').textContent = j.cta;
+  currentJobKey = key;
+  const job = jobData[key];
+  if(job.isOwner){ initOwnerState(); renderOwnerDetail(); }
+  else { initWorkerState(); renderWorkerDetail(); }
   showScreen('job-detail');
 }
 function goBack(){ showScreen(lastScreen); }
@@ -640,6 +2088,11 @@ function toggleWork(view, el){
   document.getElementById('mywork-panel').style.display = view==='mywork' ? 'block' : 'none';
   document.getElementById('myjobs-panel').style.display = view==='myjobs' ? 'block' : 'none';
 }
+
+// Boot straight into Landing, matching the real "/" route (JSX's
+// useState("landing") equivalent) instead of Home.
+initContactSupport('menu-contact-support', 'General inquiry', 'Contact support');
+showScreen('landing');
 </script>
 </body>
 </html>

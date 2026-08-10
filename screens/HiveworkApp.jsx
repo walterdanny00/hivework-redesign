@@ -86,23 +86,37 @@ const JOB_DATA = {
 };
 
 const WORK_HISTORY = [
-  { title: "Test flow on hivework multi worker job post", sub: "submitted · 7/6/2026", amt: "10π", positive: false },
-  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true },
-  { title: "This is a test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true },
-  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true },
+  { title: "Test flow on hivework multi worker job post", sub: "submitted · 7/6/2026", amt: "10π", positive: false, date: "2026-07-06" },
+  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
+  { title: "This is a test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
+  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
+  { title: "UI feedback on onboarding flow", sub: "completed · paid · 6/30/2026", amt: "3π", positive: true, date: "2026-06-30" },
+  { title: "Bug bash — payment retry edge cases", sub: "completed · paid · 6/22/2026", amt: "8π", positive: true, date: "2026-06-22" },
 ];
 
 const JOBS_HISTORY = [
-  { title: "Test payment flow on Android", sub: "1 applicant · in escrow", amt: "10π", positive: false },
-  { title: "Localize onboarding copy", sub: "2 applicants · open", amt: "6π", positive: false },
-  { title: "This is a test job", sub: "completed · closed 6/28/2026", amt: "5π", positive: true },
+  { title: "Test payment flow on Android", sub: "1 applicant · in escrow", amt: "10π", positive: false, date: null },
+  { title: "Localize onboarding copy", sub: "2 applicants · open", amt: "6π", positive: false, date: null },
+  { title: "This is a test job", sub: "completed · closed 6/28/2026", amt: "5π", positive: true, date: "2026-06-28" },
+  { title: "Survey: worker satisfaction Q2", sub: "completed · closed 6/15/2026", amt: "4π", positive: true, date: "2026-06-15" },
+  { title: "Usability pass on Post Job wizard", sub: "completed · closed 5/30/2026", amt: "7π", positive: true, date: "2026-05-30" },
 ];
 
 const WITHDRAWAL_HISTORY = [
-  { title: "2π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "1.99π", positive: true },
-  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true },
-  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true },
+  // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
+  // are a filtering-demo assumption, not real-code-derived.
+  { title: "2π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "1.99π", positive: true, date: "2026-08-07" },
+  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-08-01" },
+  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-07-15" },
+  { title: "3π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "2.98π", positive: true, date: "2026-06-20" },
+  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-05-28" },
 ];
+
+// Real app backs all 3 History lists with a shared cursor-pagination hook
+// (usePaginatedList.ts) — this "Load more" affordance approximates that by
+// revealing HIST_PAGE_SIZE more rows per tap, since there's no backend to
+// page against in this mockup.
+const HIST_PAGE_SIZE = 2;
 
 const NOTIFICATIONS = [
   { id: 1, title: "Application approved", body: "You were approved for \u201cTest payment flow on Android.\u201d", time: "2h ago", unread: true, jobKey: "mine" },
@@ -157,6 +171,143 @@ function HistoryRow({ title, sub, amt, positive }) {
     </div>
   );
 }
+
+function HistoryList({ rows, range, shown, onLoadMore }) {
+  const boundary = getRangeBoundary(range);
+  const filtered = rows.filter((row) => !row.date || !boundary || new Date(row.date) >= boundary);
+  const visible = filtered.slice(0, shown);
+  const hasMore = filtered.length > shown;
+  return (
+    <>
+      {visible.map((row) => (
+        <HistoryRow key={row.title} {...row} />
+      ))}
+      {hasMore && (
+        <button className="hist-load-more" onClick={onLoadMore}>Load more</button>
+      )}
+      {!hasMore && filtered.length === 0 && (
+        <div className="hist-empty-more">Nothing here yet.</div>
+      )}
+    </>
+  );
+}
+
+/* ===== Range Filter (canonical, ported from HiveworkRangeFilter.jsx) =====
+   Used in all 3 History pages. Calendar-based boundaries, not rolling —
+   "This week" = since Monday 00:00 local, "This month" = since the 1st. */
+
+const HW_RANGE_OPTIONS = [
+  { key: "all", label: "All time" },
+  { key: "week", label: "This week" },
+  { key: "month", label: "This month" },
+];
+
+function getRangeBoundary(key, now = new Date()) {
+  if (key === "week") {
+    const d = new Date(now);
+    const day = d.getDay(); // 0 = Sunday .. 6 = Saturday
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    d.setDate(d.getDate() - diffToMonday);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (key === "month") {
+    const d = new Date(now.getFullYear(), now.getMonth(), 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  return null; // "all"
+}
+
+function HiveworkRangeFilter({ value, onChange }) {
+  return (
+    <div className="hw-range-filter">
+      {HW_RANGE_OPTIONS.map((o) => (
+        <button
+          key={o.key}
+          className={`hw-range-pill${value === o.key ? " active" : ""}`}
+          onClick={() => onChange(o.key)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ===== Contact Support (canonical, ported from HiveworkContactSupport.jsx) =====
+   Reusable inline widget: collapsed link -> in-place form with "Re: {subject}"
+   context, 4000-char textarea, Send/Cancel. Simulated send — real call site
+   is POST /api/support, not yet built backend-side. Real usage: Layout
+   persistent link (here: Profile menu item), JobDetail wallet-verify error
+   (worker view), PostJob payment error (not modeled in this shell's
+   simplified wizard — remains a documented gap). */
+
+function HiveworkContactSupport({ subject, label = "Contact support" }) {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  function handleSend() {
+    if (!message.trim()) return;
+    setSending(true);
+    // Send -> POST /api/support, unchanged from real flow
+    setTimeout(() => { setSending(false); setSent(true); }, 500);
+  }
+  function handleCancel() { setOpen(false); setMessage(""); setSent(false); }
+
+  if (sent) {
+    return (
+      <div className="hw-contact-sent">
+        <CheckIcon /> Message sent — we'll get back to you soon.
+      </div>
+    );
+  }
+  if (!open) {
+    return <a className="hw-contact-link" onClick={() => setOpen(true)}>{label}</a>;
+  }
+  return (
+    <div className="hw-contact-form">
+      <div className="hw-contact-re">Re: {subject}</div>
+      <textarea
+        maxLength={4000}
+        placeholder="Describe the issue..."
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+      />
+      <div className="hw-contact-counter">{message.length} / 4000</div>
+      <div className="hw-contact-actions">
+        <button className="hw-contact-cancel" onClick={handleCancel}>Cancel</button>
+        <button className="hw-contact-send" disabled={!message.trim() || sending} onClick={handleSend}>
+          {sending ? "Sending…" : "Send"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const HW_RANGE_FILTER_STYLES = `
+  .hw-app .hw-range-filter{display:flex;gap:6px;margin-bottom:18px;}
+  .hw-app .hw-range-pill{padding:8px 14px;border-radius:100px;border:1.5px solid var(--line);background:var(--card);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .hw-app .hw-range-pill.active{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+`;
+
+const HW_CONTACT_SUPPORT_STYLES = `
+  .hw-app .hw-contact-link{font-size:13px;font-weight:600;color:var(--violet-deep);cursor:pointer;text-decoration:none;}
+  .hw-app .menu-item .hw-contact-link{font-size:13px;font-weight:400;color:var(--ink-soft);}
+  .hw-app .hw-contact-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0;}
+  .hw-app .menu-item .hw-contact-form{margin:0;border:none;background:none;padding:0;}
+  .hw-app .hw-contact-re{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .hw-app .hw-contact-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:'Inter';font-size:13px;color:var(--ink);resize:vertical;min-height:70px;background:var(--cream);}
+  .hw-app .hw-contact-counter{font-size:10.5px;color:var(--ink-soft);text-align:right;margin-top:4px;font-family:'JetBrains Mono';}
+  .hw-app .hw-contact-actions{display:flex;gap:8px;margin-top:8px;}
+  .hw-app .hw-contact-cancel{flex:1;background:#EFECE5;color:var(--ink-soft);border:none;border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;}
+  .hw-app .hw-contact-send{flex:1;background:var(--violet);color:white;border:none;border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;}
+  .hw-app .hw-contact-send:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
+  .hw-app .hw-contact-sent{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#1A9E92;font-weight:600;padding:4px 0;}
+  .hw-app .hw-contact-sent svg{flex-shrink:0;}
+`;
 
 /* ===== Job Detail — Owner view (canonical, ported from HiveworkJobDetail.jsx) =====
    Tabbed Overview/Applicants/Slots + Close-unfilled-slots control + inline
@@ -637,7 +788,7 @@ function JDWPanel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCa
           </div>
           <button className="btn btn-primary" onClick={onVerifyWallet}>Verify wallet · 0.01π</button>
           {state === 'wallet_error' && verifyError && (
-            <div className="error-note">{verifyError} <a>Contact support</a></div>
+            <div className="error-note">{verifyError} <HiveworkContactSupport label="Contact support" subject="Wallet verification failed" /></div>
           )}
         </div>
       );
@@ -2300,6 +2451,18 @@ export default function HiveworkApp() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const [onboardingIntent, setOnboardingIntent] = useState(null); // 'find' | 'post' | null
+  const [workHistoryRange, setWorkHistoryRangeRaw] = useState("all");
+  const [jobsHistoryRange, setJobsHistoryRangeRaw] = useState("all");
+  const [withdrawalsHistoryRange, setWithdrawalsHistoryRangeRaw] = useState("all");
+  const [workHistoryShown, setWorkHistoryShown] = useState(HIST_PAGE_SIZE);
+  const [jobsHistoryShown, setJobsHistoryShown] = useState(HIST_PAGE_SIZE);
+  const [withdrawalsHistoryShown, setWithdrawalsHistoryShown] = useState(HIST_PAGE_SIZE);
+  const setWorkHistoryRange = (k) => { setWorkHistoryRangeRaw(k); setWorkHistoryShown(HIST_PAGE_SIZE); };
+  const setJobsHistoryRange = (k) => { setJobsHistoryRangeRaw(k); setJobsHistoryShown(HIST_PAGE_SIZE); };
+  const setWithdrawalsHistoryRange = (k) => { setWithdrawalsHistoryRangeRaw(k); setWithdrawalsHistoryShown(HIST_PAGE_SIZE); };
+  const goToHistWork = () => { setWorkHistoryShown(HIST_PAGE_SIZE); goTo("history-work"); };
+  const goToHistJobs = () => { setJobsHistoryShown(HIST_PAGE_SIZE); goTo("history-jobs"); };
+  const goToHistWithdrawals = () => { setWithdrawalsHistoryShown(HIST_PAGE_SIZE); goTo("history-withdrawals"); };
   const [detailKey, setDetailKey] = useState("mine");
   const [workView, setWorkView] = useState("mywork"); // 'mywork' | 'myjobs'
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
@@ -2553,12 +2716,17 @@ export default function HiveworkApp() {
         .hw-app .hist-row .hist-sub{font-size:11.5px;color:var(--ink-soft);}
         .hw-app .hist-row .hist-sub.pos{color:#1A9E92;}
         .hw-app .hist-row .hist-amt{font-family:'JetBrains Mono';font-weight:700;font-size:14px;flex-shrink:0;}
+        .hw-app .hist-load-more{display:block;width:100%;margin-top:14px;padding:12px;border-radius:100px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-weight:600;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s;}
+        .hw-app .hist-load-more:hover{border-color:var(--violet);color:var(--violet-deep);}
+        .hw-app .hist-empty-more{text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:14px;}
 
         .hw-app .segnav{display:flex;gap:3px;background:#EFECE5;border-radius:100px;padding:4px;margin:6px 24px 4px;position:sticky;top:0;z-index:8;}
         .hw-app .segnav button{flex:1;text-align:center;padding:9px 0;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
         .hw-app .segnav button.active{background:var(--ink);color:white;}
 
         ${JOB_DETAIL_OWNER_STYLES}
+        ${HW_RANGE_FILTER_STYLES}
+        ${HW_CONTACT_SUPPORT_STYLES}
       `}</style>
 
       {screen === "landing" ? (
@@ -2621,7 +2789,7 @@ export default function HiveworkApp() {
               <div className="menu-item" onClick={() => goTo("profile")}>View profile</div>
               <div className="menu-item">Edit profile</div>
               <div className="menu-item">Notification settings</div>
-              <div className="menu-item">Contact support</div>
+              <div className="menu-item"><HiveworkContactSupport label="Contact support" subject="General inquiry" /></div>
               <div className="menu-item">Log out</div>
             </div>
 
@@ -2801,7 +2969,7 @@ export default function HiveworkApp() {
 
                     <div className="section-title-row">
                       <div className="section-title" style={{ margin: 0 }}>Your work</div>
-                      <button className="see-all" onClick={() => goTo("history-work")}>See all →</button>
+                      <button className="see-all" onClick={goToHistWork}>See all →</button>
                     </div>
                     {WORK_HISTORY.slice(0, 2).map((row) => (
                       <HistoryRow key={row.title} {...row} />
@@ -2809,7 +2977,7 @@ export default function HiveworkApp() {
 
                     <div className="section-title-row" style={{ marginTop: 22 }}>
                       <div className="section-title" style={{ margin: 0 }}>Withdrawals</div>
-                      <button className="see-all" onClick={() => goTo("history-withdrawals")}>See all →</button>
+                      <button className="see-all" onClick={goToHistWithdrawals}>See all →</button>
                     </div>
                     {WITHDRAWAL_HISTORY.slice(0, 2).map((row) => (
                       <HistoryRow key={row.title} {...row} />
@@ -2821,7 +2989,7 @@ export default function HiveworkApp() {
                   <div>
                     <div className="section-title-row">
                       <div className="section-title" style={{ margin: 0 }}>Jobs you've posted</div>
-                      <button className="see-all" onClick={() => goTo("history-jobs")}>See all →</button>
+                      <button className="see-all" onClick={goToHistJobs}>See all →</button>
                     </div>
 
                     <div className="job-post-row">
@@ -2855,9 +3023,13 @@ export default function HiveworkApp() {
               <div className="screen active">
                 <button className="back-btn" onClick={goBackToDashboard}><BackIcon />Back</button>
                 <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Work history</h1></div>
-                {WORK_HISTORY.map((row) => (
-                  <HistoryRow key={row.title} {...row} />
-                ))}
+                <HiveworkRangeFilter value={workHistoryRange} onChange={setWorkHistoryRange} />
+                <HistoryList
+                  rows={WORK_HISTORY}
+                  range={workHistoryRange}
+                  shown={workHistoryShown}
+                  onLoadMore={() => setWorkHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                />
               </div>
             )}
 
@@ -2866,9 +3038,13 @@ export default function HiveworkApp() {
               <div className="screen active">
                 <button className="back-btn" onClick={goBackToDashboard}><BackIcon />Back</button>
                 <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Posted jobs</h1></div>
-                {JOBS_HISTORY.map((row) => (
-                  <HistoryRow key={row.title} {...row} />
-                ))}
+                <HiveworkRangeFilter value={jobsHistoryRange} onChange={setJobsHistoryRange} />
+                <HistoryList
+                  rows={JOBS_HISTORY}
+                  range={jobsHistoryRange}
+                  shown={jobsHistoryShown}
+                  onLoadMore={() => setJobsHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                />
               </div>
             )}
 
@@ -2877,9 +3053,13 @@ export default function HiveworkApp() {
               <div className="screen active">
                 <button className="back-btn" onClick={goBackToDashboard}><BackIcon />Back</button>
                 <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Withdrawal history</h1></div>
-                {WITHDRAWAL_HISTORY.map((row) => (
-                  <HistoryRow key={row.title} {...row} />
-                ))}
+                <HiveworkRangeFilter value={withdrawalsHistoryRange} onChange={setWithdrawalsHistoryRange} />
+                <HistoryList
+                  rows={WITHDRAWAL_HISTORY}
+                  range={withdrawalsHistoryRange}
+                  shown={withdrawalsHistoryShown}
+                  onLoadMore={() => setWithdrawalsHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                />
               </div>
             )}
 

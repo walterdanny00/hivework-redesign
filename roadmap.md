@@ -80,19 +80,17 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Not yet wired into shell | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Not yet placed into History/error states in either shell file — next up. |
-| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ⚠️ Not yet wired into shell | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Not yet placed into the 3 History screens in either shell file — next up. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. **In the shells (both files, step 6, 2026-08-09), only wired into the Profile menu and worker Job Detail's wallet-error state** (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity) — Post Job has no payment-error anchor point in this simplified wizard, so that spot is logged as a gap rather than faked. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did this wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
+| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
 
-**Shell recompile status (2026-08-08):** `HiveworkApp.jsx` now has every
-screen above fully wired — Landing is the entry point, Wallet Connect and
-Profile Complete are correctly split into two separate destinations, Job
-Detail branches owner/worker, Post Job's wizard replaced the old flat form,
-and the bell/avatar + standalone-Applicants bugs are fixed. Only Range
-Filter and Contact Support remain unwired. **`hivework-app-v4-3.html` (the
-vanilla-JS shell) has NOT received any of this** — it only has the very
-first fix (bell/avatar decouple + Applicants removal) and is now
-significantly behind the JSX file. See Section 12.
+**Shell recompile status (2026-08-09):** both `HiveworkApp.jsx` and
+`hivework-app-v4-3.html` now have every screen above fully wired and are at
+parity — Landing is the entry point in both, Wallet Connect and Profile
+Complete are correctly split into two separate destinations, Job Detail
+branches owner/worker, Post Job's wizard replaced the old flat form, the
+bell/avatar + standalone-Applicants bugs are fixed, and Range Filter +
+Contact Support are wired into both files. See Section 12.
 
 **Nav structure — settled:** Home / Browse / Post / Dashboard (4 items). Every
 real route maps cleanly onto one of these four or is a drill-in reached from
@@ -104,8 +102,9 @@ settings" (a profile-menu item in the mockups) has zero matches anywhere in
 the codebase — it's a static label with no real feature behind it, not
 something to design for.
 
-**Current baseline files:** `hivework-app-v4-3.html` (behind, see Section 12),
-`HiveworkApp.jsx` (fully recompiled except Range Filter/Contact Support),
+**Current baseline files:** `hivework-app-v4-3.html` (fully recompiled,
+at parity with the JSX shell, see Section 12), `HiveworkApp.jsx` (fully
+recompiled),
 `HiveworkLanding.jsx` / `hivework-landing.html` (canonical, done),
 `hivework-onboarding.html` / `HiveworkOnboarding.jsx` (canonical, done —
 proposed Wallet Connect pattern, reached from Landing),
@@ -199,6 +198,26 @@ app header only; landing already had it right).
     shell, distinct from `onboarding` (which now serves only the Dashboard
     nudge path). Worth double-checking on any future recompile step that
     touches more than one screen with similar naming/purpose.
+11. **`hivework-app-v4-3.html` only — Landing buttons stretched full-width/
+    stacked** instead of sitting side-by-side. The HTML shell merges all
+    screens' CSS into one global stylesheet (unlike the JSX shell, which
+    mounts styles per-screen), so a generic button rule was leaking onto
+    the Landing CTAs. Fixed with an explicit `width:auto` on
+    `.hivework-landing .btn`.
+12. **`hivework-app-v4-3.html` only — "Find work"/"Post a job" opened a
+    blank page.** The injected Wallet Connect wizard markup reused
+    `class="frame"` for its own wrapper div, colliding with
+    `showScreen()`'s `document.querySelector('.frame')`, which is meant to
+    hide/show the *main app shell's* frame. Since `#page-welcome` sits
+    earlier in the DOM than the real app frame, once the wizard's markup
+    was injected, `querySelector('.frame')` grabbed the wizard's own div
+    first and hid it — right as it was supposed to appear. Fixed by
+    renaming the wizard's wrapper class to `hw-onboard-frame`. **Any time a
+    screen's injected markup reuses a class name the shell's own routing
+    logic queries by, expect this same failure mode** — worth checking on
+    future screens ported into the HTML shell specifically (the JSX shell
+    doesn't have this risk, since React scopes renders to each component
+    rather than a global `querySelector`).
 
 ---
 
@@ -308,10 +327,10 @@ the app.
 - Wiring the profile-menu's items (log out, notification settings, contact
   support) to real functionality — menu itself is being kept, not removed
   (Section 8)
-- "Load more" / pagination affordance on all three History screens —
-  `usePaginatedList.ts` confirmed a shared cursor-pagination hook backs all
-  of them plus the withdrawal list; current mockups just show static
-  example rows
+- "Load more" / pagination affordance on all three History screens — ✅ done,
+  see Section 13
+- Pi wallet connect async/loading/error states — deliberately deferred, see
+  Section 4
 
 ---
 
@@ -597,7 +616,7 @@ Not yet recompiled into `hivework-app-v4-3.html`.
 
 ---
 
-## 12. Shell Recompile — JSX shell done, HTML shell lagging
+## 12. Shell Recompile — both shells done, at parity (2026-08-09)
 
 **Approach:** screen-by-screen into the shell rather than one full-file
 pass — too much interdependent state (`screen`, `menuOpen`, `detailKey`,
@@ -613,13 +632,12 @@ needed to land before later screen swaps could build on top cleanly.
 3. `isOwner` data-model stub + Job Detail owner/worker swap-in
 4. Post Job wizard swap-in
 5. Landing + Wallet Connect + real Onboarding wired in as reachable screens
-6. Range Filter + Contact Support wiring into History/error states — **not
-   done yet, next up**
+6. Range Filter + Contact Support wiring into History/error states
 
-Steps 1 through 5 are all done in `HiveworkApp.jsx`. Only step 1 made it
-into `hivework-app-v4-3.html` — the vanilla-JS shell is now significantly
-behind and needs its own dedicated recompile pass covering steps 3–5
-(different state model than React, can't reuse the JSX work directly).
+All 6 steps are done in both `HiveworkApp.jsx` and `hivework-app-v4-3.html`
+as of 2026-08-09 — the vanilla-JS shell's dedicated pass through steps 3–6
+(different state model than React, ported separately rather than reusing
+the JSX work directly) is complete, and the two files are at parity.
 
 **Bell/avatar + Applicants fix, both files:** avatar keeps the profile
 menu (now 5 items); bell gets its own separate notification panel — real
@@ -648,7 +666,57 @@ wiring to Profile Complete, see Bug Fix Log #10. Dashboard's nudge routes
 directly to the separate `onboarding` screen (Profile Complete), fixing a
 pre-existing bug where it pointed at `profile` instead.
 
-**Still open:** Range Filter and Contact Support are built as canonical
-reusable components but not placed into either shell file's History screens
-or error states yet. `hivework-app-v4-3.html` needs its own pass through
-steps 3–5.
+**Range Filter / Contact Support swap, both files (step 6, completed
+2026-08-09):** Range Filter wired into all 3 History screens in both
+shells — required making `hivework-app-v4-3.html`'s History screens
+data-driven (previously static markup). Contact Support wired into the
+Profile menu and worker Job Detail's wallet-error state (currently
+unreachable via the demo's default flow, wired anyway for fidelity) —
+**not** into Post Job, since this simplified wizard has no payment-error
+anchor point to hang it on; that's logged as a gap rather than faked.
+
+**Honesty note carried over from that session:** neither
+`HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually
+uploaded when this wiring was done — both were reconstructed from the
+spec already in memory, not ported from the real canonical files. Worth
+diffing the shells' versions against the real canonical files the next
+time either gets uploaded.
+
+**Two bugs surfaced and fixed in `hivework-app-v4-3.html` only** during
+this final pass — see Bug Fix Log #11 (Landing buttons stretching
+full-width due to the HTML shell's merged global stylesheet) and #12 (a
+`class="frame"` naming collision between the injected Wallet Connect
+wizard markup and the shell's own `querySelector('.frame')` routing logic,
+which caused "Find work"/"Post a job" to open a blank page). Neither bug
+existed in `HiveworkApp.jsx`, since React's per-component rendering isn't
+vulnerable to the same DOM-wide `querySelector` collision.
+
+---
+
+## 13. History Pagination — done (2026-08-09)
+
+**Finding:** `usePaginatedList.ts` confirmed a shared cursor-pagination
+hook backs all 3 History lists (Work/Jobs/Withdrawals) in the real app;
+the mockups had only ever shown static example rows.
+
+**Built:** a `HistoryList` component (JSX) / `renderHistList()` function
+(HTML) shared across all 3 screens — filters by the active Range Filter,
+then slices to a `shown` count (`HIST_PAGE_SIZE = 2`), with a "Load more"
+button that reveals 2 more rows per tap and disappears once the filtered
+list is exhausted (plus an empty state for when a range filter zeroes out
+the list). `shown` resets to `HIST_PAGE_SIZE` whenever the Range Filter
+changes or the screen is re-entered via "See all →", so switching filters
+never leaves a stale reveal-count behind. Sample datasets for all 3 lists
+expanded from 3–4 rows each to 5–6, so there's something to actually
+page through.
+
+Verified end-to-end in a headless browser for `hivework-app-v4-3.html`
+(row counts step 2 → 4 → 6 → button disappears; range-filter switch
+correctly resets the count). `HiveworkApp.jsx` was refactored the same
+way but could only be checked via brace/paren balance — no network access
+in this environment to run a real JSX build.
+
+**Not built:** a real cursor/backend call — this is a client-side reveal
+of already-loaded sample rows, not a fetch-more-from-server pattern. Fine
+for a mockup; worth flagging if this ever needs to demonstrate loading
+states too.
