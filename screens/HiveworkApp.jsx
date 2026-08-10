@@ -2206,6 +2206,15 @@ const HW_ONBOARD_STYLES = `
   .hw-onboard .wallet-pi{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'Sora';font-weight:800;font-size:17px;}
   .hw-onboard .wallet-status{font-size:11px;font-weight:700;background:rgba(255,255,255,.15);padding:5px 11px;border-radius:100px;}
   .hw-onboard .wallet-status.connected{background:rgba(46,196,182,.35);}
+  .hw-onboard .wallet-status.connecting{background:rgba(255,255,255,.15);}
+  .hw-onboard .wallet-status.wc-err{background:rgba(255,107,93,.35);}
+  .hw-onboard .wc-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:inline-block;vertical-align:-3px;margin-right:7px;animation:hwSpin .8s linear infinite;}
+  .hw-onboard .wc-error-body{position:relative;margin-top:18px;background:rgba(255,255,255,.1);border-radius:14px;padding:14px;}
+  .hw-onboard .wc-error-body h4{font-size:13.5px;font-weight:800;margin:0 0 4px;}
+  .hw-onboard .wc-error-body p{font-size:12px;opacity:.85;line-height:1.5;margin:0;}
+  .hw-onboard .wc-retry{margin-top:12px;background:rgba(255,255,255,.18);border:none;color:#fff;font-weight:700;font-size:12.5px;padding:9px 16px;border-radius:100px;cursor:pointer;}
+  .hw-onboard .wc-demo-row{display:flex;gap:14px;justify-content:center;margin-top:10px;}
+  .hw-onboard .wc-demo-link{font-size:11px;color:var(--ink-soft);opacity:.55;cursor:pointer;text-decoration:underline;}
   .hw-onboard .wallet-label{font-size:12px;opacity:.8;margin-top:22px;}
   .hw-onboard .wallet-value{font-family:'JetBrains Mono';font-size:15px;margin-top:3px;opacity:.95;}
 
@@ -2265,6 +2274,8 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
   const [tosChecked, setTosChecked] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
+  // walletStatus: 'idle' | 'connecting' | 'connected' | 'no-pi-browser' | 'failed'
+  const [walletStatus, setWalletStatus] = useState("idle");
   const [skills, setSkills] = useState([]);
   const [devices, setDevices] = useState([]);
 
@@ -2277,10 +2288,22 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
     window.scrollTo(0, 0);
   };
 
-  const handleConnect = () => {
-    if (!piBrowserDetected) return;
-    setWalletConnected(true);
-    setTimeout(() => goTo("profile"), 500);
+  // Real Pi.authenticate() (see lib/usePi.ts) is async and can fail — this
+  // mirrors that with a simulated delay. forceOutcome lets the demo trigger
+  // the two failure paths (real code today can't tell "Pi Browser missing"
+  // from "not connected" — logged gap).
+  const handleConnect = (forceOutcome = "connected") => {
+    if (!tosChecked || walletStatus === "connecting") return;
+    setWalletStatus("connecting");
+    setTimeout(() => {
+      if (forceOutcome === "connected") {
+        setWalletStatus("connected");
+        setWalletConnected(true);
+        setTimeout(() => goTo("profile"), 500);
+      } else {
+        setWalletStatus(forceOutcome); // 'no-pi-browser' | 'failed'
+      }
+    }, 1100);
   };
 
   const toggleSkill = (s) => setSkills((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
@@ -2323,12 +2346,38 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
                 <div className="wallet-card">
                   <div className="wallet-top">
                     <div className="wallet-pi">π</div>
-                    <span className={`wallet-status${walletConnected ? " connected" : ""}`}>
-                      {walletConnected ? "Connected" : "Not connected"}
+                    <span
+                      className={`wallet-status${
+                        walletStatus === "connected" ? " connected" :
+                        walletStatus === "connecting" ? " connecting" :
+                        (walletStatus === "no-pi-browser" || walletStatus === "failed") ? " wc-err" : ""
+                      }`}
+                    >
+                      {walletStatus === "connected" ? "Connected" :
+                        walletStatus === "connecting" ? "Connecting…" :
+                        (walletStatus === "no-pi-browser" || walletStatus === "failed") ? "Connection issue" :
+                        "Not connected"}
                     </span>
                   </div>
                   <div className="wallet-label">Pi Wallet</div>
-                  <div className="wallet-value">{walletConnected ? "@olawalt" : "Waiting for connection…"}</div>
+                  <div className="wallet-value">
+                    {walletStatus === "connecting" ? (<><span className="wc-spin" />Waiting on Pi Wallet…</>) :
+                      walletStatus === "connected" ? "@olawalt" : "Waiting for connection…"}
+                  </div>
+                  {walletStatus === "no-pi-browser" && (
+                    <div className="wc-error-body">
+                      <h4>Pi Browser not detected</h4>
+                      <p>Hivework needs to run inside Pi Browser to connect your wallet. Open this page from the Pi Browser app and try again.</p>
+                      <button className="wc-retry" onClick={() => handleConnect("connected")}>Try again</button>
+                    </div>
+                  )}
+                  {walletStatus === "failed" && (
+                    <div className="wc-error-body">
+                      <h4>Connection failed</h4>
+                      <p>We couldn't reach your Pi Wallet. Check your connection and try again.</p>
+                      <button className="wc-retry" onClick={() => handleConnect("connected")}>Retry</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className={`kyc-pill${kycOpen ? " open" : ""}`} onClick={() => setKycOpen((o) => !o)}>
@@ -2353,11 +2402,24 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
                   </p>
                 </div>
 
-                <button className="btn btn-primary" disabled={!tosChecked} onClick={handleConnect}>
-                  {piBrowserDetected ? "Connect with Pi Wallet" : "Open in Pi Browser"}
+                <button
+                  className="btn btn-primary"
+                  disabled={!tosChecked || walletStatus === "connecting"}
+                  onClick={() => handleConnect("connected")}
+                >
+                  {!piBrowserDetected ? "Open in Pi Browser" :
+                    walletStatus === "connecting" ? "Connecting…" :
+                    (walletStatus === "no-pi-browser" || walletStatus === "failed") ? "Retry connection" :
+                    "Connect with Pi Wallet"}
                 </button>
                 {!piBrowserDetected && (
                   <div className="pibrowser-note">The Pi SDK only works inside Pi Browser — open this page there to connect your wallet.</div>
+                )}
+                {walletStatus === "idle" && tosChecked && (
+                  <div className="wc-demo-row">
+                    <span className="wc-demo-link" onClick={() => handleConnect("no-pi-browser")}>Demo: no Pi Browser</span>
+                    <span className="wc-demo-link" onClick={() => handleConnect("failed")}>Demo: connection failed</span>
+                  </div>
                 )}
               </div>
             )}

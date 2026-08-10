@@ -308,13 +308,45 @@ the app.
 
 ## 4. Open Decisions (deliberately deferred)
 
-- **Pi wallet connect async states.** Screen 1 of onboarding shows an
-  instant connect for mockup purposes; the real `Pi.authenticate()` call is
-  async and can fail. Decide whether onboarding needs loading/error states
-  now or defers to implementation.
 - **KYC/testnet UI**, once KYC is actually wired up: confirm whether testnet
   status is still current at ship time — the badge should get removed (or
   its copy updated) rather than shipped stale.
+
+---
+
+## 14. Pi Wallet Connect — async states, done (2026-08-10)
+
+Screen 1 of onboarding (the proposed Wallet-Connect flow) previously showed
+an instant connect for mockup purposes. Real `Pi.authenticate()` (`lib/
+usePi.ts`) is async and can fail — added a simulated delay plus two failure
+paths so the demo now reflects that:
+
+- `walletStatus`: `idle` → `connecting` (spinner, disabled button, "Waiting
+  on Pi Wallet…") → `connected` (unchanged happy path, auto-advances to
+  Profile) OR `no-pi-browser` / `failed` (in-card error block + Retry
+  button, connect button relabels "Retry connection").
+- **Demo-only trigger links** ("Demo: no Pi Browser" / "Demo: connection
+  failed") shown under the connect button while idle+ToS-checked, so a
+  reviewer can see all states without needing a real device. Not real
+  detection logic — matches the existing real-app gap (can't distinguish
+  "Pi Browser missing" from "not connected" without its own `!!window.Pi`
+  check, logged under Screen Inventory).
+- Both files updated in parallel, same state/logic shape. **JSX shell
+  already had a step ahead of the HTML shell:** a hardcoded
+  `piBrowserDetected = true` stub + "Open in Pi Browser" fallback button
+  label + `pibrowser-note` copy, none of which existed in the HTML shell —
+  kept as-is, async/retry layered on top of it.
+- Verified end-to-end in headless browser (Playwright) for the HTML shell:
+  connecting spinner mid-flight, button disables + relabels, no-Pi-Browser
+  error renders, Retry re-enters connecting then succeeds and auto-advances
+  to Profile — no console errors. JSX only checked via brace/paren/bracket
+  balance (no JSX build/lint available in this sandbox, consistent with
+  prior sessions).
+- **Playwright gotcha found:** `text=` locators match substrings inside
+  surrounding prose too (e.g. "Try again" matched both the retry button
+  AND the error paragraph's own sentence containing "try again") — use a
+  class selector when a click target's label text also appears in nearby
+  copy.
 
 ---
 
@@ -329,8 +361,7 @@ the app.
   (Section 8)
 - "Load more" / pagination affordance on all three History screens — ✅ done,
   see Section 13
-- Pi wallet connect async/loading/error states — deliberately deferred, see
-  Section 4
+- Pi wallet connect async/loading/error states — ✅ done, see Section 14
 
 ---
 

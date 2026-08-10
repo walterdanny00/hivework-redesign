@@ -619,8 +619,17 @@
   .hw-onboard .wallet-pi{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'Sora';font-weight:800;font-size:17px;}
   .hw-onboard .wallet-status{font-size:11px;font-weight:700;background:rgba(255,255,255,.15);padding:5px 11px;border-radius:100px;}
   .hw-onboard .wallet-status.connected{background:rgba(46,196,182,.35);}
+  .hw-onboard .wallet-status.connecting{background:rgba(255,255,255,.15);}
+  .hw-onboard .wallet-status.wc-err{background:rgba(255,107,93,.35);}
   .hw-onboard .wallet-label{font-size:12px;opacity:.8;margin-top:22px;}
   .hw-onboard .wallet-value{font-family:'JetBrains Mono';font-size:15px;margin-top:3px;opacity:.95;}
+  .hw-onboard .wc-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:inline-block;vertical-align:-3px;margin-right:7px;animation:hwSpin .8s linear infinite;}
+  .hw-onboard .wc-error-body{position:relative;margin-top:18px;background:rgba(255,255,255,.1);border-radius:14px;padding:14px;}
+  .hw-onboard .wc-error-body h4{font-size:13.5px;font-weight:800;margin:0 0 4px;}
+  .hw-onboard .wc-error-body p{font-size:12px;opacity:.85;line-height:1.5;margin:0;}
+  .hw-onboard .wc-retry{margin-top:12px;background:rgba(255,255,255,.18);border:none;color:#fff;font-weight:700;font-size:12.5px;padding:9px 16px;border-radius:100px;cursor:pointer;}
+  .hw-onboard .wc-demo-row{display:flex;gap:14px;justify-content:center;margin-top:10px;}
+  .hw-onboard .wc-demo-link{font-size:11px;color:var(--ink-soft);opacity:.55;cursor:pointer;text-decoration:underline;}
   .hw-onboard .kyc-pill{display:flex;align-items:center;gap:10px;background:#FFF3DC;border:1px solid #F4DFA8;border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;}
   .hw-onboard .kyc-pill svg{color:#B8860B;flex-shrink:0;}
   .hw-onboard .kyc-pill span{font-size:12.5px;font-weight:700;color:#8A6512;flex:1;}
@@ -1701,7 +1710,8 @@ function chevIconSvg(open){
 
 let onboardState = null;
 function initOnboardState(){
-  onboardState = { screen:'connect', tosChecked:false, kycOpen:false, walletConnected:false, skills:[], devices:[] };
+  // walletStatus: 'idle' | 'connecting' | 'connected' | 'no-pi-browser' | 'failed'
+  onboardState = { screen:'connect', tosChecked:false, kycOpen:false, walletConnected:false, walletStatus:'idle', skills:[], devices:[] };
 }
 function goToWelcome(intent){
   onboardingIntent = intent;
@@ -1717,12 +1727,28 @@ function owGoTo(id){
 }
 function owToggleTos(){ onboardState.tosChecked = !onboardState.tosChecked; renderWelcome(); }
 function owToggleKyc(){ onboardState.kycOpen = !onboardState.kycOpen; renderWelcome(); }
-function owConnect(){
-  if(!onboardState.tosChecked) return;
-  onboardState.walletConnected = true;
+// Real Pi.authenticate() (see lib/usePi.ts) is async and can fail — this mirrors that
+// with a simulated delay. forceOutcome lets the demo trigger the two failure paths
+// (real code today can't tell "Pi Browser missing" from "not connected" — logged gap).
+function owConnect(forceOutcome){
+  if(!onboardState.tosChecked || onboardState.walletStatus==='connecting') return;
+  onboardState.walletStatus = 'connecting';
   renderWelcome();
-  setTimeout(()=>{ owGoTo('profile'); }, 500);
+  setTimeout(()=>{
+    const outcome = forceOutcome || 'connected';
+    if(outcome==='connected'){
+      onboardState.walletStatus = 'connected';
+      onboardState.walletConnected = true;
+      renderWelcome();
+      setTimeout(()=>{ owGoTo('profile'); }, 500);
+    } else {
+      onboardState.walletStatus = outcome; // 'no-pi-browser' | 'failed'
+      renderWelcome();
+    }
+  }, 1100);
 }
+function owRetryConnect(){ owConnect('connected'); }
+function owSimulateError(kind){ owConnect(kind); }
 function owToggleSkill(s){
   const i = onboardState.skills.indexOf(s);
   if(i>=0) onboardState.skills.splice(i,1); else onboardState.skills.push(s);
@@ -1758,16 +1784,40 @@ function renderWelcome(){
 
   let inner = '';
   if(s.screen==='connect'){
+    const ws = s.walletStatus;
+    let statusLabel = 'Not connected', statusClass = '';
+    if(ws==='connecting'){ statusLabel = 'Connecting…'; statusClass = ' connecting'; }
+    else if(ws==='connected'){ statusLabel = 'Connected'; statusClass = ' connected'; }
+    else if(ws==='no-pi-browser' || ws==='failed'){ statusLabel = 'Connection issue'; statusClass = ' wc-err'; }
+
+    let walletValue;
+    if(ws==='connecting'){ walletValue = '<span class="wc-spin"></span>Waiting on Pi Wallet…'; }
+    else if(ws==='connected'){ walletValue = '@olawalt'; }
+    else { walletValue = 'Waiting for connection…'; }
+
+    let errorBlock = '';
+    if(ws==='no-pi-browser'){
+      errorBlock = '<div class="wc-error-body"><h4>Pi Browser not detected</h4><p>Hivework needs to run inside Pi Browser to connect your wallet. Open this page from the Pi Browser app and try again.</p><button class="wc-retry" onclick="owRetryConnect()">Try again</button></div>';
+    } else if(ws==='failed'){
+      errorBlock = '<div class="wc-error-body"><h4>Connection failed</h4><p>We couldn\'t reach your Pi Wallet. Check your connection and try again.</p><button class="wc-retry" onclick="owRetryConnect()">Retry</button></div>';
+    }
+
+    const connectDisabled = (!s.tosChecked || ws==='connecting') ? 'disabled' : '';
+    const connectLabel = ws==='connecting' ? 'Connecting…' : (ws==='no-pi-browser' || ws==='failed') ? 'Retry connection' : 'Connect with Pi Wallet';
+
     inner = '<div>'
       + owWizardTrack(1)
       + '<div class="step-head"><h1>Connect your Pi Wallet</h1><p>Hivework uses the Pi Wallet for identity and escrow. We\'ll request your Pi username and payment permissions.</p></div>'
-      + '<div class="wallet-card"><div class="wallet-top"><div class="wallet-pi">π</div><span class="wallet-status'+(s.walletConnected?' connected':'')+'">'+(s.walletConnected?'Connected':'Not connected')+'</span></div>'
-      + '<div class="wallet-label">Pi Wallet</div><div class="wallet-value">'+(s.walletConnected?'@olawalt':'Waiting for connection…')+'</div></div>'
+      + '<div class="wallet-card"><div class="wallet-top"><div class="wallet-pi">π</div><span class="wallet-status'+statusClass+'">'+statusLabel+'</span></div>'
+      + '<div class="wallet-label">Pi Wallet</div><div class="wallet-value">'+walletValue+'</div>'
+      + errorBlock
+      + '</div>'
       + '<div class="kyc-pill'+(s.kycOpen?' open':'')+'" onclick="owToggleKyc()">'+SHIELD_ICON_SVG+'<span>KYC required for paid activity — tap to learn more</span>'+chevIconSvg(s.kycOpen)+'</div>'
       + '<div class="kyc-detail'+(s.kycOpen?' open':'')+'"><div class="kyc-detail-inner">'+HW_ONBOARD_KYC_DETAIL+'</div></div>'
       + '<div class="testnet-note">Note: Hivework is currently on Pi Testnet — wallet activity here uses Test-Pi, not real Pi.</div>'
       + '<div class="tos-row" onclick="owToggleTos()"><div class="tos-check'+(s.tosChecked?' checked':'')+'">'+(s.tosChecked?CHECK_ICON_SVG:'')+'</div><p>I agree to the <a href="#" onclick="event.stopPropagation()">Terms of Service</a> and <a href="#" onclick="event.stopPropagation()">Privacy Policy</a>.</p></div>'
-      + '<button class="btn btn-primary" '+(s.tosChecked?'':'disabled')+' onclick="owConnect()">Connect with Pi Wallet</button>'
+      + '<button class="btn btn-primary" '+connectDisabled+' onclick="owConnect(\'connected\')">'+connectLabel+'</button>'
+      + (ws==='idle' && s.tosChecked ? '<div class="wc-demo-row"><span class="wc-demo-link" onclick="owSimulateError(\'no-pi-browser\')">Demo: no Pi Browser</span><span class="wc-demo-link" onclick="owSimulateError(\'failed\')">Demo: connection failed</span></div>' : '')
       + '</div>';
   } else if(s.screen==='profile'){
     inner = '<div>'
