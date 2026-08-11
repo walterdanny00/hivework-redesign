@@ -169,6 +169,30 @@
   .withdraw-row input{flex:1;border:none;border-radius:100px;padding:12px 16px;font-size:13px;background:rgba(255,255,255,.12);color:white;}
   .withdraw-row input::placeholder{color:#8B889A;}
   .withdraw-row button{background:var(--violet);color:white;border:none;border-radius:100px;padding:12px 20px;font-weight:700;font-size:13px;}
+  .withdraw-row button:disabled{opacity:.5;}
+  .wd-fee-note{font-size:11.5px;color:#B4B1BC;margin-top:10px;position:relative;}
+  .wd-fee-note strong{color:white;}
+  .wd-max-link{background:none;border:none;color:#C9BFFF;font-size:11.5px;font-weight:700;cursor:pointer;padding:0;margin-top:8px;display:block;position:relative;}
+  .wd-note{font-size:11px;color:#8B889A;line-height:1.5;margin-top:14px;position:relative;}
+  .wd-note strong{color:#B4B1BC;}
+  .wd-err{color:#FF8A80;font-size:12.5px;margin-top:8px;position:relative;}
+  .wd-msg{color:#7EE0D3;font-size:12.5px;margin-top:8px;position:relative;}
+  .wd-demo-fail{background:none;border:none;color:#5F5C6B;font-size:10px;text-decoration:underline;cursor:pointer;padding:0;margin-top:12px;display:block;position:relative;}
+  /* ===== Withdrawal history rows — real fee/net/status/address shape,
+     shared by the Dashboard mini-preview and the full History→Withdrawals
+     page (ctx-prefixed contact-support ids so both can mount at once
+     without colliding — same fix as the profile-menu/job-detail collision
+     already logged). */
+  .wd-item{padding:14px 0;border-bottom:1px solid var(--line);}
+  .wd-item:last-child{border-bottom:none;}
+  .wd-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .wd-amt{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .wd-status{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:100px;}
+  .wd-status.queued,.wd-status.processing{background:#EFEAFB;color:var(--violet-deep);}
+  .wd-status.completed{background:#E4F8F6;color:#1A9E92;}
+  .wd-status.failed{background:#FFE8E5;color:#D9463A;}
+  .wd-item-sub{font-size:12px;color:var(--ink-soft);}
+  .wd-item-fail{font-size:12px;color:var(--danger);margin-top:4px;}
 
   .ledger{position:relative;padding-left:22px;}
   .ledger:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line);}
@@ -943,11 +967,7 @@
       </div>
 
       <div id="mywork-panel">
-        <div class="balance-card">
-          <div class="l">Available balance</div>
-          <div class="n">4π</div>
-          <div class="withdraw-row"><input placeholder="Amount (min 1π)"><button>Withdraw</button></div>
-        </div>
+        <div id="dash-withdraw-panel"></div>
 
         <div class="section-title-row">
           <div class="section-title" style="margin:0;">Your work</div>
@@ -960,9 +980,9 @@
           <div class="section-title" style="margin:0;">Withdrawals</div>
           <span class="see-all" onclick="goToHistWithdrawals()">See all →</span>
         </div>
-        <div class="hist-row"><div><h4>2π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">1.99π</span></div>
-        <div class="hist-row"><div><h4>1π withdrawn</h4><span class="hist-sub pos">completed · to GB33VY…OFXX</span></div><span class="hist-amt">0.99π</span></div>
+        <div id="dash-wd-history"></div>
       </div>
+
 
       <div id="myjobs-panel" style="display:none;">
         <div class="section-title-row">
@@ -1061,6 +1081,8 @@ function showScreen(id, el){
   const mainScreens = ['home','browse','post','dashboard'];
   document.getElementById('segnav').style.display = mainScreens.includes(id) ? 'flex' : 'none';
   document.querySelectorAll('.segnav a').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
+
+  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); }
 
   closeMenus();
   window.scrollTo(0,0);
@@ -2141,13 +2163,112 @@ const HW_JOBS_HISTORY = [
 ];
 // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
 // are a filtering-demo assumption, not real-code-derived (same note as JSX).
+// Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
+// requested_amount/fee/net_amount/status/to_address. Flat fee=0.01π across
+// every row is a demo simplification — the real API sources `fee` and
+// `minWithdrawal` dynamically per-response (GET /api/withdrawals), not as a
+// frontend constant, so this is illustrative, not a confirmed real number.
 const HW_WITHDRAWAL_HISTORY = [
-  {title:'2π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'1.99π', positive:true, date:'2026-08-07'},
-  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-08-01'},
-  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-07-15'},
-  {title:'3π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'2.98π', positive:true, date:'2026-06-20'},
-  {title:'1π withdrawn', sub:'completed · to GB33VY…OFXX', amt:'0.99π', positive:true, date:'2026-05-28'},
+  {id:'w6', requested_amount:1.5, fee:0.01, net_amount:1.49, status:'processing', to_address:null, date:'2026-08-10'},
+  {id:'w1', requested_amount:2, fee:0.01, net_amount:1.99, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-08-07'},
+  {id:'w2', requested_amount:1, fee:0.01, net_amount:0.99, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-08-01'},
+  {id:'w3', requested_amount:1, fee:0.01, net_amount:0.99, status:'failed', to_address:null, date:'2026-07-15'},
+  {id:'w4', requested_amount:3, fee:0.01, net_amount:2.99, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-06-20'},
+  {id:'w5', requested_amount:1, fee:0.01, net_amount:0.99, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-05-28'},
 ];
+
+function wdShortAddr(a){ if(!a) return ''; return a.length>12 ? a.slice(0,6)+'…'+a.slice(-4) : a; }
+const WD_STATUS_LABEL = {queued:'queued', processing:'processing', completed:'completed', failed:'failed'};
+// ctx prefixes the mounted Contact Support container id so the Dashboard
+// preview and the full History→Withdrawals page can both render the same
+// row's failed state simultaneously without an id collision.
+function renderWdRow(w, ctx){
+  let html = '<div class="wd-item"><div class="wd-item-top"><span class="wd-amt">'+w.requested_amount+'π</span>'
+    + '<span class="wd-status '+w.status+'">'+WD_STATUS_LABEL[w.status]+'</span></div>'
+    + '<div class="wd-item-sub">You received '+w.net_amount+'π (fee '+w.fee+'π)';
+  if(w.status==='completed' && w.to_address) html += ' · to '+wdShortAddr(w.to_address);
+  html += ' · '+new Date(w.date).toLocaleDateString()+'</div>';
+  if(w.status==='failed'){
+    html += '<div class="wd-item-fail">This withdrawal didn\'t complete. If your balance wasn\'t restored, <span id="wd-contact-'+ctx+'-'+w.id+'"></span></div>';
+  }
+  html += '</div>';
+  return html;
+}
+function mountWdFailedContacts(rows, ctx){
+  rows.filter(w=>w.status==='failed').forEach(w=>{
+    if(document.getElementById('wd-contact-'+ctx+'-'+w.id)) initContactSupport('wd-contact-'+ctx+'-'+w.id, 'Withdrawal failed ('+w.id+')', 'contact support');
+  });
+}
+function renderDashWdHistory(){
+  const items = HW_WITHDRAWAL_HISTORY.slice(0,3);
+  document.getElementById('dash-wd-history').innerHTML = items.map(w=>renderWdRow(w,'dash')).join('');
+  mountWdFailedContacts(items, 'dash');
+}
+
+// ===== WithdrawPanel (Dashboard) — reconciled with real WithdrawPanel.tsx.
+// 'earnings' kind only (worker balance); the real 'refund' kind (client
+// refund balance, same component/copy variant) isn't demoed in this shell —
+// real gap, not attempted this session.
+let WITHDRAW_BALANCE = 4;
+const WITHDRAW_MIN = 1;
+const WITHDRAW_FEE = 0.01;
+let withdrawState = {amount:'', submitting:false, message:'', errorMsg:''};
+function wdCanSubmit(){
+  const st = withdrawState, amt = parseFloat(st.amount);
+  return !st.submitting && !isNaN(amt) && amt>=WITHDRAW_MIN && amt>WITHDRAW_FEE && amt<=WITHDRAW_BALANCE;
+}
+function renderWithdrawPanel(){
+  const st = withdrawState, amt = parseFloat(st.amount), validAmt = !isNaN(amt);
+  const net = validAmt && amt>WITHDRAW_FEE ? +(amt-WITHDRAW_FEE).toFixed(4) : 0;
+  let html = '<div class="balance-card">'
+    + '<div class="l">Available balance</div><div class="n">'+WITHDRAW_BALANCE+'π</div>'
+    + '<div class="withdraw-row"><input id="wd-amount-input" placeholder="Amount (min '+WITHDRAW_MIN+'π)" value="'+st.amount+'" oninput="updateWithdrawAmount(this.value)">'
+    + '<button id="wd-submit-btn" '+(wdCanSubmit()?'':'disabled')+' onclick="submitWithdraw()">'+(st.submitting?'Requesting…':'Withdraw')+'</button></div>'
+    + '<div class="wd-fee-note" id="wd-fee-note" style="display:'+(validAmt&&amt>WITHDRAW_FEE?'':'none')+';">Network fee '+WITHDRAW_FEE+'π · you receive <strong>'+net+'π</strong></div>';
+  if(WITHDRAW_BALANCE>=WITHDRAW_MIN) html += '<button class="wd-max-link" onclick="maxWithdraw()">Withdraw all ('+WITHDRAW_BALANCE+'π)</button>';
+  html += '<div class="wd-err" id="wd-err-msg" style="display:'+(st.errorMsg?'':'none')+';">'+st.errorMsg+'</div>'
+    + '<div class="wd-msg" id="wd-success-msg" style="display:'+(st.message?'':'none')+';">'+st.message+'</div>'
+    + '<div class="wd-note">Withdrawals are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.</div>'
+    + '<button class="wd-demo-fail" onclick="demoWithdrawFail()">Demo: simulate failed request</button>'
+    + '</div>';
+  document.getElementById('dash-withdraw-panel').innerHTML = html;
+}
+// Direct DOM patch on every keystroke, no full re-render — same
+// focus-preserving convention as every other continuously-typed field.
+function updateWithdrawAmount(v){
+  withdrawState.amount = v; withdrawState.errorMsg=''; withdrawState.message='';
+  const amt = parseFloat(v), validAmt = !isNaN(amt);
+  const net = validAmt && amt>WITHDRAW_FEE ? +(amt-WITHDRAW_FEE).toFixed(4) : 0;
+  const feeEl = document.getElementById('wd-fee-note');
+  if(feeEl){ feeEl.style.display = (validAmt&&amt>WITHDRAW_FEE)?'':'none'; feeEl.innerHTML = 'Network fee '+WITHDRAW_FEE+'π · you receive <strong>'+net+'π</strong>'; }
+  const btn = document.getElementById('wd-submit-btn'); if(btn) btn.disabled = !wdCanSubmit();
+  const errEl = document.getElementById('wd-err-msg'); if(errEl) errEl.style.display = 'none';
+  const msgEl = document.getElementById('wd-success-msg'); if(msgEl) msgEl.style.display = 'none';
+}
+function maxWithdraw(){
+  withdrawState.amount = String(WITHDRAW_BALANCE); withdrawState.errorMsg=''; withdrawState.message='';
+  const inp = document.getElementById('wd-amount-input'); if(inp) inp.value = withdrawState.amount;
+  updateWithdrawAmount(withdrawState.amount);
+}
+function submitWithdraw(){
+  if(!wdCanSubmit()) return;
+  withdrawState.submitting = true; renderWithdrawPanel();
+  const amt = parseFloat(withdrawState.amount);
+  setTimeout(()=>{
+    WITHDRAW_BALANCE = +(WITHDRAW_BALANCE - amt).toFixed(4);
+    HW_WITHDRAWAL_HISTORY.unshift({id:'w'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10)});
+    withdrawState = {amount:'', submitting:false, message:'Withdrawal requested. It is being processed.', errorMsg:''};
+    renderWithdrawPanel(); renderDashWdHistory();
+  }, 500);
+}
+// Lets a reviewer see the error-copy path without a real failed API call —
+// same "Demo:" trigger-link convention session 11 used for wallet-connect
+// error states.
+function demoWithdrawFail(){
+  withdrawState.errorMsg = 'Could not request withdrawal.'; withdrawState.message='';
+  renderWithdrawPanel();
+}
+
 
 // Real app backs all 3 History lists (plus withdrawals) with a shared
 // cursor-pagination hook (usePaginatedList.ts) — mockups previously just
@@ -2156,11 +2277,12 @@ const HW_WITHDRAWAL_HISTORY = [
 // fetch, since there's no backend to page against here.
 const HIST_PAGE_SIZE = 2;
 
-function renderHistList(rows, range, shown, loadMoreFn){
+function renderHistList(rows, range, shown, loadMoreFn, rowRenderer){
   const boundary = getRangeBoundary(range);
   const filtered = rows.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
   const visible = filtered.slice(0, shown);
-  const rowsHtml = visible.map(r=>'<div class="hist-row"><div><h4>'+r.title+'</h4><span class="hist-sub'+(r.positive?' pos':'')+'">'+r.sub+'</span></div><span class="hist-amt">'+r.amt+'</span></div>').join('');
+  const render = rowRenderer || (r=>'<div class="hist-row"><div><h4>'+r.title+'</h4><span class="hist-sub'+(r.positive?' pos':'')+'">'+r.sub+'</span></div><span class="hist-amt">'+r.amt+'</span></div>');
+  const rowsHtml = visible.map(render).join('');
   const hasMore = filtered.length > shown;
   const loadMoreHtml = hasMore ? '<button class="hist-load-more" onclick="'+loadMoreFn+'()">Load more</button>' : (filtered.length ? '' : '<div class="hist-empty-more">Nothing here yet.</div>');
   return rowsHtml + loadMoreHtml;
@@ -2185,7 +2307,11 @@ function loadMoreHistJobs(){ histJobsShown += HIST_PAGE_SIZE; renderHistJobs(); 
 let histWithdrawalsRange = 'all', histWithdrawalsShown = HIST_PAGE_SIZE;
 function goToHistWithdrawals(){ histWithdrawalsRange = 'all'; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); showScreen('history-withdrawals'); }
 function renderHistWithdrawals(){
-  document.getElementById('hist-withdrawals-render').innerHTML = renderRangeFilter(histWithdrawalsRange, 'setHistWithdrawalsRange') + renderHistList(HW_WITHDRAWAL_HISTORY, histWithdrawalsRange, histWithdrawalsShown, 'loadMoreHistWithdrawals');
+  const boundary = getRangeBoundary(histWithdrawalsRange);
+  const filtered = HW_WITHDRAWAL_HISTORY.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
+  const visible = filtered.slice(0, histWithdrawalsShown);
+  document.getElementById('hist-withdrawals-render').innerHTML = renderRangeFilter(histWithdrawalsRange, 'setHistWithdrawalsRange') + renderHistList(HW_WITHDRAWAL_HISTORY, histWithdrawalsRange, histWithdrawalsShown, 'loadMoreHistWithdrawals', w=>renderWdRow(w,'hist'));
+  mountWdFailedContacts(visible, 'hist');
 }
 function setHistWithdrawalsRange(k){ histWithdrawalsRange = k; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); }
 function loadMoreHistWithdrawals(){ histWithdrawalsShown += HIST_PAGE_SIZE; renderHistWithdrawals(); }
