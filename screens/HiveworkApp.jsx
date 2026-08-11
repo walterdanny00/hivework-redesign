@@ -102,15 +102,115 @@ const JOBS_HISTORY = [
   { title: "Usability pass on Post Job wizard", sub: "completed · closed 5/30/2026", amt: "7π", positive: true, date: "2026-05-30" },
 ];
 
+// Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
+// requested_amount/fee/net_amount/status/to_address. Flat fee=0.01π across
+// every row is a demo simplification — the real API sources `fee` and
+// `minWithdrawal` dynamically per-response (GET /api/withdrawals), not as a
+// frontend constant, so this is illustrative, not a confirmed real number.
+// Dates on the "dates" field are a filtering-demo assumption, same as the
+// other two history lists — real rows only carry created_at.
 const WITHDRAWAL_HISTORY = [
-  // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
-  // are a filtering-demo assumption, not real-code-derived.
-  { title: "2π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "1.99π", positive: true, date: "2026-08-07" },
-  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-08-01" },
-  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-07-15" },
-  { title: "3π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "2.98π", positive: true, date: "2026-06-20" },
-  { title: "1π withdrawn", sub: "completed · to GB33VY…OFXX", amt: "0.99π", positive: true, date: "2026-05-28" },
+  { id: "w6", requested_amount: 1.5, fee: 0.01, net_amount: 1.49, status: "processing", to_address: null, date: "2026-08-10" },
+  { id: "w1", requested_amount: 2, fee: 0.01, net_amount: 1.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-08-07" },
+  { id: "w2", requested_amount: 1, fee: 0.01, net_amount: 0.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-08-01" },
+  { id: "w3", requested_amount: 1, fee: 0.01, net_amount: 0.99, status: "failed", to_address: null, date: "2026-07-15" },
+  { id: "w4", requested_amount: 3, fee: 0.01, net_amount: 2.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-06-20" },
+  { id: "w5", requested_amount: 1, fee: 0.01, net_amount: 0.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-05-28" },
 ];
+const WD_STATUS_LABEL = { queued: "queued", processing: "processing", completed: "completed", failed: "failed" };
+function wdShortAddr(a) { if (!a) return ""; return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a; }
+// ctx prefixes the mounted Contact Support instance key so the Dashboard
+// mini-preview and the full History→Withdrawals page can both render the
+// same row's failed state at once without a key collision (same fix as the
+// profile-menu/job-detail instance-scoping already logged).
+// ===== WithdrawPanel (Dashboard) — reconciled with real WithdrawPanel.tsx.
+// React's controlled-input diffing preserves focus natively, so unlike the
+// vanilla-JS shell this needs no direct-DOM-patch workaround for the live
+// fee/net preview — a plain onChange + re-render is fine here.
+function WithdrawPanel({ balance, minWithdrawal, fee, onWithdraw }) {
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const amt = Number(amount);
+  const validAmt = amount !== "" && Number.isFinite(amt);
+  const net = validAmt && amt > fee ? Number((amt - fee).toFixed(4)) : 0;
+  const canSubmit = !submitting && validAmt && amt >= minWithdrawal && amt > fee && amt <= balance;
+
+  function handleWithdraw() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setErrorMsg("");
+    setMessage("");
+    setTimeout(() => {
+      onWithdraw(amt, fee);
+      setSubmitting(false);
+      setMessage("Withdrawal requested. It is being processed.");
+      setAmount("");
+    }, 500);
+  }
+
+  // Lets a reviewer see the error-copy path without a real failed API call —
+  // same "Demo:" trigger-link convention session 11 used for wallet-connect
+  // error states.
+  function demoFail() { setErrorMsg("Could not request withdrawal."); setMessage(""); }
+
+  return (
+    <div className="balance-card">
+      <div className="l">Available balance</div>
+      <div className="n">{balance}π</div>
+      <div className="withdraw-row">
+        <input
+          placeholder={`Amount (min ${minWithdrawal}π)`}
+          value={amount}
+          onChange={(e) => { setAmount(e.target.value); setErrorMsg(""); setMessage(""); }}
+        />
+        <button disabled={!canSubmit} onClick={handleWithdraw}>{submitting ? "Requesting…" : "Withdraw"}</button>
+      </div>
+
+      {validAmt && amt > fee && (
+        <div className="wd-fee-note">Network fee {fee}π · you receive <strong>{net}π</strong></div>
+      )}
+
+      {balance >= minWithdrawal && (
+        <button className="wd-max-link" onClick={() => { setAmount(String(balance)); setErrorMsg(""); setMessage(""); }}>
+          Withdraw all ({balance}π)
+        </button>
+      )}
+
+      {errorMsg && <div className="wd-err">{errorMsg}</div>}
+      {message && <div className="wd-msg">{message}</div>}
+
+      <div className="wd-note">
+        Withdrawals are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.
+      </div>
+      <button className="wd-demo-fail" onClick={demoFail}>Demo: simulate failed request</button>
+    </div>
+  );
+}
+
+
+function WithdrawalRow({ w }) {
+  return (
+    <div className="wd-item">
+      <div className="wd-item-top">
+        <span className="wd-amt">{w.requested_amount}π</span>
+        <span className={`wd-status ${w.status}`}>{WD_STATUS_LABEL[w.status]}</span>
+      </div>
+      <div className="wd-item-sub">
+        You received {w.net_amount}π (fee {w.fee}π)
+        {w.status === "completed" && w.to_address && <> · to {wdShortAddr(w.to_address)}</>}
+        {" · "}{new Date(w.date).toLocaleDateString()}
+      </div>
+      {w.status === "failed" && (
+        <div className="wd-item-fail">
+          This withdrawal didn't complete. If your balance wasn't restored, <HiveworkContactSupport label="contact support" subject={`Withdrawal failed (${w.id})`} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Real app backs all 3 History lists with a shared cursor-pagination hook
 // (usePaginatedList.ts) — this "Load more" affordance approximates that by
@@ -172,16 +272,15 @@ function HistoryRow({ title, sub, amt, positive }) {
   );
 }
 
-function HistoryList({ rows, range, shown, onLoadMore }) {
+function HistoryList({ rows, range, shown, onLoadMore, renderRow }) {
   const boundary = getRangeBoundary(range);
   const filtered = rows.filter((row) => !row.date || !boundary || new Date(row.date) >= boundary);
   const visible = filtered.slice(0, shown);
   const hasMore = filtered.length > shown;
+  const render = renderRow || ((row) => <HistoryRow key={row.title} {...row} />);
   return (
     <>
-      {visible.map((row) => (
-        <HistoryRow key={row.title} {...row} />
-      ))}
+      {visible.map(render)}
       {hasMore && (
         <button className="hist-load-more" onClick={onLoadMore}>Load more</button>
       )}
@@ -2528,6 +2627,20 @@ export default function HiveworkApp() {
   const [detailKey, setDetailKey] = useState("mine");
   const [workView, setWorkView] = useState("mywork"); // 'mywork' | 'myjobs'
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  // Real WithdrawPanel.tsx state, 'earnings' kind only — the real 'refund'
+  // kind (client refund balance, same component/copy variant) isn't demoed
+  // in this shell — real gap, not attempted this session.
+  const [withdrawBalance, setWithdrawBalance] = useState(4);
+  const [withdrawalHistory, setWithdrawalHistory] = useState(WITHDRAWAL_HISTORY);
+  const WITHDRAW_MIN = 1;
+  const WITHDRAW_FEE = 0.01; // demo simplification, see WITHDRAWAL_HISTORY comment above
+  const handleWithdraw = (amt, fee) => {
+    setWithdrawBalance((b) => Number((b - amt).toFixed(4)));
+    setWithdrawalHistory((h) => [
+      { id: `w${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10) },
+      ...h,
+    ]);
+  };
   const [testnetTipOpen, setTestnetTipOpen] = useState(false);
   // Real Profile.tsx toggles editing in place on the same page (own-profile
   // view only), sharing ProfileForm with real /onboarding — mirrored here
@@ -2762,6 +2875,27 @@ export default function HiveworkApp() {
         .hw-app .withdraw-row input{flex:1;border:none;border-radius:100px;padding:12px 16px;font-size:13px;background:rgba(255,255,255,.12);color:white;}
         .hw-app .withdraw-row input::placeholder{color:#8B889A;}
         .hw-app .withdraw-row button{background:var(--violet);color:white;border:none;border-radius:100px;padding:12px 20px;font-weight:700;font-size:13px;cursor:pointer;}
+        .hw-app .withdraw-row button:disabled{opacity:.5;}
+        .hw-app .wd-fee-note{font-size:11.5px;color:#B4B1BC;margin-top:10px;position:relative;}
+        .hw-app .wd-fee-note strong{color:white;}
+        .hw-app .wd-max-link{background:none;border:none;color:#C9BFFF;font-size:11.5px;font-weight:700;cursor:pointer;padding:0;margin-top:8px;display:block;position:relative;}
+        .hw-app .wd-note{font-size:11px;color:#8B889A;line-height:1.5;margin-top:14px;position:relative;}
+        .hw-app .wd-note strong{color:#B4B1BC;}
+        .hw-app .wd-err{color:#FF8A80;font-size:12.5px;margin-top:8px;position:relative;}
+        .hw-app .wd-msg{color:#7EE0D3;font-size:12.5px;margin-top:8px;position:relative;}
+        .hw-app .wd-demo-fail{background:none;border:none;color:#5F5C6B;font-size:10px;text-decoration:underline;cursor:pointer;padding:0;margin-top:12px;display:block;position:relative;}
+        /* Withdrawal history rows — shared by the Dashboard mini-preview and
+           the full History→Withdrawals page. */
+        .hw-app .wd-item{padding:14px 0;border-bottom:1px solid var(--line);}
+        .hw-app .wd-item:last-child{border-bottom:none;}
+        .hw-app .wd-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+        .hw-app .wd-amt{font-weight:700;font-size:13.5px;color:var(--ink);}
+        .hw-app .wd-status{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:100px;}
+        .hw-app .wd-status.queued,.hw-app .wd-status.processing{background:#EFEAFB;color:var(--violet-deep);}
+        .hw-app .wd-status.completed{background:#E4F8F6;color:#1A9E92;}
+        .hw-app .wd-status.failed{background:#FFE8E5;color:#D9463A;}
+        .hw-app .wd-item-sub{font-size:12px;color:var(--ink-soft);}
+        .hw-app .wd-item-fail{font-size:12px;color:var(--danger);margin-top:4px;}
 
         .hw-app .ledger{position:relative;padding-left:22px;}
         .hw-app .ledger:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line);}
@@ -3103,11 +3237,7 @@ export default function HiveworkApp() {
 
                 {workView === "mywork" && (
                   <div>
-                    <div className="balance-card">
-                      <div className="l">Available balance</div>
-                      <div className="n">4π</div>
-                      <div className="withdraw-row"><input placeholder="Amount (min 1π)" /><button>Withdraw</button></div>
-                    </div>
+                    <WithdrawPanel balance={withdrawBalance} minWithdrawal={WITHDRAW_MIN} fee={WITHDRAW_FEE} onWithdraw={handleWithdraw} />
 
                     <div className="section-title-row">
                       <div className="section-title" style={{ margin: 0 }}>Your work</div>
@@ -3121,8 +3251,8 @@ export default function HiveworkApp() {
                       <div className="section-title" style={{ margin: 0 }}>Withdrawals</div>
                       <button className="see-all" onClick={goToHistWithdrawals}>See all →</button>
                     </div>
-                    {WITHDRAWAL_HISTORY.slice(0, 2).map((row) => (
-                      <HistoryRow key={row.title} {...row} />
+                    {withdrawalHistory.slice(0, 3).map((w) => (
+                      <WithdrawalRow key={w.id} w={w} />
                     ))}
                   </div>
                 )}
@@ -3197,10 +3327,11 @@ export default function HiveworkApp() {
                 <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Withdrawal history</h1></div>
                 <HiveworkRangeFilter value={withdrawalsHistoryRange} onChange={setWithdrawalsHistoryRange} />
                 <HistoryList
-                  rows={WITHDRAWAL_HISTORY}
+                  rows={withdrawalHistory}
                   range={withdrawalsHistoryRange}
                   shown={withdrawalsHistoryShown}
                   onLoadMore={() => setWithdrawalsHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                  renderRow={(w) => <WithdrawalRow key={w.id} w={w} />}
                 />
               </div>
             )}
