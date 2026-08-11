@@ -317,7 +317,20 @@
   .jdo .app-btn{padding:8px 13px;border-radius:100px;font-size:11.5px;font-weight:700;border:none;cursor:pointer;}
   .jdo .app-btn.approve{background:var(--violet);color:white;flex:1;}
   .jdo .app-btn.decline{background:#EFECE5;color:var(--ink-soft);}
+  .jdo .app-btn.decline-confirm{background:var(--coral);color:white;flex:1;}
+  .jdo .app-btn.decline-cancel{background:#EFECE5;color:var(--ink-soft);flex:1;}
+  .jdo .app-btn.undo{background:#EFEAFB;color:var(--violet-deep);flex-shrink:0;}
   .jdo .empty-note{font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+  .jdo .declined-section{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;}
+  .jdo .declined-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 2px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .jdo .declined-toggle .chevron{transition:transform .15s ease;}
+  .jdo .declined-toggle .chevron.open{transform:rotate(180deg);}
+  .jdo .declined-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .jdo .declined-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#F7F5F1;border-radius:12px;}
+  .jdo .declined-row .avatar-sm.dim{opacity:.55;}
+  .jdo .declined-info{flex:1;min-width:0;}
+  .jdo .declined-info .n{font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .jdo .declined-info .trust.dim{font-size:11px;color:var(--ink-soft);opacity:.7;}
   .jdo .close-slots-card{background:#FDFBF7;border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
   .jdo .close-slots-card .cs-label{font-size:12.5px;font-weight:700;margin-bottom:4px;}
   .jdo .close-slots-card .cs-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;}
@@ -1242,6 +1255,9 @@ function initOwnerState(){
   ownerState = {
     activeTab:'overview',
     applicants: JSON.parse(JSON.stringify(INITIAL_APPLICANTS)),
+    declined: [],
+    confirmingDeclineId: null,
+    declinedExpanded: false,
     slots: JSON.parse(JSON.stringify(INITIAL_SLOTS)),
     closeCount:1, closeCountText:'1', closing:false, closedCount:0
   };
@@ -1254,7 +1270,29 @@ function approveApplicant(id){
   ownerState.slots.push(Object.assign({}, a, {status:'progress', submission:null, givenRating:null, draftRating:0}));
   renderOwnerDetail();
 }
-function declineApplicant(id){ ownerState.applicants = ownerState.applicants.filter(x=>x.id!==id); renderOwnerDetail(); }
+// Decline is a two-step inline confirm (see roadmap Section 16): clicking
+// "Decline" first arms a per-row confirm swap, a second click actually
+// declines. Declined applicants aren't removed outright -- they move into
+// a persistent, collapsed "Declined" section with an Undo, so an owner
+// checking back later still has a record of who they ruled out.
+function requestDecline(id){ ownerState.confirmingDeclineId = id; renderOwnerDetail(); }
+function cancelDecline(){ ownerState.confirmingDeclineId = null; renderOwnerDetail(); }
+function confirmDecline(id){
+  const a = ownerState.applicants.find(x=>x.id===id);
+  if(!a) return;
+  ownerState.applicants = ownerState.applicants.filter(x=>x.id!==id);
+  ownerState.declined.push(a);
+  ownerState.confirmingDeclineId = null;
+  renderOwnerDetail();
+}
+function undoDecline(id){
+  const a = ownerState.declined.find(x=>x.id===id);
+  if(!a) return;
+  ownerState.declined = ownerState.declined.filter(x=>x.id!==id);
+  ownerState.applicants.push(a);
+  renderOwnerDetail();
+}
+function toggleDeclinedExpanded(){ ownerState.declinedExpanded = !ownerState.declinedExpanded; renderOwnerDetail(); }
 function setDraftRating(id,n){ const sl = ownerState.slots.find(x=>x.id===id); if(sl) sl.draftRating=n; renderOwnerDetail(); }
 function confirmRating(id){ const sl = ownerState.slots.find(x=>x.id===id); if(sl && sl.draftRating) sl.givenRating = sl.draftRating; renderOwnerDetail(); }
 function markComplete(id){ const sl = ownerState.slots.find(x=>x.id===id); if(sl) sl.status='completed'; renderOwnerDetail(); }
@@ -1339,6 +1377,11 @@ function renderOwnerDetail(){
       html += '<p class="empty-note">No pending applicants.</p>';
     } else {
       s.applicants.forEach(a=>{
+        const actionsHtml = (s.confirmingDeclineId===a.id)
+          ? '<button class="app-btn decline-confirm" onclick="confirmDecline(\''+a.id+'\')">Sure?</button>'
+            + '<button class="app-btn decline-cancel" onclick="cancelDecline()">Cancel</button>'
+          : '<button class="app-btn approve" onclick="approveApplicant(\''+a.id+'\')">Approve & Assign</button>'
+            + '<button class="app-btn decline" onclick="requestDecline(\''+a.id+'\')">Decline</button>';
         html += '<div class="applicant-row">'
           + '<div class="app-top"><div class="avatar-sm">'+a.name[1].toUpperCase()+'</div>'
           + '<div class="app-info"><div class="n">'+a.name+'</div><div class="trust" style="color:'+TRUST_COLOR[a.trustTier]+'">'+a.trustBadge+'</div></div>'
@@ -1347,10 +1390,26 @@ function renderOwnerDetail(){
             + (a.skills.length>3?'<span class="app-chip">+'+(a.skills.length-3)+' more</span>':'')
             + a.devices.map(d=>'<span class="app-chip device">📱 '+d+'</span>').join('') + '</div>'
           + '<p class="app-note">'+a.coverNote+'</p>'
-          + '<div class="app-actions"><button class="app-btn approve" onclick="approveApplicant(\''+a.id+'\')">Approve & Assign</button>'
-          + '<button class="app-btn decline" onclick="declineApplicant(\''+a.id+'\')">Decline</button></div>'
+          + '<div class="app-actions">'+actionsHtml+'</div>'
           + '</div>';
       });
+    }
+    if(s.declined.length>0){
+      html += '<div class="declined-section">'
+        + '<button class="declined-toggle" onclick="toggleDeclinedExpanded()"><span>Declined ('+s.declined.length+')</span>'
+        + '<span class="chevron'+(s.declinedExpanded?' open':'')+'">⌄</span></button>';
+      if(s.declinedExpanded){
+        html += '<div class="declined-list">';
+        s.declined.forEach(a=>{
+          html += '<div class="declined-row">'
+            + '<div class="avatar-sm dim">'+a.name[1].toUpperCase()+'</div>'
+            + '<div class="declined-info"><div class="n">'+a.name+'</div><div class="trust dim">'+a.trustBadge+'</div></div>'
+            + '<button class="app-btn undo" onclick="undoDecline(\''+a.id+'\')">Undo</button>'
+            + '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
     }
     html += '</div>';
   } else if(s.activeTab==='slots'){

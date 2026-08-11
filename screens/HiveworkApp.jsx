@@ -479,7 +479,20 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .app-btn{padding:8px 13px;border-radius:100px;font-size:11.5px;font-weight:700;border:none;cursor:pointer;}
   .jdo .app-btn.approve{background:var(--violet);color:white;flex:1;}
   .jdo .app-btn.decline{background:#EFECE5;color:var(--ink-soft);}
+  .jdo .app-btn.decline-confirm{background:var(--coral);color:white;flex:1;}
+  .jdo .app-btn.decline-cancel{background:#EFECE5;color:var(--ink-soft);flex:1;}
+  .jdo .app-btn.undo{background:#EFEAFB;color:var(--violet-deep);flex-shrink:0;}
   .jdo .empty-note{font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+  .jdo .declined-section{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;}
+  .jdo .declined-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 2px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .jdo .declined-toggle .chevron{transition:transform .15s ease;}
+  .jdo .declined-toggle .chevron.open{transform:rotate(180deg);}
+  .jdo .declined-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .jdo .declined-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#F7F5F1;border-radius:12px;}
+  .jdo .declined-row .avatar-sm.dim{opacity:.55;}
+  .jdo .declined-info{flex:1;min-width:0;}
+  .jdo .declined-info .n{font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .jdo .declined-info .trust.dim{font-size:11px;color:var(--ink-soft);opacity:.7;}
   .jdo .close-slots-card{background:#FDFBF7;border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
   .jdo .close-slots-card .cs-label{font-size:12.5px;font-weight:700;margin-bottom:4px;}
   .jdo .close-slots-card .cs-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;}
@@ -525,6 +538,9 @@ const JOB_DETAIL_OWNER_STYLES = `
 function JobDetailOwner({ job, onBack }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [applicants, setApplicants] = useState(INITIAL_APPLICANTS);
+  const [declined, setDeclined] = useState([]);
+  const [confirmingDeclineId, setConfirmingDeclineId] = useState(null);
+  const [declinedExpanded, setDeclinedExpanded] = useState(false);
   const [slots, setSlots] = useState(INITIAL_SLOTS);
   const [closeCount, setCloseCount] = useState(1);
   const [closeCountText, setCloseCountText] = useState("1");
@@ -540,7 +556,26 @@ function JobDetailOwner({ job, onBack }) {
     setApplicants((prev) => prev.filter((x) => x.id !== id));
     setSlots((prev) => [...prev, { ...a, status: "progress", submission: null, givenRating: null, draftRating: 0 }]);
   }
-  function decline(id) { setApplicants((prev) => prev.filter((x) => x.id !== id)); }
+  // Decline is a two-step inline confirm (see roadmap Section 16): clicking
+  // "Decline" first arms a per-row confirm swap, a second click actually
+  // declines. Declined applicants aren't removed outright -- they move into
+  // a persistent, collapsed "Declined" section with an Undo, so an owner
+  // checking back later still has a record of who they ruled out.
+  function requestDecline(id) { setConfirmingDeclineId(id); }
+  function cancelDecline() { setConfirmingDeclineId(null); }
+  function confirmDecline(id) {
+    const a = applicants.find((x) => x.id === id);
+    if (!a) return;
+    setApplicants((prev) => prev.filter((x) => x.id !== id));
+    setDeclined((prev) => [...prev, a]);
+    setConfirmingDeclineId(null);
+  }
+  function undoDecline(id) {
+    const a = declined.find((x) => x.id === id);
+    if (!a) return;
+    setDeclined((prev) => prev.filter((x) => x.id !== id));
+    setApplicants((prev) => [...prev, a]);
+  }
   function setDraftRating(id, n) { setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, draftRating: n } : s))); }
   function confirmRating(id) { setSlots((prev) => prev.map((s) => (s.id === id && s.draftRating ? { ...s, givenRating: s.draftRating } : s))); }
   function markComplete(id) { setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, status: "completed" } : s))); }
@@ -650,11 +685,42 @@ function JobDetailOwner({ job, onBack }) {
                 </div>
                 <p className="app-note">{a.coverNote}</p>
                 <div className="app-actions">
-                  <button className="app-btn approve" onClick={() => approve(a.id)}>Approve & Assign</button>
-                  <button className="app-btn decline" onClick={() => decline(a.id)}>Decline</button>
+                  {confirmingDeclineId === a.id ? (
+                    <>
+                      <button className="app-btn decline-confirm" onClick={() => confirmDecline(a.id)}>Sure?</button>
+                      <button className="app-btn decline-cancel" onClick={cancelDecline}>Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="app-btn approve" onClick={() => approve(a.id)}>Approve & Assign</button>
+                      <button className="app-btn decline" onClick={() => requestDecline(a.id)}>Decline</button>
+                    </>
+                  )}
                 </div>
               </div>
             ))
+          )}
+          {declined.length > 0 && (
+            <div className="declined-section">
+              <button className="declined-toggle" onClick={() => setDeclinedExpanded((v) => !v)}>
+                <span>Declined ({declined.length})</span>
+                <span className={`chevron ${declinedExpanded ? "open" : ""}`}>⌄</span>
+              </button>
+              {declinedExpanded && (
+                <div className="declined-list">
+                  {declined.map((a) => (
+                    <div className="declined-row" key={a.id}>
+                      <div className="avatar-sm dim">{a.name[1].toUpperCase()}</div>
+                      <div className="declined-info">
+                        <div className="n">{a.name}</div>
+                        <div className="trust dim">{a.trustBadge}</div>
+                      </div>
+                      <button className="app-btn undo" onClick={() => undoDecline(a.id)}>Undo</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -900,3 +900,69 @@ withdrawing refunded escrow, same component/copy variant per real code's
 `earnings` kind. `JobCard.tsx`'s "↩ Xπ refunded" badge also remains
 unbuilt.
 
+---
+
+## 16. Owner-side decline-applicant flow — proposed pattern, built (2026-08-11)
+
+**Swept first, per standing rule.** Read `JobDetail.tsx`'s approve/reject
+logic directly. Finding: the real app has **no explicit decline/reject
+feature at all** — no `/reject-application` endpoint, no `handleReject`.
+The only place `status: 'rejected'` gets set is as a side effect inside
+`handleApprove`, and only for single-worker jobs (approving one applicant
+auto-rejects the rest, since the job can only fill one slot). Multi-worker
+jobs have no reject path in real code whatsoever. The only owner-facing
+button on a pending applicant in `JobDetail.tsx` today is "Approve &
+Assign."
+
+This reclassifies the item from a parity gap to a **proposed pattern**
+(same category as Section 3's Wallet Connect) — old code informs data
+shape (`status: 'rejected'` already exists and is already rendered
+correctly by both `ApplicationCard.tsx` and `JobDetail.tsx`'s badge logic)
+but doesn't dictate UX here, since there's no real decline UX to match.
+
+The mockup's own existing `decline()`/`declineApplicant()` (a silent
+`filter()`, no confirm/undo/record) matched the gap description in the
+session-13 "Next session" note exactly, confirming this was the intended
+target.
+
+**Design decisions, made explicitly rather than assumed:**
+- Declined applicants are **not** removed outright or handled via a
+  transient toast/undo window — they move into a persistent, collapsed
+  "Declined (N)" section at the bottom of the Applicants tab, with a
+  per-row Undo that works anytime, not just briefly after the action.
+  Rationale: a toast disappears in seconds; an owner checking back an
+  hour (or a job-cycle) later needs an actual record, not a narrow
+  recovery window.
+- Confirmation is an **inline "Sure?/Cancel" swap on the button itself**,
+  not a modal — keeps flow unbroken when working through a list of
+  several applicants in sequence, and matches the design system's
+  existing inline-confirm pattern (e.g. Close-unfilled-slots).
+- Confirmed with the user: this pattern assumes **permanent backend
+  storage** if it were ever built for real (not just session-durable) —
+  narrow but real value for slot-reopening after a drop-out, dispute
+  resolution, and an owner recalling past decisions across jobs. Not
+  proposed for exposure to the worker's side, and not an analytics
+  surface (no admin/analytics layer exists in this app today).
+
+**Built, both shells:** two-step decline (`requestDecline`/`cancelDecline`/
+`confirmDecline` in React; `requestDecline`/`cancelDecline`/`confirmDecline`
+functions + `ownerState.confirmingDeclineId` in vanilla JS), a collapsed
+`declined` array + toggle (`declinedExpanded`) rendering a "Declined (N)"
+footer section under the Applicants tab, and `undoDecline` moving an entry
+back into the live applicants list. New CSS: `.decline-confirm` (coral,
+reusing the existing danger/error token — no new color introduced),
+`.decline-cancel`, `.undo`, and the `.declined-section`/`.declined-toggle`/
+`.declined-row` block, added to both files' `.jdo`-scoped style blocks.
+
+**Verified:** end-to-end in headless browser (HTML shell) — Decline
+correctly arms the inline confirm swap, Confirm moves the applicant into
+a "Declined (1)" section that expands on click, Undo restores them to the
+live applicant list and the section cleanly disappears when empty again.
+JSX shell only brace/paren-balance checked (net-zero) — same standing
+limitation, no JSX build tool in this sandbox.
+
+**Not built — noted as a real gap if this ever ships:** the real backend
+has no `/reject-application` (or un-reject) endpoint; this pattern is
+demoed entirely in local/session state per the sandbox's standing
+limitation, consistent with every other proposed pattern in this roadmap.
+
