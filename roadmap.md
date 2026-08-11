@@ -231,6 +231,19 @@ app header only; landing already had it right).
     brace-balance verification. Same class of bug as #4 and #11/#12 above —
     worth keeping in mind whenever a new scoped view reuses a class name
     that also has a broader base rule.
+14. **`WithdrawPanel.tsx`/`HistoryWithdrawals.tsx` failed-withdrawal error
+    text said "contact support" as plain static words, not the real wired
+    component** — tapping did nothing in either spot. Fixed in both shells
+    by mounting the real Contact Support widget inline in the failed-row
+    error line, matching the exact "Re: {subject}" embedding convention
+    already used in Job Detail's wallet-error state. Confirmed via
+    headless-browser test (HTML shell) that the widget opens, accepts a
+    message, and sends, from both the Dashboard mini-preview and the full
+    History→Withdrawals page simultaneously without an id collision
+    (instance-scoped by a `ctx`-prefixed container id). The JSX shell needs
+    no such scoping — React gives every mounted `<HiveworkContactSupport>`
+    its own state automatically — worth remembering next time a vanilla-JS
+    pattern gets ported over out of habit.
 
 ---
 
@@ -371,7 +384,10 @@ paths so the demo now reflects that:
 - Range Filter + Notification Bell correction (Section 7) — ✅ both done, see below
 - Wiring the profile-menu's items (log out, notification settings, contact
   support) to real functionality — menu itself is being kept, not removed
-  (Section 8)
+  (Section 8) — ✅ done, see Section 8
+- `WithdrawPanel.tsx` real-detail parity (fee/net preview, "Withdraw all",
+  wallet note, status-badged history, failed-row Contact Support wiring) —
+  ✅ done, see Section 15
 - "Load more" / pagination affordance on all three History screens — ✅ done,
   see Section 13
 - Pi wallet connect async/loading/error states — ✅ done, see Section 14
@@ -402,7 +418,11 @@ directly:
 `WithdrawPanel.tsx` and `HistoryWithdrawals.tsx` only have the plain static
 words "contact support" in their error text — not the actual component.
 Tapping does nothing in those two spots right now. This needs a code fix,
-not a design decision.
+not a design decision. **Fixed in the redesign (2026-08-11, see Section 15)**
+— both mockup files now wire the real widget into the failed-withdrawal
+error line, matching the real components' shape exactly. The live-app bug
+itself still needs the actual code fix; the redesign now shows what that
+should look like.
 
 **Design task:** one inline expand-in-place component, using the existing
 token system (likely close to `.field` textarea styling + a `.chip`-style
@@ -796,3 +816,87 @@ in this environment to run a real JSX build.
 of already-loaded sample rows, not a fetch-more-from-server pattern. Fine
 for a mockup; worth flagging if this ever needs to demonstrate loading
 states too.
+
+---
+
+## 15. WithdrawPanel real-detail parity + Contact Support fix — done (2026-08-11)
+
+Real `WithdrawPanel.tsx`/`HistoryWithdrawals.tsx` were swept directly (user
+pulled and pasted both from the Termux repo). Confirmed real: dynamic
+fee/net live preview, a "Withdraw all" quick-max link, a wallet-verified
+note (its actual meaning is different from what was assumed when this gap
+was first flagged — see below), per-row status badges
+(queued/processing/completed/failed), fee/net split shown on every history
+row, `to_address` shown only on completed rows, and the plain-text
+"contact support" bug in the failed-row error line (Bug Fix Log #14).
+
+**Correction to the original gap description:** the "wallet-address-not-
+shown warning" wasn't a defensive privacy disclosure as first assumed —
+Pi doesn't expose a destination address until payment creation, so the
+real copy is a correctness note: "sent to your **active Pi wallet** — make
+sure the wallet you want to receive to is the one unlocked in your Pi
+Browser." Reproduced verbatim in both shells.
+
+**Built, both shells:** a real `WithdrawPanel` (React component / vanilla-JS
+render function) replacing the old static balance-card markup — live fee/
+net preview, "Withdraw all," the corrected wallet note, a disabled/enabled
+Withdraw button gated on the real validation rule
+(`amt >= min && amt > fee && amt <= balance`), and a "Demo: simulate failed
+request" trigger link (same reviewer-visibility convention session 11 used
+for wallet-connect error states) since a real API failure isn't otherwise
+reachable from this mockup. A real submit decrements the balance and
+prepends a new `queued` row to the withdrawal history, in both shells.
+Withdrawal history rows (Dashboard mini-preview + full History→Withdrawals
+page, both now sharing one `WithdrawalRow` renderer / component) upgraded
+to the real shape: status badge (violet=queued/processing, teal=completed,
+coral=failed, reusing exactly the same tint pairs the app's status-pills
+already use elsewhere — no new colors introduced), fee/net split, shortened
+`to_address` on completed rows, and the real Contact Support widget mounted
+inline in any failed row's error line.
+
+**Demo fee value flagged as an assumption:** the real `fee`/`minWithdrawal`
+values come from the backend per-response (`GET /api/withdrawals`), not a
+frontend constant — general Pi Network searches only turned up information
+about exchange withdrawals, not this app's own escrow-to-wallet payout, so
+a flat 0.01π fee across all sample rows is illustrative demo data, not a
+confirmed real number. Flagged in-code in both files.
+
+**HTML-shell-specific implementation note:** the live fee/net preview and
+submit-button disabled state are patched directly on the DOM on every
+keystroke, not through a full panel re-render — same focus-preserving
+convention established during the Post Job port (a full `innerHTML` rebuild
+drops cursor position in vanilla JS, unlike React's controlled-input
+diffing). The JSX shell needs no such workaround; a plain `onChange` +
+re-render is idiomatic there.
+
+**Instance-scoping note:** the Dashboard mini-preview and the full History
+page can both have a failed row's Contact Support widget mounted at the
+same time (only one screen is visible, but the shell renders both into the
+DOM regardless of visibility). HTML shell: fixed by prefixing each
+mounted widget's container id with a `dash`/`hist` context tag, same fix
+already logged for the profile-menu/job-detail collision. JSX shell needed
+no such fix — confirmed via reading the real `HiveworkContactSupport`
+component that it uses local `useState`, so React scopes every mounted
+instance's state automatically. An `instanceKey` prop was drafted by habit
+during this port, found unnecessary on inspection, and removed before
+shipping — worth remembering next time a vanilla-JS pattern gets carried
+into the JSX shell without checking whether React already solves it.
+
+**Verified:** end-to-end in headless browser (HTML shell) — fee/net preview
+updates live while typing with focus retained, submit button enables/
+disables correctly, "Withdraw all" fills the input, the demo-fail trigger
+shows the error copy, a real submit decrements the balance and adds a
+`queued` row, all 4 status badge colors render, and the failed row's
+Contact Support widget opens/types/sends correctly from both the Dashboard
+preview and the full History page without an id collision. One console
+message (a 403 on the Google Fonts CDN fetch) confirmed pre-existing and
+unrelated — this sandbox has no network access, not a regression. JSX shell
+only brace/paren/bracket-balance checked (net-zero), same standing
+limitation as every session touching this file.
+
+**Not built — real gap, not attempted:** the `refund` kind (client
+withdrawing refunded escrow, same component/copy variant per real code's
+`kind` prop) isn't demoed in either shell; Dashboard only shows the
+`earnings` kind. `JobCard.tsx`'s "↩ Xπ refunded" badge also remains
+unbuilt.
+
