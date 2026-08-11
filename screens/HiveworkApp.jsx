@@ -363,7 +363,7 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .ov-block:last-child{margin-bottom:0;}
   .jdo .ov-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
   .jdo .ov-block p{font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:0;}
-  .jdo .applicant-row{padding:16px 0;border-bottom:1px solid var(--line);}
+  .jdo .applicant-row{display:block;padding:16px 0;border-bottom:1px solid var(--line);}
   .jdo .applicant-row:last-child{border-bottom:none;}
   .jdo .app-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
   .jdo .avatar-sm{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -2251,9 +2251,9 @@ const HW_ONBOARD_STYLES = `
   .hw-onboard .pc-bio textarea{width:100%;border:none;background:none;padding:0;font-size:14px;font-family:'Inter';color:var(--ink);resize:none;height:44px;outline:none;}
   .hw-onboard .pc-bio textarea::placeholder{color:#A7A296;}
 
-  .hw-onboard .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
-  .hw-onboard .chip-toggle{padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
-  .hw-onboard .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip-toggle{padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
 
   .hw-onboard .notif-visual{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:26px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);}
   .hw-onboard .notif-row{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
@@ -2529,6 +2529,45 @@ export default function HiveworkApp() {
   const [workView, setWorkView] = useState("mywork"); // 'mywork' | 'myjobs'
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [testnetTipOpen, setTestnetTipOpen] = useState(false);
+  // Real Profile.tsx toggles editing in place on the same page (own-profile
+  // view only), sharing ProfileForm with real /onboarding — mirrored here
+  // as a lightweight in-place edit mode reusing the same skill options.
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileBio, setProfileBio] = useState("I am a tester");
+  const [profileBioDraft, setProfileBioDraft] = useState("I am a tester");
+  const [profileSkills, setProfileSkills] = useState(["Android tester", "Android", "iOS", "English"]);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+  const showToast = (msg) => {
+    setToast(msg);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2200);
+  };
+  const goToProfile = (edit) => {
+    setProfileEditing(!!edit);
+    setProfileBioDraft(profileBio);
+    goTo("profile");
+  };
+  const pfToggleSkill = (s) =>
+    setProfileSkills((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
+  const pfCancelEdit = () => setProfileEditing(false);
+  const pfSaveEdit = () => {
+    setProfileBio(profileBioDraft);
+    setProfileEditing(false);
+    showToast("Profile updated");
+  };
+  // Real product gap (roadmap Section 8): no log-out feature exists
+  // anywhere in the live app — Layout.tsx stores a session token on
+  // connect and nothing clears it. This is the redesign's proposed fill:
+  // a client-side reset back to Landing. Does not yet gate nav items on a
+  // logged-out state (real Layout.tsx hides Post Job/Dashboard/
+  // NotificationBell when disconnected) — that's a separate, larger open
+  // item.
+  const hwLogout = () => {
+    setMenuOpen(false);
+    showToast("Logged out");
+    goTo("landing");
+  };
 
   const goTo = (id) => {
     setLastScreen(screen);
@@ -2622,6 +2661,12 @@ export default function HiveworkApp() {
         .hw-app .profile-menu .who{padding:16px;border-bottom:1px solid var(--line);}
         .hw-app .profile-menu .who .name{font-weight:700;font-size:14.5px;font-family:'Sora';}
         .hw-app .profile-menu .who .badges{display:flex;gap:6px;margin-top:9px;}
+        .hw-app .hw-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 20px;border-radius:100px;box-shadow:0 20px 40px -18px rgba(27,26,31,.4);z-index:999;max-width:80%;text-align:center;}
+        .hw-app .pf-edit-section{margin:20px 0;}
+        .hw-app .pf-edit-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+        .hw-app .pf-actions{display:flex;gap:10px;margin-top:24px;}
+        .hw-app .pf-actions .btn{flex:1;margin:0;}
+        .hw-app .pf-actions .btn-ghost{background:var(--card);border:1px solid var(--line);color:var(--ink);}
         .hw-app .chip{font-size:10px;font-weight:600;padding:4px 9px;border-radius:100px;}
         .hw-app .chip-verified{background:#E4F8F6;color:#1A9E92;}
         .hw-app .chip-gold{background:#FFF3DC;color:#B8860B;}
@@ -2848,12 +2893,14 @@ export default function HiveworkApp() {
                   <span className="chip chip-gold">Gold</span>
                 </div>
               </div>
-              <div className="menu-item" onClick={() => goTo("profile")}>View profile</div>
-              <div className="menu-item">Edit profile</div>
-              <div className="menu-item">Notification settings</div>
+              <div className="menu-item" onClick={() => goToProfile(false)}>View profile</div>
+              <div className="menu-item" onClick={() => goToProfile(true)}>Edit profile</div>
+              <div className="menu-item" onClick={() => { setMenuOpen(false); showToast("Notification settings — coming soon"); }}>Notification settings</div>
               <div className="menu-item"><HiveworkContactSupport label="Contact support" subject="General inquiry" /></div>
-              <div className="menu-item">Log out</div>
+              <div className="menu-item" onClick={hwLogout}>Log out</div>
             </div>
+
+            {toast && <div className="hw-toast show">{toast}</div>}
 
             <div className={`notif-panel${notifOpen ? " open" : ""}`}>
               <div className="notif-head">Notifications</div>
@@ -2974,27 +3021,60 @@ export default function HiveworkApp() {
             {screen === "profile" && (
               <div className="screen active">
                 <button className="back-btn" onClick={goBack} style={{ paddingTop: 20 }}><BackIcon />Back</button>
-                <div className="cover">
-                  <div className="big-avatar">O</div>
-                  <div className="handle">@Olawalt</div>
-                  <div className="bio">I am a tester</div>
-                  <div className="badges-row"><span className="chip chip-verified">Verified</span><span className="chip chip-gold">Gold</span></div>
-                </div>
-                <div className="stat-pills">
-                  <div className="stat-pill"><div className="n">17</div><div className="l">Jobs done</div></div>
-                  <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
-                  <div className="stat-pill"><div className="n">116π</div><div className="l">Earned</div></div>
-                </div>
-                <div className="section-title">Skills & devices</div>
-                <div style={{ marginBottom: 24 }}>
-                  <span className="skill-chip">Android tester</span>
-                  <span className="skill-chip">Android</span>
-                  <span className="skill-chip">iOS</span>
-                  <span className="skill-chip">English</span>
-                </div>
-                <div className="section-title">Reviews (27)</div>
-                <div className="review-row"><div className="review-top"><span>@walterdanny00</span><span className="stars">★★★★★</span></div><p>Full payment received</p></div>
-                <div className="review-row"><div className="review-top"><span>@walterdanny00</span><span className="stars">★★★★</span></div><p>Good job, well done</p></div>
+                {profileEditing ? (
+                  <>
+                    <div className="cover">
+                      <div className="big-avatar">O</div>
+                      <div className="handle">@Olawalt</div>
+                      <div className="badges-row"><span className="chip chip-verified">Verified</span><span className="chip chip-gold">Gold</span></div>
+                    </div>
+                    <div className="pf-edit-section">
+                      <div className="pf-edit-label">Bio</div>
+                      <div className="field">
+                        <textarea
+                          value={profileBioDraft}
+                          onChange={(e) => setProfileBioDraft(e.target.value)}
+                          placeholder="A short line about what you do..."
+                        />
+                      </div>
+                    </div>
+                    <div className="pf-edit-section">
+                      <div className="pf-edit-label">Skills & devices</div>
+                      <HWOChipGroup
+                        options={["Android tester", "Android", "iOS", "English", "Bug testing", "UI feedback", "Translation"]}
+                        selected={profileSkills}
+                        onToggle={pfToggleSkill}
+                      />
+                    </div>
+                    <div className="pf-actions">
+                      <button className="btn btn-ghost" onClick={pfCancelEdit}>Cancel</button>
+                      <button className="btn btn-primary" onClick={pfSaveEdit}>Save</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="cover">
+                      <div className="big-avatar">O</div>
+                      <div className="handle">@Olawalt</div>
+                      <div className="bio">{profileBio}</div>
+                      <div className="badges-row"><span className="chip chip-verified">Verified</span><span className="chip chip-gold">Gold</span></div>
+                    </div>
+                    <div className="stat-pills">
+                      <div className="stat-pill"><div className="n">17</div><div className="l">Jobs done</div></div>
+                      <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
+                      <div className="stat-pill"><div className="n">116π</div><div className="l">Earned</div></div>
+                    </div>
+                    <div className="section-title">Skills & devices</div>
+                    <div style={{ marginBottom: 24 }}>
+                      {profileSkills.map((sk) => (
+                        <span className="skill-chip" key={sk}>{sk}</span>
+                      ))}
+                    </div>
+                    <div className="section-title">Reviews (27)</div>
+                    <div className="review-row"><div className="review-top"><span>@walterdanny00</span><span className="stars">★★★★★</span></div><p>Full payment received</p></div>
+                    <div className="review-row"><div className="review-top"><span>@walterdanny00</span><span className="stars">★★★★</span></div><p>Good job, well done</p></div>
+                  </>
+                )}
               </div>
             )}
 

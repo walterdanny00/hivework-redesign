@@ -276,7 +276,7 @@
   .jdo .ov-block:last-child{margin-bottom:0;}
   .jdo .ov-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
   .jdo .ov-block p{font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:0;}
-  .jdo .applicant-row{padding:16px 0;border-bottom:1px solid var(--line);}
+  .jdo .applicant-row{display:block;padding:16px 0;border-bottom:1px solid var(--line);}
   .jdo .applicant-row:last-child{border-bottom:none;}
   .jdo .app-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
   .jdo .avatar-sm{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -631,6 +631,13 @@
   .hw-onboard .wc-demo-row{display:flex;gap:14px;justify-content:center;margin-top:10px;}
   .hw-onboard .wc-demo-link{font-size:11px;color:var(--ink-soft);opacity:.55;cursor:pointer;text-decoration:underline;}
   .hw-onboard .kyc-pill{display:flex;align-items:center;gap:10px;background:#FFF3DC;border:1px solid #F4DFA8;border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;}
+  .hw-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 20px;border-radius:100px;box-shadow:0 20px 40px -18px rgba(27,26,31,.4);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;z-index:999;max-width:80%;text-align:center;}
+  .hw-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .pf-edit-section{margin:20px 0;}
+  .pf-edit-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  .pf-actions{display:flex;gap:10px;margin-top:24px;}
+  .pf-actions .btn{flex:1;margin:0;}
+  .pf-actions .btn-ghost{background:var(--card);border:1px solid var(--line);color:var(--ink);}
   .hw-onboard .kyc-pill svg{color:#B8860B;flex-shrink:0;}
   .hw-onboard .kyc-pill span{font-size:12.5px;font-weight:700;color:#8A6512;flex:1;}
   .hw-onboard .kyc-detail{max-height:0;overflow:hidden;transition:max-height .25s ease;}
@@ -657,9 +664,9 @@
   .hw-onboard .pp-tag{font-size:11px;font-weight:700;color:var(--violet-deep);background:#EFEAFB;padding:4px 9px;border-radius:100px;display:inline-block;margin-top:4px;}
   .hw-onboard .pc-bio textarea{width:100%;border:none;background:none;padding:0;font-size:14px;font-family:'Inter';color:var(--ink);resize:none;height:44px;outline:none;}
   .hw-onboard .pc-bio textarea::placeholder{color:#A7A296;}
-  .hw-onboard .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
-  .hw-onboard .chip-toggle{padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
-  .hw-onboard .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip-toggle{padding:9px 15px;border-radius:100px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .chip-toggle.selected{border-color:var(--violet);background:#EFEAFB;color:var(--violet-deep);}
   .hw-onboard .notif-visual{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:26px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);}
   .hw-onboard .notif-row{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
   .hw-onboard .notif-row:last-child{border-bottom:none;}
@@ -806,11 +813,11 @@
         <div class="name">@Olawalt</div>
         <div class="badges"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>
       </div>
-      <div class="menu-item" onclick="showScreen('profile')">View profile</div>
-      <div class="menu-item">Edit profile</div>
-      <div class="menu-item">Notification settings</div>
+      <div class="menu-item" onclick="goToProfile(false)">View profile</div>
+      <div class="menu-item" onclick="goToProfile(true)">Edit profile</div>
+      <div class="menu-item" onclick="closeMenus(); hwToast('Notification settings — coming soon');">Notification settings</div>
       <div class="menu-item" id="menu-contact-support"></div>
-      <div class="menu-item">Log out</div>
+      <div class="menu-item" onclick="hwLogout()">Log out</div>
     </div>
 
     <div class="notif-panel" id="notifPanel">
@@ -912,24 +919,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>
         Back
       </div>
-      <div class="cover">
-        <div class="big-avatar">O</div>
-        <div class="handle">@Olawalt</div>
-        <div class="bio">I am a tester</div>
-        <div class="badges-row"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>
-      </div>
-      <div class="stat-pills">
-        <div class="stat-pill"><div class="n">17</div><div class="l">Jobs done</div></div>
-        <div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div>
-        <div class="stat-pill"><div class="n">116π</div><div class="l">Earned</div></div>
-      </div>
-      <div class="section-title">Skills & devices</div>
-      <div style="margin-bottom:24px;">
-        <span class="skill-chip">Android tester</span><span class="skill-chip">Android</span><span class="skill-chip">iOS</span><span class="skill-chip">English</span>
-      </div>
-      <div class="section-title">Reviews (27)</div>
-      <div class="review-row"><div class="review-top"><span>@walterdanny00</span><span class="stars">★★★★★</span></div><p>Full payment received</p></div>
-      <div class="review-row"><div class="review-top"><span>@walterdanny00</span><span class="stars">★★★★</span></div><p>Good job, well done</p></div>
+      <div id="profile-render"></div>
     </div>
 
     <!-- DASHBOARD -->
@@ -1101,6 +1091,83 @@ function closeMenus(){
 }
 function toggleTestnetTip(e){ e.stopPropagation(); document.getElementById('testnetTip').classList.toggle('open'); }
 function dismissNudge(){ document.getElementById('nudge-banner').style.display = 'none'; }
+
+function hwToast(msg){
+  let t = document.getElementById('hwToast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'hwToast';
+    t.className = 'hw-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._hwToastTimer);
+  window._hwToastTimer = setTimeout(()=>{ t.classList.remove('show'); }, 2200);
+}
+
+// Real Profile.tsx toggles editing in place on the same page (own-profile
+// view only), sharing ProfileForm with real /onboarding — mirrored here as
+// a lightweight in-place edit mode reusing the same skill options rather
+// than a separate screen.
+let profileEditState = { editing:false, bio:'I am a tester', skills:['Android tester','Android','iOS','English'] };
+function goToProfile(edit){
+  profileEditState.editing = !!edit;
+  renderProfileScreen();
+  showScreen('profile');
+}
+function pfToggleSkill(s){
+  const i = profileEditState.skills.indexOf(s);
+  if(i>=0) profileEditState.skills.splice(i,1); else profileEditState.skills.push(s);
+  renderProfileScreen();
+}
+function pfCancelEdit(){ profileEditState.editing = false; renderProfileScreen(); }
+function pfSaveEdit(){
+  const ta = document.getElementById('pf-bio-input');
+  if(ta) profileEditState.bio = ta.value;
+  profileEditState.editing = false;
+  renderProfileScreen();
+  hwToast('Profile updated');
+}
+function renderProfileScreen(){
+  const s = profileEditState;
+  let html;
+  if(s.editing){
+    const allSkillOptions = ['Android tester','Android','iOS','English','Bug testing','UI feedback','Translation'];
+    html = '<div class="cover">'
+      + '<div class="big-avatar">O</div><div class="handle">@Olawalt</div>'
+      + '<div class="badges-row"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>'
+      + '</div>'
+      + '<div class="pf-edit-section"><div class="pf-edit-label">Bio</div><div class="field"><textarea id="pf-bio-input" placeholder="A short line about what you do...">'+s.bio+'</textarea></div></div>'
+      + '<div class="pf-edit-section"><div class="pf-edit-label">Skills & devices</div>'+owChipGroup(allSkillOptions, s.skills, 'pfToggleSkill')+'</div>'
+      + '<div class="pf-actions"><button class="btn btn-ghost" onclick="pfCancelEdit()">Cancel</button><button class="btn btn-primary" onclick="pfSaveEdit()">Save</button></div>';
+  } else {
+    html = '<div class="cover">'
+      + '<div class="big-avatar">O</div><div class="handle">@Olawalt</div>'
+      + '<div class="bio">'+s.bio+'</div>'
+      + '<div class="badges-row"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>'
+      + '</div>'
+      + '<div class="stat-pills"><div class="stat-pill"><div class="n">17</div><div class="l">Jobs done</div></div><div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div><div class="stat-pill"><div class="n">116π</div><div class="l">Earned</div></div></div>'
+      + '<div class="section-title">Skills & devices</div>'
+      + '<div style="margin-bottom:24px;">'+s.skills.map(sk=>'<span class="skill-chip">'+sk+'</span>').join('')+'</div>'
+      + '<div class="section-title">Reviews (27)</div>'
+      + '<div class="review-row"><div class="review-top"><span>@walterdanny00</span><span class="stars">★★★★★</span></div><p>Full payment received</p></div>'
+      + '<div class="review-row"><div class="review-top"><span>@walterdanny00</span><span class="stars">★★★★</span></div><p>Good job, well done</p></div>';
+  }
+  document.getElementById('profile-render').innerHTML = html;
+}
+
+// Real product gap (roadmap Section 8): no log-out feature exists anywhere
+// in the live app — Layout.tsx stores a session token on connect and
+// nothing clears it. This is the redesign's proposed fill: a client-side
+// reset back to Landing. Does not yet gate nav items on a logged-out
+// state (real Layout.tsx hides Post Job/Dashboard/NotificationBell when
+// disconnected) — that's a separate, larger open item.
+function hwLogout(){
+  closeMenus();
+  hwToast('Logged out');
+  showScreen('landing');
+}
 
 const jobData = {
   mine: {cat:'Bug testing', title:'Test payment flow on Android', amt:'10π', app:'0', posted:'1m ago',
@@ -2142,6 +2209,7 @@ function toggleWork(view, el){
 // Boot straight into Landing, matching the real "/" route (JSX's
 // useState("landing") equivalent) instead of Home.
 initContactSupport('menu-contact-support', 'General inquiry', 'Contact support');
+renderProfileScreen();
 showScreen('landing');
 </script>
 </body>

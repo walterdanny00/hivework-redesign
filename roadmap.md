@@ -41,6 +41,8 @@ diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git
 
 cp <files> ~/Piwork/hivework-redesign/<screens|sessions>/  (or repo root for roadmap.md)
 cp <files> ~/hivework-redesign/<screens|sessions>/          (or repo root for roadmap.md)
+# source: files land at ~/storage/downloads/ (Termux shared storage) after
+# downloading from chat — cp from there, not from a repo-relative path.
 
 cd ~/Piwork
 git add hivework-redesign/
@@ -218,6 +220,17 @@ app header only; landing already had it right).
     future screens ported into the HTML shell specifically (the JSX shell
     doesn't have this risk, since React scopes renders to each component
     rather than a global `querySelector`).
+13. **Job Detail (owner view) — Applicants tab, avatar/rating row, skill
+    chips, and cover note squashed onto one horizontal line** instead of
+    stacking. A base `.applicant-row{display:flex}` rule, meant for a
+    different, compact list context, was leaking into this scoped view.
+    Fixed by adding `.jdo .applicant-row{display:block}` to override it,
+    with `.app-top`/`.app-chips` kept independently flex for their own
+    internal row layout. Found and fixed by the user post-session-12,
+    off-sandbox; not covered by session 12's headless-browser or
+    brace-balance verification. Same class of bug as #4 and #11/#12 above —
+    worth keeping in mind whenever a new scoped view reuses a class name
+    that also has a broader base rule.
 
 ---
 
@@ -484,7 +497,7 @@ shell/Layout mockup files.
 
 ---
 
-## 8. Profile-menu — doesn't exist, needs removing from every screen
+## 8. Profile-menu — doesn't exist in real app; kept as redesign addition, now wired (2026-08-10)
 
 The biggest finding of the component sweep. Confirmed by reading both
 `Layout.tsx` and `Profile.tsx` directly: **there is no dropdown menu behind
@@ -525,6 +538,38 @@ gap. None of its three items are wired to actually function yet:
 **Action needed:** none for now at the design level — the menu stays as-is
 across all screens. Wiring each item to real functionality is deferred to a
 later implementation pass.
+
+### Wiring pass, done (2026-08-10)
+
+- **Log out** — real product gap fill: clears back to Landing with a
+  confirmation toast ("Logged out"). Client-side reset only — does not yet
+  gate other nav items on a logged-out state (real `Layout.tsx` hides Post
+  Job/Dashboard/NotificationBell when disconnected); that remains a
+  separate, larger open item.
+- **Notification settings** — no real feature exists to wire to, so this
+  now surfaces an honest "coming soon" toast rather than doing nothing or
+  implying a feature that isn't there.
+- **Edit profile** — real `Profile.tsx` toggles editing in place on the
+  same page (own-profile view only) and shares `ProfileForm` with real
+  `/onboarding`. Mirrored here: clicking "Edit profile" opens the Profile
+  screen in an in-place edit mode (bio textarea + the same chip-toggle
+  skill options used elsewhere) instead of a separate route; Save/Cancel.
+  Simulated persistence only (updates local state, no backend call) —
+  matches how the rest of this shell handles form submission everywhere
+  else. "View profile" still opens the same screen read-only.
+- **Contact support** — already wired from the prior session (initialized
+  via `initContactSupport`/`<HiveworkContactSupport>` in the menu); no
+  change needed this pass, confirmed still functioning.
+- New shared `hwToast()` (HTML shell) / `toast` state (JSX shell) helper —
+  small fixed-position confirmation pill, reused by Log out and
+  Notification settings; available for any future action needing the same
+  lightweight feedback pattern.
+- Verified end-to-end in headless browser (HTML shell): menu opens, each
+  item does its wired action, edit-mode chip toggle + bio field persist on
+  Save and discard on Cancel, Log out returns to Landing — no console
+  errors. JSX only brace/paren/bracket-balance checked (net-zero), same
+  limitation noted every session this file has been touched — still no
+  JSX build/lint tool available in this sandbox.
 
 ---
 
