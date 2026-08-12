@@ -191,7 +191,9 @@
   .wd-item{padding:14px 0;border-bottom:1px solid var(--line);}
   .wd-item:last-child{border-bottom:none;}
   .wd-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .wd-amt-group{display:flex;align-items:center;gap:6px;}
   .wd-amt{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .wd-kind-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:100px;background:var(--cream);color:var(--violet-deep);border:1px solid var(--violet-deep);}
   .wd-status{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:100px;}
   .wd-status.queued,.wd-status.processing{background:#EFEAFB;color:var(--violet-deep);}
   .wd-status.completed{background:#E4F8F6;color:#1A9E92;}
@@ -1033,6 +1035,7 @@
         <div id="dash-refund-history-wrap" style="display:none;">
           <div class="section-title-row">
             <div class="section-title" style="margin:0;">Refund history</div>
+            <span class="see-all" onclick="goToHistWithdrawals()">See all →</span>
           </div>
           <div id="dash-refund-history"></div>
         </div>
@@ -2326,8 +2329,9 @@ const WD_STATUS_LABEL = {queued:'queued', processing:'processing', completed:'co
 // preview and the full History→Withdrawals page can both render the same
 // row's failed state simultaneously without an id collision.
 function renderWdRow(w, ctx){
-  let html = '<div class="wd-item"><div class="wd-item-top"><span class="wd-amt">'+w.requested_amount+'π</span>'
-    + '<span class="wd-status '+w.status+'">'+WD_STATUS_LABEL[w.status]+'</span></div>'
+  let html = '<div class="wd-item"><div class="wd-item-top"><span class="wd-amt-group"><span class="wd-amt">'+w.requested_amount+'π</span>'
+    + (w.kind==='refund' ? '<span class="wd-kind-tag">Refund</span>' : '')
+    + '</span><span class="wd-status '+w.status+'">'+WD_STATUS_LABEL[w.status]+'</span></div>'
     + '<div class="wd-item-sub">You received '+w.net_amount+'π (fee '+w.fee+'π)';
   if(w.status==='completed' && w.to_address) html += ' · to '+wdShortAddr(w.to_address);
   html += ' · '+new Date(w.date).toLocaleDateString()+'</div>';
@@ -2337,11 +2341,31 @@ function renderWdRow(w, ctx){
   html += '</div>';
   return html;
 }
+// subjectPrefix left unset resolves per-row from w.kind — needed on the
+// merged full-history page where 'hist'-ctx rows mix both kinds; the two
+// Dashboard-preview call sites still pass an explicit prefix since each
+// only ever sees rows of one kind.
 function mountWdFailedContacts(rows, ctx, subjectPrefix){
-  subjectPrefix = subjectPrefix || 'Withdrawal failed';
   rows.filter(w=>w.status==='failed').forEach(w=>{
-    if(document.getElementById('wd-contact-'+ctx+'-'+w.id)) initContactSupport('wd-contact-'+ctx+'-'+w.id, subjectPrefix+' ('+w.id+')', 'contact support');
+    const prefix = subjectPrefix || (w.kind==='refund' ? 'Refund withdrawal failed' : 'Withdrawal failed');
+    if(document.getElementById('wd-contact-'+ctx+'-'+w.id)) initContactSupport('wd-contact-'+ctx+'-'+w.id, prefix+' ('+w.id+')', 'contact support');
   });
+}
+// Merged, kind-tagged view for the full /history/withdrawals page only —
+// the Dashboard mini-preview (renderDashWdHistory) and the myjobs refund
+// card (renderDashRefundHistory) stay untouched, each still reading from
+// its own source array. Existing rows in HW_WITHDRAWAL_HISTORY/
+// REFUND_HISTORY have no `kind` field, so it's applied here at merge time
+// rather than back-filling every literal; new rows from submitWithdraw/
+// submitRefundWithdraw now carry `kind` natively. Sorted newest-first to
+// read as one continuous ledger, matching renderWdRow's flat style already
+// used on this page (renderRefundRow's heavier card style is correct on
+// the myjobs tab only, per Part D reasoning — this page's surrounding rows
+// are all flat, so a merged flat list with a small kind tag is consistent).
+function getMergedWithdrawalsHistory(){
+  const tagged = HW_WITHDRAWAL_HISTORY.map(w=> w.kind ? w : Object.assign({}, w, {kind:'earnings'}))
+    .concat(REFUND_HISTORY.map(w=> w.kind ? w : Object.assign({}, w, {kind:'refund'})));
+  return tagged.sort((a,b)=> new Date(b.date) - new Date(a.date));
 }
 // Refund history rows use the .job-post-row card language instead of
 // .wd-item's flat list-row style — on the myjobs tab, flat rows sandwiched
@@ -2417,7 +2441,7 @@ function submitWithdraw(){
   const amt = parseFloat(withdrawState.amount);
   setTimeout(()=>{
     WITHDRAW_BALANCE = +(WITHDRAW_BALANCE - amt).toFixed(4);
-    HW_WITHDRAWAL_HISTORY.unshift({id:'w'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10)});
+    HW_WITHDRAWAL_HISTORY.unshift({id:'w'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10), kind:'earnings'});
     withdrawState = {amount:'', submitting:false, message:'Withdrawal requested. It is being processed.', errorMsg:''};
     renderWithdrawPanel(); renderDashWdHistory();
   }, 500);
@@ -2495,7 +2519,7 @@ function submitRefundWithdraw(){
   const amt = parseFloat(refundWithdrawState.amount);
   setTimeout(()=>{
     REFUND_BALANCE = +(REFUND_BALANCE - amt).toFixed(4);
-    REFUND_HISTORY.unshift({id:'r'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10)});
+    REFUND_HISTORY.unshift({id:'r'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10), kind:'refund'});
     refundWithdrawState = {amount:'', submitting:false, message:'Withdrawal requested. It is being processed.', errorMsg:''};
     renderRefundPanel(); renderDashRefundHistory();
   }, 500);
@@ -2549,10 +2573,18 @@ function loadMoreHistJobs(){ histJobsShown += HIST_PAGE_SIZE; renderHistJobs(); 
 let histWithdrawalsRange = 'all', histWithdrawalsShown = HIST_PAGE_SIZE;
 function goToHistWithdrawals(){ histWithdrawalsRange = 'all'; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); showScreen('history-withdrawals'); }
 function renderHistWithdrawals(){
+  // Merged earnings+refund rows (was HW_WITHDRAWAL_HISTORY only, earnings-
+  // exclusive) so refunds now show up on this full page, not just the
+  // Dashboard myjobs card. filtered/visible below feed mountWdFailedContacts
+  // directly instead of being recomputed a second time inside renderHistList
+  // — the two were previously separate computations off the same source
+  // array; now there's only one, avoiding drift between what's rendered and
+  // what gets a mounted Contact Support widget.
+  const merged = getMergedWithdrawalsHistory();
   const boundary = getRangeBoundary(histWithdrawalsRange);
-  const filtered = HW_WITHDRAWAL_HISTORY.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
+  const filtered = merged.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
   const visible = filtered.slice(0, histWithdrawalsShown);
-  document.getElementById('hist-withdrawals-render').innerHTML = renderRangeFilter(histWithdrawalsRange, 'setHistWithdrawalsRange') + renderHistList(HW_WITHDRAWAL_HISTORY, histWithdrawalsRange, histWithdrawalsShown, 'loadMoreHistWithdrawals', w=>renderWdRow(w,'hist'));
+  document.getElementById('hist-withdrawals-render').innerHTML = renderRangeFilter(histWithdrawalsRange, 'setHistWithdrawalsRange') + renderHistList(merged, histWithdrawalsRange, histWithdrawalsShown, 'loadMoreHistWithdrawals', w=>renderWdRow(w,'hist'));
   mountWdFailedContacts(visible, 'hist');
 }
 function setHistWithdrawalsRange(k){ histWithdrawalsRange = k; histWithdrawalsShown = HIST_PAGE_SIZE; renderHistWithdrawals(); }

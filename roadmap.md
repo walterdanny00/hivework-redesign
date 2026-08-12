@@ -1219,3 +1219,75 @@ is still a short static demo array (2 rows), not wired to the same
 pagination/range-filter machinery as the earnings withdrawal history —
 acceptable for a demo panel gated behind a conditional balance check,
 but worth flagging if this needs full parity later.
+
+## 20. Refund rows extended to the full /history/withdrawals page (2026-08-12)
+
+**Follow-up to Section 19's Dashboard-level fix.** User asked directly
+whether refund history was already built — yes, on the Dashboard myjobs
+tab (Section 19 + its follow-up). What wasn't built: those refund rows
+never appeared on the separate paginated `/history/withdrawals` page
+(reached via "See all →"), which only ever pulled from the earnings-only
+`WITHDRAWAL_HISTORY`/`HW_WITHDRAWAL_HISTORY` array. Confirmed a Dashboard-
+only summary wasn't sufficient — refunds needed to show up in the full
+ledger too: a fintech-statement framing (bank/card apps tag transaction
+type inline on one continuous list rather than splitting into separate
+sections) made the case that omitting refunds here would read as a bug,
+not a design choice.
+
+**Approach:** merge, don't replace. The Dashboard mini-preview
+(`withdrawalHistory.slice(0,3)`/`renderDashWdHistory`) and the myjobs
+refund card (`refundHistory.slice(0,2)`/`RefundRow`/`renderRefundRow`)
+are untouched — each still reads its own source array. Only the full
+history page now reads a merged, newest-first-sorted, kind-tagged
+combination of both arrays. Chose the flat `WithdrawalRow`/`renderWdRow`
+style for the merged list (not `RefundRow`'s heavier card style) since
+every other row on this page is already flat — a small "Refund" pill tag
+next to the amount distinguishes kind without breaking the row rhythm,
+matching how bank/card statement UIs tag transaction type inline rather
+than visually separating sections.
+
+**Fixed in both shells:**
+- `HiveworkApp.jsx`: new `withdrawalsHistoryMerged` (computed inline,
+  tags untagged legacy rows with `kind` at merge time rather than
+  editing every literal in `WITHDRAWAL_HISTORY`/`REFUND_HISTORY`) feeds
+  the `/history/withdrawals` `HistoryList`; `handleWithdraw`/
+  `handleRefundWithdraw` now stamp new rows with `kind` natively.
+  `WithdrawalRow` shows a `.wd-kind-tag` pill when `w.kind === "refund"`.
+- `hivework-app-v4-3.html`: new `getMergedWithdrawalsHistory()` mirrors
+  the JSX merge logic; `renderHistWithdrawals()` now filters/sorts/
+  renders from the merged list instead of `HW_WITHDRAWAL_HISTORY` alone
+  — this also fixed a latent bug where `filtered`/`visible` were computed
+  once for `mountWdFailedContacts` and then recomputed separately (and
+  differently, pre-fix) inside `renderHistList`, risking drift between
+  what rendered and which rows got a mounted Contact Support widget; now
+  there's a single `merged`/`filtered`/`visible` chain feeding both.
+  `mountWdFailedContacts`'s `subjectPrefix` param is now optional —
+  when omitted it resolves per-row from `w.kind` ("Withdrawal failed" vs
+  "Refund withdrawal failed"), needed since the merged 'hist'-ctx list
+  mixes both kinds; the two Dashboard-only call sites still pass an
+  explicit prefix since each sees only one kind. `submitWithdraw`/
+  `submitRefundWithdraw` now stamp new rows with `kind`.
+- Both shells: `.wd-amt-group`/`.wd-kind-tag` CSS added (violet-bordered
+  pill, reusing existing `--violet-deep`/`--cream` tokens, no new colors
+  — same design-system rule as every prior screen).
+
+**Verification:** brace/paren/bracket-balance re-checked on
+`HiveworkApp.jsx` (net-zero); `hivework-app-v4-3.html`'s inline
+`<script>` re-extracted and passed `node --check`. No headless-browser
+run — standing sandbox limitation (no network access to install one).
+
+**Not built — still a gap:** the merged list's pagination/range-filter
+still walks the same static demo arrays as before (2 earnings-history
+rows arrive "live" via `unshift` on submit, refund rows likewise) — full
+parity with a real paginated backend endpoint remains out of scope for
+this shell, as noted in every prior History section.
+
+**QA catch, same session:** with refunds now merged into the full
+history page, the myjobs tab's "Refund history" card header was the only
+one of the four history-section headers (Your work/Withdrawals/Jobs
+you've posted/Refund history) missing a "See all →" link — an
+inconsistency user caught on preview. Added one in both shells, wired to
+`goToHistWithdrawals` (same target as the mywork tab's Withdrawals "See
+all", since it's the same merged destination page). No new screen/route
+needed. Re-verified: brace-balance net-zero (JSX), `node --check` clean
+(HTML).

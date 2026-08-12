@@ -208,7 +208,10 @@ function WithdrawalRow({ w }) {
   return (
     <div className="wd-item">
       <div className="wd-item-top">
-        <span className="wd-amt">{w.requested_amount}π</span>
+        <span className="wd-amt-group">
+          <span className="wd-amt">{w.requested_amount}π</span>
+          {w.kind === "refund" && <span className="wd-kind-tag">Refund</span>}
+        </span>
         <span className={`wd-status ${w.status}`}>{WD_STATUS_LABEL[w.status]}</span>
       </div>
       <div className="wd-item-sub">
@@ -2796,7 +2799,7 @@ export default function HiveworkApp() {
   const handleWithdraw = (amt, fee) => {
     setWithdrawBalance((b) => Number((b - amt).toFixed(4)));
     setWithdrawalHistory((h) => [
-      { id: `w${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10) },
+      { id: `w${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10), kind: "earnings" },
       ...h,
     ]);
   };
@@ -2811,10 +2814,25 @@ export default function HiveworkApp() {
   const handleRefundWithdraw = (amt, fee) => {
     setRefundBalance((b) => Number((b - amt).toFixed(4)));
     setRefundHistory((h) => [
-      { id: `r${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10) },
+      { id: `r${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10), kind: "refund" },
       ...h,
     ]);
   };
+  // Merged, kind-tagged view for the full /history/withdrawals page only —
+  // the Dashboard mini-preview (withdrawalHistory.slice(0,3)) and the myjobs
+  // refund card (refundHistory.slice(0,2)/RefundRow) stay untouched, each
+  // still reading from its own source array. Existing rows in
+  // WITHDRAWAL_HISTORY/REFUND_HISTORY have no `kind` field, so it's applied
+  // here at merge time rather than back-filling every literal; new rows from
+  // the two handlers above now carry `kind` natively. Sorted newest-first to
+  // read as one continuous ledger, matching the flat WithdrawalRow style
+  // already used on this page (RefundRow's heavier card style is correct on
+  // the myjobs tab only, per Part D reasoning — this page's surrounding rows
+  // are all flat, so a merged flat list with a small kind tag is consistent).
+  const withdrawalsHistoryMerged = [
+    ...withdrawalHistory.map((w) => (w.kind ? w : { ...w, kind: "earnings" })),
+    ...refundHistory.map((w) => (w.kind ? w : { ...w, kind: "refund" })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
   const [testnetTipOpen, setTestnetTipOpen] = useState(false);
   // Real Profile.tsx toggles editing in place on the same page (own-profile
   // view only), sharing ProfileForm with real /onboarding — mirrored here
@@ -3071,7 +3089,9 @@ export default function HiveworkApp() {
         .hw-app .wd-item{padding:14px 0;border-bottom:1px solid var(--line);}
         .hw-app .wd-item:last-child{border-bottom:none;}
         .hw-app .wd-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+        .hw-app .wd-amt-group{display:flex;align-items:center;gap:6px;}
         .hw-app .wd-amt{font-weight:700;font-size:13.5px;color:var(--ink);}
+        .hw-app .wd-kind-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:100px;background:var(--cream);color:var(--violet-deep);border:1px solid var(--violet-deep);}
         .hw-app .wd-status{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:100px;}
         .hw-app .wd-status.queued,.hw-app .wd-status.processing{background:#EFEAFB;color:var(--violet-deep);}
         .hw-app .wd-status.completed{background:#E4F8F6;color:#1A9E92;}
@@ -3471,6 +3491,7 @@ export default function HiveworkApp() {
                         <WithdrawPanel kind="refund" balance={refundBalance} minWithdrawal={WITHDRAW_MIN} fee={WITHDRAW_FEE} onWithdraw={handleRefundWithdraw} />
                         <div className="section-title-row">
                           <div className="section-title" style={{ margin: 0 }}>Refund history</div>
+                          <button className="see-all" onClick={goToHistWithdrawals}>See all →</button>
                         </div>
                         {refundHistory.slice(0, 2).map((w) => (
                           <RefundRow key={w.id} w={w} />
@@ -3546,7 +3567,7 @@ export default function HiveworkApp() {
                 <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Withdrawal history</h1></div>
                 <HiveworkRangeFilter value={withdrawalsHistoryRange} onChange={setWithdrawalsHistoryRange} />
                 <HistoryList
-                  rows={withdrawalHistory}
+                  rows={withdrawalsHistoryMerged}
                   range={withdrawalsHistoryRange}
                   shown={withdrawalsHistoryShown}
                   onLoadMore={() => setWithdrawalsHistoryShown((n) => n + HIST_PAGE_SIZE)}
