@@ -91,3 +91,11 @@ brief (`session-18.md`).
 - Standing gap, unrelated: none of the shells detect Pi Browser presence
   for real (`piBrowserDetected` hardcoded/prop-driven, logged since
   Section 8/17)
+
+## Correction (2026-08-12, later same day — audit pass)
+
+The "Next session" note above claiming the JobCard refund badge was
+"shell-demoed (Session 17)" is wrong — verified via grep, no match for
+`JobCard`, `.refunded`, or a refund badge in either shell. Only the
+WithdrawPanel refund-kind panel was actually demoed. See roadmap.md
+Section 15, Correction #2.
