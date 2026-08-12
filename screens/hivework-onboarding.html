@@ -165,6 +165,11 @@
     <button class="preview-btn" id="int-find" onclick="setIntent('find')">find</button>
     <button class="preview-btn" id="int-post" onclick="setIntent('post')">post</button>
   </div>
+  <div class="preview-row">
+    User:
+    <button class="preview-btn on" id="pc-no" onclick="setProfileComplete(false)">New / incomplete profile</button>
+    <button class="preview-btn" id="pc-yes" onclick="setProfileComplete(true)">Returning · profile complete</button>
+  </div>
 </div>
 
 <div class="frame">
@@ -324,6 +329,12 @@
 let tosChecked = false;
 let piBrowserDetected = true;
 let intent = 'none';
+// Real app never gates a returning user behind profile/notify screens —
+// Dashboard.tsx shows a soft inline nudge banner instead (profileComplete
+// === false), no forced walkthrough. Real Pi.authenticate() would return
+// this on the user object; exposed here as a preview toggle since this
+// route has no backend of its own.
+let profileComplete = false;
 
 function toggleKyc(){
   const pill = document.getElementById('kyc-pill');
@@ -353,6 +364,12 @@ function setIntent(val){
   document.getElementById('int-post').classList.toggle('on', val==='post');
 }
 
+function setProfileComplete(val){
+  profileComplete = val;
+  document.getElementById('pc-no').classList.toggle('on', !val);
+  document.getElementById('pc-yes').classList.toggle('on', val);
+}
+
 function updateConnectButton(){
   const btn = document.getElementById('connect-btn');
   const explain = document.getElementById('pibrowser-explain');
@@ -369,7 +386,9 @@ function updateConnectButton(){
       document.querySelector('.wallet-status').textContent = 'Connected';
       document.querySelector('.wallet-status').style.background = 'rgba(46,196,182,.35)';
       document.querySelector('.wallet-value').textContent = '@olawalt';
-      setTimeout(()=>goTo('s2'), 500);
+      setTimeout(()=>{
+        if(profileComplete){ finishOnboarding(); } else { goTo('s2'); }
+      }, 500);
     };
   }
 }

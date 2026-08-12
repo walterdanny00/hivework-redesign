@@ -2472,14 +2472,24 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
   // mirrors that with a simulated delay. forceOutcome lets the demo trigger
   // the two failure paths (real code today can't tell "Pi Browser missing"
   // from "not connected" — logged gap).
-  const handleConnect = (forceOutcome = "connected") => {
+  //
+  // `returning` mirrors what Dashboard.tsx already does for real: it never
+  // gates a returning/complete-profile user behind profile+notify screens,
+  // just shows a soft inline nudge banner instead. Real Pi.authenticate()
+  // would return this on the user object; the demo link passes it directly
+  // as an argument (not read off state) because this callback fires inside
+  // a setTimeout — reading a state variable there instead of taking it as
+  // a param is a stale-closure bug: the click that flips the flag and the
+  // click that calls handleConnect happen in the same handler, before
+  // React re-renders, so the delayed callback would still see the old value.
+  const handleConnect = (forceOutcome = "connected", returning = false) => {
     if (!tosChecked || walletStatus === "connecting") return;
     setWalletStatus("connecting");
     setTimeout(() => {
       if (forceOutcome === "connected") {
         setWalletStatus("connected");
         setWalletConnected(true);
-        setTimeout(() => goTo("profile"), 500);
+        setTimeout(() => goTo(returning ? "routing" : "profile"), 500);
       } else {
         setWalletStatus(forceOutcome); // 'no-pi-browser' | 'failed'
       }
@@ -2599,6 +2609,7 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
                   <div className="wc-demo-row">
                     <span className="wc-demo-link" onClick={() => handleConnect("no-pi-browser")}>Demo: no Pi Browser</span>
                     <span className="wc-demo-link" onClick={() => handleConnect("failed")}>Demo: connection failed</span>
+                    <span className="wc-demo-link" onClick={() => handleConnect("connected", true)}>Demo: returning user (skip setup)</span>
                   </div>
                 )}
               </div>

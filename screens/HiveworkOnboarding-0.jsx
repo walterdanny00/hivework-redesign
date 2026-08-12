@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import "./hivework-tokens.css";
 
 /**
  * Hivework — Onboarding
@@ -84,7 +83,7 @@ function ChipGroup({ options, selected, onToggle }) {
   );
 }
 
-export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = true, intent: intentProp = "none" }) {
+export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = true, intent: intentProp = "none", profileComplete: profileCompleteProp = false }) {
   const [screen, setScreen] = useState("connect"); // 'connect' | 'profile' | 'notify' | 'routing'
   const [tosChecked, setTosChecked] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
@@ -95,6 +94,12 @@ export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = 
   // Preview-only state — see PreviewControls note below.
   const [piBrowserDetected, setPiBrowserDetected] = useState(piBrowserProp);
   const [intent, setIntent] = useState(intentProp);
+  // Real app never gates a returning user behind profile/notify screens —
+  // Dashboard.tsx shows a soft inline nudge banner instead (profileComplete
+  // === false), no forced walkthrough. Real Pi.authenticate() would return
+  // this on the user object; exposed here as a prop/preview toggle since
+  // this route has no backend of its own.
+  const [profileComplete, setProfileComplete] = useState(profileCompleteProp);
 
   const goTo = (id) => {
     setScreen(id);
@@ -107,7 +112,7 @@ export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = 
       return;
     }
     setWalletConnected(true);
-    setTimeout(() => goTo("profile"), 500);
+    setTimeout(() => goTo(profileComplete ? "routing" : "profile"), 500);
   };
 
   const toggleSkill = (s) => setSkills((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
@@ -127,6 +132,12 @@ export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = 
   return (
     <>
       <style>{`
+        :root{
+          --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
+          --violet:#6C5CE7; --violet-deep:#5643D9;
+          --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
+          --line:#E7E3DA; --card:#FFFFFF;
+        }
         .hw-onboard *{box-sizing:border-box;}
         html,body{height:100%;}
         .hw-onboard{margin:0;background:#EAE7DF;color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -228,6 +239,8 @@ export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = 
           setPiBrowserDetected={setPiBrowserDetected}
           intent={intent}
           setIntent={setIntent}
+          profileComplete={profileComplete}
+          setProfileComplete={setProfileComplete}
         />
 
         <div className="frame">
@@ -374,11 +387,12 @@ export default function HiveworkOnboarding({ piBrowserDetected: piBrowserProp = 
 
 /**
  * Preview-only controls for design review. Not part of the shipped
- * onboarding flow — remove this component (and the two useState calls
- * that feed it in HiveworkOnboarding) once piBrowserDetected/intent are
- * wired to real environment detection and the URL query string.
+ * onboarding flow — remove this component (and the three useState calls
+ * that feed it in HiveworkOnboarding) once piBrowserDetected/intent/
+ * profileComplete are wired to real environment detection, the URL query
+ * string, and the Pi.authenticate() response, respectively.
  */
-function PreviewControls({ piBrowserDetected, setPiBrowserDetected, intent, setIntent }) {
+function PreviewControls({ piBrowserDetected, setPiBrowserDetected, intent, setIntent, profileComplete, setProfileComplete }) {
   return (
     <div className="preview-bar">
       <strong>Preview controls</strong> — not part of the design, just for testing states.
@@ -392,6 +406,11 @@ function PreviewControls({ piBrowserDetected, setPiBrowserDetected, intent, setI
         <button className={`preview-btn${intent === "none" ? " on" : ""}`} onClick={() => setIntent("none")}>None</button>
         <button className={`preview-btn${intent === "find" ? " on" : ""}`} onClick={() => setIntent("find")}>find</button>
         <button className={`preview-btn${intent === "post" ? " on" : ""}`} onClick={() => setIntent("post")}>post</button>
+      </div>
+      <div className="preview-row">
+        User:
+        <button className={`preview-btn${!profileComplete ? " on" : ""}`} onClick={() => setProfileComplete(false)}>New / incomplete profile</button>
+        <button className={`preview-btn${profileComplete ? " on" : ""}`} onClick={() => setProfileComplete(true)}>Returning · profile complete</button>
       </div>
     </div>
   );

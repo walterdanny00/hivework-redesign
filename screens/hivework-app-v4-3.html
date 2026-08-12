@@ -1896,7 +1896,12 @@ function owToggleKyc(){ onboardState.kycOpen = !onboardState.kycOpen; renderWelc
 // Real Pi.authenticate() (see lib/usePi.ts) is async and can fail — this mirrors that
 // with a simulated delay. forceOutcome lets the demo trigger the two failure paths
 // (real code today can't tell "Pi Browser missing" from "not connected" — logged gap).
-function owConnect(forceOutcome){
+//
+// `returning` mirrors what Dashboard.tsx already does for real: it never gates a
+// returning/complete-profile user behind profile+notify screens, just shows a soft
+// inline nudge banner instead. Real Pi.authenticate() would return this on the user
+// object; the demo link passes it directly as an argument here.
+function owConnect(forceOutcome, returning){
   if(!onboardState.tosChecked || onboardState.walletStatus==='connecting') return;
   onboardState.walletStatus = 'connecting';
   renderWelcome();
@@ -1906,7 +1911,7 @@ function owConnect(forceOutcome){
       onboardState.walletStatus = 'connected';
       onboardState.walletConnected = true;
       renderWelcome();
-      setTimeout(()=>{ owGoTo('profile'); }, 500);
+      setTimeout(()=>{ owGoTo(returning ? 'routing' : 'profile'); }, 500);
     } else {
       onboardState.walletStatus = outcome; // 'no-pi-browser' | 'failed'
       renderWelcome();
@@ -1915,6 +1920,7 @@ function owConnect(forceOutcome){
 }
 function owRetryConnect(){ owConnect('connected'); }
 function owSimulateError(kind){ owConnect(kind); }
+function owSimulateReturning(){ owConnect('connected', true); }
 function owToggleSkill(s){
   const i = onboardState.skills.indexOf(s);
   if(i>=0) onboardState.skills.splice(i,1); else onboardState.skills.push(s);
@@ -1983,7 +1989,7 @@ function renderWelcome(){
       + '<div class="testnet-note">Note: Hivework is currently on Pi Testnet — wallet activity here uses Test-Pi, not real Pi.</div>'
       + '<div class="tos-row" onclick="owToggleTos()"><div class="tos-check'+(s.tosChecked?' checked':'')+'">'+(s.tosChecked?CHECK_ICON_SVG:'')+'</div><p>I agree to the <a href="#" onclick="event.stopPropagation()">Terms of Service</a> and <a href="#" onclick="event.stopPropagation()">Privacy Policy</a>.</p></div>'
       + '<button class="btn btn-primary" '+connectDisabled+' onclick="owConnect(\'connected\')">'+connectLabel+'</button>'
-      + (ws==='idle' && s.tosChecked ? '<div class="wc-demo-row"><span class="wc-demo-link" onclick="owSimulateError(\'no-pi-browser\')">Demo: no Pi Browser</span><span class="wc-demo-link" onclick="owSimulateError(\'failed\')">Demo: connection failed</span></div>' : '')
+      + (ws==='idle' && s.tosChecked ? '<div class="wc-demo-row"><span class="wc-demo-link" onclick="owSimulateError(\'no-pi-browser\')">Demo: no Pi Browser</span><span class="wc-demo-link" onclick="owSimulateError(\'failed\')">Demo: connection failed</span><span class="wc-demo-link" onclick="owSimulateReturning()">Demo: returning user (skip setup)</span></div>' : '')
       + '</div>';
   } else if(s.screen==='profile'){
     inner = '<div>'

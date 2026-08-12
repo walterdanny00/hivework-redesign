@@ -71,7 +71,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Screen | Route | Status | Notes |
 |---|---|---|---|
 | Landing | `/` (logged out) | ✅ Done · ✅ Recompiled (JSX) | Nav "Get started" + hero CTAs route into the Wallet Connect flow with intent (`find`/`post`/`none`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). In `HiveworkApp.jsx`, this is now the shell's actual entry screen (`screen="landing"` default), rendered full-page without the persistent header/segnav. |
-| "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). |
+| "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
@@ -1060,3 +1060,70 @@ each edit — same standing limitation, no JSX build tool in this sandbox.
 **Not built — real gap, unaddressed:** Post Job's wizard still has no
 payment-error anchor point for a `ContactSupport` instance (pre-existing
 gap, Section 6) — out of scope for this item.
+
+
+## 18. Returning-user wallet-connect gap, and self-contained onboarding files (2026-08-12)
+
+**Question that started this:** does an existing user who already
+completed their profile and enabled notifications get pushed through
+those screens again on every reconnect, or does wallet connect alone
+take them straight in?
+
+**Sweep first, per standing rule.** Read the real app's auth/dashboard
+code directly (`usePi.ts`, `Dashboard.tsx`, confirmed no
+`ProfileSetup`/`NotificationOpt`/`EnableNotifications` components exist
+anywhere in the codebase). Finding: **the real app never gates a
+returning user behind onboarding screens at all.** Login is just Pi
+wallet auth; a successful connect lands directly on Dashboard.
+`profileComplete` only drives a soft inline nudge banner ("Complete
+your profile · Add your skills so clients can hire you", linking to
+`/onboarding?returnTo=/dashboard`) — dismissible by ignoring, never a
+hard redirect.
+
+**Compared against the shells — real gap found.** Every shell
+(`HiveworkApp.jsx`, `hivework-app-v4-3.html`, and the standalone
+`HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) ran *every* wallet connect
+through connect→profile→notify unconditionally — no branch existed for
+a returning/complete-profile user. This contradicted what the sweep
+just confirmed about the real app.
+
+**Fixed in all 5 files,** each via that file's own existing convention
+rather than one copy-pasted pattern:
+- `HiveworkApp.jsx` / `hivework-app-v4-3.html`: added a `returning`
+  branch to `handleConnect`/`owConnect` (skips straight to `routing`
+  instead of `profile`), surfaced via a new "Demo: returning user (skip
+  setup)" link next to the existing no-Pi-Browser/failed demo links.
+- `HiveworkOnboarding.jsx`/`-0.jsx`/`hivework-onboarding.html`: added a
+  `profileComplete` prop/state, same effect, surfaced via a new
+  `PreviewControls`/preview-row toggle ("New/incomplete profile" vs.
+  "Returning · profile complete"), matching the existing
+  `piBrowserDetected`/`intent` toggle pattern already in those files.
+
+**Bug caught and fixed during this work:** the first pass at the
+`HiveworkApp.jsx` demo link called `setSimulateReturning(true)` and
+`handleConnect(...)` in the same click handler; since `handleConnect`'s
+outcome runs inside a `setTimeout`, it captured the pre-update (`false`)
+value via React's normal closure-per-render behavior — the flag never
+actually took effect, so the demo link silently did nothing different.
+Fixed by passing `returning` as a direct function argument instead of
+reading it off state inside the delayed callback. Confirmed this
+specific failure mode didn't apply to `owConnect` (plain mutable
+variable, not React state) or to `HiveworkOnboarding.jsx` (the toggle
+click and the Connect click are two separate handlers/renders, so the
+closure is already fresh by the time Connect fires).
+
+**Also done this session, per request:** `HiveworkOnboarding.jsx` and
+`-0.jsx` previously imported `./hivework-tokens.css` for their design
+tokens; now embed the `:root` token variables directly in the
+component's own `<style>` block instead, so the file is fully
+self-contained — matching how `HiveworkApp.jsx` already worked.
+
+**Verification:** brace-balance checked (Node, net-zero) after every
+edit across all 5 files — same standing limitation, no JSX build tool
+in this sandbox, no headless-browser run this session (text-only
+editing, not visually iterated).
+
+**Not built — noted as a gap:** none of the shells detect Pi Browser
+presence for real (`piBrowserDetected` is hardcoded/prop-driven, as
+already logged in Section 8/17) — unrelated to this fix, just adjacent
+code touched.
