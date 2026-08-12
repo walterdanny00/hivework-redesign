@@ -117,6 +117,12 @@ const WITHDRAWAL_HISTORY = [
   { id: "w4", requested_amount: 3, fee: 0.01, net_amount: 2.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-06-20" },
   { id: "w5", requested_amount: 1, fee: 0.01, net_amount: 0.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-05-28" },
 ];
+// Client refund-withdrawal demo rows — same shape as WITHDRAWAL_HISTORY,
+// backs the 'refund' kind WithdrawPanel in the myjobs tab.
+const REFUND_HISTORY = [
+  { id: "r1", requested_amount: 1.4, fee: 0.01, net_amount: 1.39, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-08-05" },
+  { id: "r2", requested_amount: 1, fee: 0.01, net_amount: 0.99, status: "completed", to_address: "GB33VYXXXXXXXXXXXXXXOFXX", date: "2026-07-22" },
+];
 const WD_STATUS_LABEL = { queued: "queued", processing: "processing", completed: "completed", failed: "failed" };
 function wdShortAddr(a) { if (!a) return ""; return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a; }
 // ctx prefixes the mounted Contact Support instance key so the Dashboard
@@ -127,11 +133,16 @@ function wdShortAddr(a) { if (!a) return ""; return a.length > 12 ? `${a.slice(0
 // React's controlled-input diffing preserves focus natively, so unlike the
 // vanilla-JS shell this needs no direct-DOM-patch workaround for the live
 // fee/net preview — a plain onChange + re-render is fine here.
-function WithdrawPanel({ balance, minWithdrawal, fee, onWithdraw }) {
+function WithdrawPanel({ balance, minWithdrawal, fee, onWithdraw, kind = "earnings" }) {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // 'refund' kind = client withdrawing refunded escrow (closed/missed job
+  // slots) — same balance/ledger/withdraw mechanics as 'earnings', reconciled
+  // against real WithdrawPanel.tsx's isRefund copy branches.
+  const isRefund = kind === "refund";
 
   const amt = Number(amount);
   const validAmt = amount !== "" && Number.isFinite(amt);
@@ -158,7 +169,7 @@ function WithdrawPanel({ balance, minWithdrawal, fee, onWithdraw }) {
 
   return (
     <div className="balance-card">
-      <div className="l">Available balance</div>
+      <div className="l">{isRefund ? "Refunded balance" : "Available balance"}</div>
       <div className="n">{balance}π</div>
       <div className="withdraw-row">
         <input
@@ -183,7 +194,9 @@ function WithdrawPanel({ balance, minWithdrawal, fee, onWithdraw }) {
       {message && <div className="wd-msg">{message}</div>}
 
       <div className="wd-note">
-        Withdrawals are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.
+        {isRefund
+          ? <>Refunds from closed or missed job slots are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.</>
+          : <>Withdrawals are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.</>}
       </div>
       <button className="wd-demo-fail" onClick={demoFail}>Demo: simulate failed request</button>
     </div>
@@ -206,6 +219,33 @@ function WithdrawalRow({ w }) {
       {w.status === "failed" && (
         <div className="wd-item-fail">
           This withdrawal didn't complete. If your balance wasn't restored, <HiveworkContactSupport label="contact support" subject={`Withdrawal failed (${w.id})`} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Refund history uses the "Jobs you've posted" card language (border,
+// radius, shadow) instead of WithdrawalRow's flat list-row style — on the
+// myjobs tab, flat rows sandwiched between the refund WithdrawPanel card
+// above and the job-post-row cards below read as visually disconnected;
+// this ties the section together the way "Your work"/"Withdrawals" already
+// read as one continuous flat list on the mywork tab.
+function RefundRow({ w }) {
+  return (
+    <div className="refund-row">
+      <div className="refund-row-top">
+        <span className="refund-amt">{w.requested_amount}π refunded</span>
+        <span className={`wd-status ${w.status}`}>{WD_STATUS_LABEL[w.status]}</span>
+      </div>
+      <div className="refund-sub">
+        You received {w.net_amount}π (fee {w.fee}π)
+        {w.status === "completed" && w.to_address && <> · to {wdShortAddr(w.to_address)}</>}
+        {" · "}{new Date(w.date).toLocaleDateString()}
+      </div>
+      {w.status === "failed" && (
+        <div className="wd-item-fail">
+          This withdrawal didn't complete. If your balance wasn't restored, <HiveworkContactSupport label="contact support" subject={`Refund withdrawal failed (${w.id})`} />
         </div>
       )}
     </div>
@@ -1446,6 +1486,14 @@ function PostJobCombobox({ options, selected, onChange, placeholder }) {
 
 function PostJobWizard() {
   const [step, setStep] = useState(1);
+  // Payment-error state — mirrors real PostJob.tsx: window.Pi.createPayment
+  // failing surfaces an inline error + ContactSupport anchor (PostJob.tsx:142,
+  // subject "Job posting payment issue"). Previously not modeled in this
+  // shell (documented gap, see HiveworkContactSupport's header comment);
+  // reuses the same canonical HiveworkContactSupport component as every
+  // other error-state call site in this file.
+  const [paymentError, setPaymentError] = useState("");
+  const [posting, setPosting] = useState(false);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("bug-testing");
@@ -1670,15 +1718,35 @@ function PostJobWizard() {
                     <div className="row total"><span>Total (escrow)</span><span>{total}π</span></div>
                   </div>
                 </div>
+                {paymentError && (
+                  <div className="error-note">
+                    {paymentError} <HiveworkContactSupport label="Contact support" subject="Job posting payment issue" />
+                  </div>
+                )}
+
                 <div className="btn-row">
                   <button className="btn btn-ghost" onClick={() => goStep(3)}>&larr;</button>
                   <button
                     className="btn btn-primary"
-                    onClick={() => alert("Pay & Post Job → triggers window.Pi.createPayment, unchanged from real flow")}
+                    disabled={posting}
+                    onClick={() => {
+                      setPaymentError("");
+                      setPosting(true);
+                      // Pay & Post Job → triggers window.Pi.createPayment, unchanged from real flow
+                      setTimeout(() => setPosting(false), 500);
+                    }}
                   >
-                    Pay {total}π & Post Job
+                    {posting ? "Processing…" : `Pay ${total}π & Post Job`}
                   </button>
                 </div>
+                {!paymentError && (
+                  <button
+                    className="pj-demo-fail"
+                    onClick={() => setPaymentError("Payment couldn't be completed.")}
+                  >
+                    Demo: simulate failed payment
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2720,9 +2788,7 @@ export default function HiveworkApp() {
   const [detailKey, setDetailKey] = useState("mine");
   const [workView, setWorkView] = useState("mywork"); // 'mywork' | 'myjobs'
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  // Real WithdrawPanel.tsx state, 'earnings' kind only — the real 'refund'
-  // kind (client refund balance, same component/copy variant) isn't demoed
-  // in this shell — real gap, not attempted this session.
+  // Real WithdrawPanel.tsx state — 'earnings' kind (worker balance).
   const [withdrawBalance, setWithdrawBalance] = useState(4);
   const [withdrawalHistory, setWithdrawalHistory] = useState(WITHDRAWAL_HISTORY);
   const WITHDRAW_MIN = 1;
@@ -2731,6 +2797,21 @@ export default function HiveworkApp() {
     setWithdrawBalance((b) => Number((b - amt).toFixed(4)));
     setWithdrawalHistory((h) => [
       { id: `w${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10) },
+      ...h,
+    ]);
+  };
+  // Real WithdrawPanel.tsx 'refund' kind — client's refunded escrow balance
+  // (closed/missed job slots). Real Dashboard.tsx only mounts this panel
+  // when tracker.total_refunded > 0 — demo balance below stands in for that
+  // check since this shell has no tracker object. Session 16-follow-up: was
+  // flagged as a real gap, but the real app already has this built
+  // (Dashboard.tsx:174) — this was purely a shell-demo gap, now closed.
+  const [refundBalance, setRefundBalance] = useState(2.4);
+  const [refundHistory, setRefundHistory] = useState(REFUND_HISTORY);
+  const handleRefundWithdraw = (amt, fee) => {
+    setRefundBalance((b) => Number((b - amt).toFixed(4)));
+    setRefundHistory((h) => [
+      { id: `r${Date.now()}`, requested_amount: amt, fee, net_amount: Number((amt - fee).toFixed(4)), status: "queued", to_address: null, date: new Date().toISOString().slice(0, 10) },
       ...h,
     ]);
   };
@@ -2979,6 +3060,12 @@ export default function HiveworkApp() {
         .hw-app .wd-err{color:#FF8A80;font-size:12.5px;margin-top:8px;position:relative;}
         .hw-app .wd-msg{color:#7EE0D3;font-size:12.5px;margin-top:8px;position:relative;}
         .hw-app .wd-demo-fail{background:none;border:none;color:#5F5C6B;font-size:10px;text-decoration:underline;cursor:pointer;padding:0;margin-top:12px;display:block;position:relative;}
+        /* Post Job payment-error state — reuses .hw-jdw's error-note color
+           language (var(--coral)); PostJobWizard has no dedicated wrapper
+           class so this is scoped at .hw-app directly, harmless since
+           .error-note/.pj-demo-fail aren't used elsewhere under .hw-app. */
+        .hw-app .error-note{font-size:12px;color:var(--coral);margin:10px 0;line-height:1.5;}
+        .hw-app .pj-demo-fail{background:none;border:none;color:#8B889A;font-size:10.5px;text-decoration:underline;cursor:pointer;padding:0;margin-top:10px;display:block;}
         /* Withdrawal history rows — shared by the Dashboard mini-preview and
            the full History→Withdrawals page. */
         .hw-app .wd-item{padding:14px 0;border-bottom:1px solid var(--line);}
@@ -3028,6 +3115,14 @@ export default function HiveworkApp() {
         .hw-app .jp-applicants{font-size:12px;color:var(--ink-soft);}
         .hw-app .jp-divider{border-top:1px solid var(--line);margin:0 -20px 14px;}
         .hw-app .jp-manage{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:#EFEAFB;color:var(--violet-deep);font-size:13px;font-weight:700;padding:11px;border-radius:100px;cursor:pointer;border:none;}
+        /* Refund history rows — same card language as .job-post-row
+           (border/radius/shadow) rather than .wd-item's flat list-row
+           style, so the myjobs tab reads as one visual family instead of a
+           flat list sandwiched between two card sections. */
+        .hw-app .refund-row{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:12px;box-shadow:0 12px 26px -18px rgba(27,26,31,.14);}
+        .hw-app .refund-row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+        .hw-app .refund-amt{font-family:'JetBrains Mono';font-weight:700;color:var(--violet-deep);font-size:14px;}
+        .hw-app .refund-sub{font-size:12px;color:var(--ink-soft);}
 
         .hw-app .applicant-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
         .hw-app .applicant-row:last-child{border-bottom:none;}
@@ -3371,7 +3466,19 @@ export default function HiveworkApp() {
 
                 {workView === "myjobs" && (
                   <div>
-                    <div className="section-title-row">
+                    {refundBalance > 0 && (
+                      <>
+                        <WithdrawPanel kind="refund" balance={refundBalance} minWithdrawal={WITHDRAW_MIN} fee={WITHDRAW_FEE} onWithdraw={handleRefundWithdraw} />
+                        <div className="section-title-row">
+                          <div className="section-title" style={{ margin: 0 }}>Refund history</div>
+                        </div>
+                        {refundHistory.slice(0, 2).map((w) => (
+                          <RefundRow key={w.id} w={w} />
+                        ))}
+                      </>
+                    )}
+
+                    <div className="section-title-row" style={{ marginTop: refundBalance > 0 ? 22 : 0 }}>
                       <div className="section-title" style={{ margin: 0 }}>Jobs you've posted</div>
                       <button className="see-all" onClick={goToHistJobs}>See all →</button>
                     </div>

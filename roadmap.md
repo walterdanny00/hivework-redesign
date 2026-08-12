@@ -82,7 +82,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6 and Section 17. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Wired into: Profile menu (global access point — reachable from every main-app screen via the header avatar, same coverage real `Layout.tsx`'s footer link exists to provide; opens as a centered modal as of session 17/Section 18, not inline-expanded in the dropdown — the inline pattern looked cramped in a 228px menu) and worker Job Detail's wallet-error state (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity). A persistent footer link was built and then deliberately reverted (session 15/16, see Section 17) — decided the profile-menu entry already gives global coverage and running both was redundant. Post Job has no payment-error anchor point in this simplified wizard, so that spot is logged as a gap rather than faked. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6 and Section 17. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Wired into: Profile menu (global access point — reachable from every main-app screen via the header avatar, same coverage real `Layout.tsx`'s footer link exists to provide; opens as a centered modal as of session 17/Section 18, not inline-expanded in the dropdown — the inline pattern looked cramped in a 228px menu) and worker Job Detail's wallet-error state (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity). A persistent footer link was built and then deliberately reverted (session 15/16, see Section 17) — decided the profile-menu entry already gives global coverage and running both was redundant. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
 
@@ -894,11 +894,18 @@ unrelated — this sandbox has no network access, not a regression. JSX shell
 only brace/paren/bracket-balance checked (net-zero), same standing
 limitation as every session touching this file.
 
-**Not built — real gap, not attempted:** the `refund` kind (client
-withdrawing refunded escrow, same component/copy variant per real code's
-`kind` prop) isn't demoed in either shell; Dashboard only shows the
-`earnings` kind. `JobCard.tsx`'s "↩ Xπ refunded" badge also remains
-unbuilt.
+**Correction (2026-08-12, Section 18 follow-up):** this was misdiagnosed as
+"not built" — a Termux sweep of the real app found both pieces already
+exist: `JobCard.tsx` already renders the "↩ Xπ refunded" badge
+(`!!job.refunded` check), and `Dashboard.tsx:174` already mounts
+`<WithdrawPanel kind="refund" />` conditionally when
+`tracker.total_refunded > 0`. The only real gap was that neither was
+demoed in the shells. Now fixed: `WithdrawPanel` in `HiveworkApp.jsx` and
+`hivework-app-v4-3.html` takes a `kind` prop/parameter (`'earnings'` |
+`'refund'`), branching balance label and wallet-note copy per real
+`WithdrawPanel.tsx`; a refund-kind panel + short refund history now renders
+in Dashboard's "My Jobs" tab (both shells), gated on a demo refund balance
+mirroring the real `tracker.total_refunded > 0` check.
 
 ---
 
@@ -1127,3 +1134,88 @@ editing, not visually iterated).
 presence for real (`piBrowserDetected` is hardcoded/prop-driven, as
 already logged in Section 8/17) — unrelated to this fix, just adjacent
 code touched.
+
+---
+
+## 19. Next-session gap sweep — two false gaps found, three real fixes shipped (2026-08-12)
+
+**Started from the carried-over "next session" list (sessions 14/15/16):**
+WithdrawPanel's `refund` kind not demoed, `JobCard.tsx`'s refund badge
+"unbuilt," Post Job's missing payment-error anchor. Per the standing
+sweep-first rule, checked the real app (Termux, `~/Piwork/frontend/src/`)
+before touching any shell file.
+
+**Sweep found two of the three were misdiagnosed:**
+- `JobCard.tsx` already renders the "↩ Xπ refunded" badge — not unbuilt.
+- `Dashboard.tsx:174` already mounts `<WithdrawPanel kind="refund" />`
+  conditionally on `tracker.total_refunded > 0` — not unbuilt in the real
+  app. `WithdrawPanel.tsx` itself already branches all copy on
+  `kind`/`isRefund` (balance label, wallet note, history heading).
+- `PostJob.tsx:142` already has a `<ContactSupport subject="Job posting
+  payment issue" />` anchor on its payment-error state — not a real-app
+  gap.
+
+All three "gaps" were actually shell-demo gaps only — the real app had
+already shipped this functionality; the shells (both compiled and
+standalone) just never caught up to demo it. `HiveworkApp.jsx`'s own
+inline comments already said as much for two of the three (`kind`
+prop absent, PostJob wizard's payment error "not modeled" per
+`HiveworkContactSupport`'s header comment) — the roadmap's phrasing
+("unbuilt," "real gap") was the stale part, not the code.
+
+**Fixed in all 4 relevant files:**
+- `HiveworkApp.jsx`: `WithdrawPanel` takes a `kind = "earnings"` prop;
+  refund-kind panel + short refund history now renders in Dashboard's
+  "My Jobs" tab, gated on a demo refund balance (mirrors the real
+  `tracker.total_refunded > 0` check, since this shell has no tracker
+  object). `PostJobWizard`'s step-4 submit now has real payment-error
+  state, reusing the existing canonical `HiveworkContactSupport`
+  component (subject `"Job posting payment issue"`, matching real code),
+  with a "Demo: simulate failed payment" trigger following the same
+  convention as `WithdrawPanel`'s `demoFail`.
+- `hivework-app-v4-3.html`: same two fixes ported to the vanilla-JS
+  pattern — refund kind gets its own parallel global-state functions
+  (`REFUND_BALANCE`, `refundWithdrawState`, `renderRefundPanel()`, etc.,
+  mirroring the earnings-kind functions 1:1 per this file's existing
+  per-kind duplication convention rather than a new shared abstraction);
+  Post Job's `postJobSubmit()` reuses the existing `initContactSupport`
+  registry.
+- `HiveworkPostJob.jsx` (standalone): payment-error fix only (no
+  Dashboard in this file). Self-contained `PostJobContactSupport`
+  component added (own file, own state) rather than importing
+  `HiveworkContactSupport`, matching this file's existing
+  self-containment convention (same one used for
+  `HiveworkOnboarding.jsx`/`-0.jsx` in Section 18).
+- `hivework-post-job.html` (standalone): payment-error fix only. Reused
+  the file's existing `rv-err` placeholder div (previously always
+  `display:none`, never populated) rather than adding new markup; a
+  lightweight inline Contact Support widget (own state, no registry
+  needed since there's only one call site in this file).
+
+**Verification:** brace/paren/bracket-balance checked (Node, net-zero)
+on both JSX files; both HTML files' inline `<script>` extracted and
+run through `node --check` for syntax validity — caught and fixed one
+real bug this way (a broken escaped-apostrophe string in
+`hivework-post-job.html`'s "message sent" text that would have thrown
+at runtime). No headless-browser run this session — standard sandbox
+limitation, no network access to install a browser.
+
+**Follow-up fix (2026-08-12, same day):** user flagged that refund history
+didn't visually tie in with "Jobs you've posted" below it on the myjobs
+tab — unlike mywork's "Your work"/"Withdrawals" pair, which both use flat
+list rows and read as one continuous list. Root cause: refund history was
+using `WithdrawalRow`'s flat `.wd-item` row style, sandwiched between the
+refund `WithdrawPanel` (heavy card) above and `job-post-row` (heavy card)
+cards below — three different visual weights stacked. Fixed by giving
+refund rows their own `RefundRow`/`renderRefundRow()` treatment using the
+`.job-post-row` card language (border/radius/shadow) instead — now the
+myjobs tab reads as one card-based visual family. Caught+fixed the same
+double-backslash escaped-apostrophe bug as earlier this session (this time
+in `hivework-app-v4-3.html`'s new `renderRefundRow` function) via
+`node --check` on the extracted script.
+
+**Not built — noted as a gap:** the refund history list in both shells
+is still a short static demo array (2 rows), not wired to the same
+pagination/range-filter machinery as the earnings withdrawal history —
+acceptable for a demo panel gated behind a conditional balance check,
+but worth flagging if this needs full parity later.

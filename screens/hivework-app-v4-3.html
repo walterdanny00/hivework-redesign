@@ -178,6 +178,11 @@
   .wd-err{color:#FF8A80;font-size:12.5px;margin-top:8px;position:relative;}
   .wd-msg{color:#7EE0D3;font-size:12.5px;margin-top:8px;position:relative;}
   .wd-demo-fail{background:none;border:none;color:#5F5C6B;font-size:10px;text-decoration:underline;cursor:pointer;padding:0;margin-top:12px;display:block;position:relative;}
+  /* Post Job payment-error state — reuses .hw-jdw's error-note color
+     language (var(--coral)) at global scope since Post Job has no
+     dedicated wrapper class in this shell. */
+  .error-note{font-size:12px;color:var(--coral);margin:10px 0;line-height:1.5;}
+  .pj-demo-fail{background:none;border:none;color:#8B889A;font-size:10.5px;text-decoration:underline;cursor:pointer;padding:0;margin-top:10px;display:block;}
   /* ===== Withdrawal history rows — real fee/net/status/address shape,
      shared by the Dashboard mini-preview and the full History→Withdrawals
      page (ctx-prefixed contact-support ids so both can mount at once
@@ -239,6 +244,14 @@
   }
   .status-pill.open{background:#E4F8F6;color:#1A9E92;}
   .status-pill.escrow{background:#FFF3DC;color:#B8860B;}
+  /* Refund history rows — same card language as .job-post-row
+     (border/radius/shadow) rather than .wd-item's flat list-row style, so
+     the myjobs tab reads as one visual family instead of a flat list
+     sandwiched between two card sections. */
+  .refund-row{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:12px;box-shadow:0 12px 26px -18px rgba(27,26,31,.14);}
+  .refund-row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .refund-amt{font-family:'JetBrains Mono';font-weight:700;color:var(--violet-deep);font-size:14px;}
+  .refund-sub{font-size:12px;color:var(--ink-soft);}
 
   .applicant-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
   .applicant-row:last-child{border-bottom:none;}
@@ -1016,7 +1029,15 @@
 
 
       <div id="myjobs-panel" style="display:none;">
-        <div class="section-title-row">
+        <div id="dash-refund-panel"></div>
+        <div id="dash-refund-history-wrap" style="display:none;">
+          <div class="section-title-row">
+            <div class="section-title" style="margin:0;">Refund history</div>
+          </div>
+          <div id="dash-refund-history"></div>
+        </div>
+
+        <div class="section-title-row" id="myjobs-title-row">
           <div class="section-title" style="margin:0;">Jobs you've posted</div>
           <span class="see-all" onclick="goToHistJobs()">See all →</span>
         </div>
@@ -1113,7 +1134,7 @@ function showScreen(id, el){
   document.getElementById('segnav').style.display = mainScreens.includes(id) ? 'flex' : 'none';
   document.querySelectorAll('.segnav a').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
 
-  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); }
+  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); renderRefundPanel(); renderDashRefundHistory(); }
 
   closeMenus();
   window.scrollTo(0,0);
@@ -1652,7 +1673,8 @@ function initPostJobState(){
   postJobState = {
     step:1, title:'', category:'bug-testing', budgetStr:'',
     description:'', requirements:'', devices:[], languages:[], deviceQuery:'', languageQuery:'',
-    workerCount:1, deadlineMode:'per_worker', slotDays:'3', deadlineDate:''
+    workerCount:1, deadlineMode:'per_worker', slotDays:'3', deadlineDate:'',
+    paymentError:'', posting:false
   };
 }
 function goToPostJob(){ initPostJobState(); renderPostJob(); showScreen('post'); }
@@ -1699,7 +1721,21 @@ function updatePJWorkerCount(v){
   renderPostJob();
 }
 function setPJDeadlineMode(m){ postJobState.deadlineMode = m; renderPostJob(); }
-function postJobSubmit(){ alert('Pay & Post Job → triggers window.Pi.createPayment, unchanged from real flow'); }
+function postJobSubmit(){
+  postJobState.paymentError = '';
+  postJobState.posting = true;
+  renderPostJob();
+  // Pay & Post Job → triggers window.Pi.createPayment, unchanged from real flow
+  setTimeout(()=>{ postJobState.posting = false; renderPostJob(); }, 500);
+}
+// Lets a reviewer see the payment-error copy path without a real failed Pi
+// payment — same "Demo:" trigger-link convention as WithdrawPanel's
+// demoFail. Real anchor: PostJob.tsx:142, subject "Job posting payment issue".
+function pjDemoFailPayment(){
+  postJobState.paymentError = "Payment couldn't be completed.";
+  renderPostJob();
+  initContactSupport('pj-contact-payment-error', 'Job posting payment issue', 'Contact support');
+}
 
 // Generalized searchable multi-select combobox (kind: 'device' | 'language')
 function pjOptionsFor(kind){ return kind==='device' ? DEVICE_OPTIONS : LANGUAGE_OPTIONS; }
@@ -1839,10 +1875,16 @@ function renderPostJob(){
       + '<div class="row"><span>Worker budget</span><span>'+budget+'π</span></div>'
       + '<div class="row"><span>Platform fee (7%)</span><span>'+fee+'π</span></div>'
       + '<div class="row total"><span>Total (escrow)</span><span>'+total+'π</span></div>'
-      + '</div></div>'
-      + '<div class="btn-row"><button class="btn btn-ghost" onclick="goPJStep(3)">←</button>'
-      + '<button class="btn btn-primary" onclick="postJobSubmit()">Pay '+total+'π & Post Job</button></div>'
-      + '</div>';
+      + '</div></div>';
+    if(s.paymentError){
+      html += '<div class="error-note">'+s.paymentError+' <span id="pj-contact-payment-error"></span></div>';
+    }
+    html += '<div class="btn-row"><button class="btn btn-ghost" onclick="goPJStep(3)">←</button>'
+      + '<button class="btn btn-primary" '+(s.posting?'disabled':'')+' onclick="postJobSubmit()">'+(s.posting?'Processing…':'Pay '+total+'π & Post Job')+'</button></div>';
+    if(!s.paymentError){
+      html += '<button class="pj-demo-fail" onclick="pjDemoFailPayment()">Demo: simulate failed payment</button>';
+    }
+    html += '</div>';
   }
 
   html += '</div>';
@@ -2181,8 +2223,8 @@ function renderRangeFilter(value, onChangeFnName){
    instances (Profile menu + Job Detail worker error state) can coexist in
    the DOM without colliding. Real usage: Layout persistent link (here:
    Profile menu item), JobDetail wallet-verify error (worker view), PostJob
-   payment error (not modeled — this shell's simplified wizard has no
-   payment-error state, documented gap, deferred). */
+   payment error (session 16-follow-up: was a documented gap, now anchored
+   via pjDemoFailPayment/postJobSubmit — see renderPostJob step 4). */
 const contactSupportState = {};
 function initContactSupport(containerId, subject, label){
   contactSupportState[containerId] = { open:false, message:'', sending:false, sent:false, subject:subject, label: label || 'Contact support' };
@@ -2295,10 +2337,29 @@ function renderWdRow(w, ctx){
   html += '</div>';
   return html;
 }
-function mountWdFailedContacts(rows, ctx){
+function mountWdFailedContacts(rows, ctx, subjectPrefix){
+  subjectPrefix = subjectPrefix || 'Withdrawal failed';
   rows.filter(w=>w.status==='failed').forEach(w=>{
-    if(document.getElementById('wd-contact-'+ctx+'-'+w.id)) initContactSupport('wd-contact-'+ctx+'-'+w.id, 'Withdrawal failed ('+w.id+')', 'contact support');
+    if(document.getElementById('wd-contact-'+ctx+'-'+w.id)) initContactSupport('wd-contact-'+ctx+'-'+w.id, subjectPrefix+' ('+w.id+')', 'contact support');
   });
+}
+// Refund history rows use the .job-post-row card language instead of
+// .wd-item's flat list-row style — on the myjobs tab, flat rows sandwiched
+// between the refund WithdrawPanel card above and the job-post-row cards
+// below read as visually disconnected; this ties the section together the
+// way "Your work"/"Withdrawals" already read as one continuous flat list
+// on the mywork tab.
+function renderRefundRow(w, ctx){
+  let html = '<div class="refund-row"><div class="refund-row-top"><span class="refund-amt">'+w.requested_amount+'π refunded</span>'
+    + '<span class="wd-status '+w.status+'">'+WD_STATUS_LABEL[w.status]+'</span></div>'
+    + '<div class="refund-sub">You received '+w.net_amount+'π (fee '+w.fee+'π)';
+  if(w.status==='completed' && w.to_address) html += ' · to '+wdShortAddr(w.to_address);
+  html += ' · '+new Date(w.date).toLocaleDateString()+'</div>';
+  if(w.status==='failed'){
+    html += '<div class="wd-item-fail">This withdrawal didn\'t complete. If your balance wasn\'t restored, <span id="wd-contact-'+ctx+'-'+w.id+'"></span></div>';
+  }
+  html += '</div>';
+  return html;
 }
 function renderDashWdHistory(){
   const items = HW_WITHDRAWAL_HISTORY.slice(0,3);
@@ -2307,9 +2368,8 @@ function renderDashWdHistory(){
 }
 
 // ===== WithdrawPanel (Dashboard) — reconciled with real WithdrawPanel.tsx.
-// 'earnings' kind only (worker balance); the real 'refund' kind (client
-// refund balance, same component/copy variant) isn't demoed in this shell —
-// real gap, not attempted this session.
+// 'earnings' kind (worker balance). See the 'refund' kind block below for
+// the client refund-balance variant (now demoed, session 16-follow-up).
 let WITHDRAW_BALANCE = 4;
 const WITHDRAW_MIN = 1;
 const WITHDRAW_FEE = 0.01;
@@ -2368,6 +2428,87 @@ function submitWithdraw(){
 function demoWithdrawFail(){
   withdrawState.errorMsg = 'Could not request withdrawal.'; withdrawState.message='';
   renderWithdrawPanel();
+}
+
+// ===== WithdrawPanel (Dashboard, 'refund' kind) — client's refunded escrow
+// balance (closed/missed job slots). Real Dashboard.tsx only mounts this
+// when tracker.total_refunded > 0 — REFUND_BALANCE below stands in for that
+// check since this shell has no tracker object. Session 16-follow-up: was
+// flagged as a real gap, but the real app already has this built
+// (Dashboard.tsx:174) — this was purely a shell-demo gap, now closed.
+// Mirrors the 'earnings' functions above 1:1 (own globals, not a shared
+// generic function) — matches this file's existing per-kind duplication
+// convention rather than introducing a new abstraction.
+const REFUND_HISTORY = [
+  {id:'r1', requested_amount:1.4, fee:0.01, net_amount:1.39, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-08-05'},
+  {id:'r2', requested_amount:1, fee:0.01, net_amount:0.99, status:'completed', to_address:'GB33VYXXXXXXXXXXXXXXOFXX', date:'2026-07-22'},
+];
+let REFUND_BALANCE = 2.4;
+let refundWithdrawState = {amount:'', submitting:false, message:'', errorMsg:''};
+function refundCanSubmit(){
+  const st = refundWithdrawState, amt = parseFloat(st.amount);
+  return !st.submitting && !isNaN(amt) && amt>=WITHDRAW_MIN && amt>WITHDRAW_FEE && amt<=REFUND_BALANCE;
+}
+function renderRefundPanel(){
+  const panelEl = document.getElementById('dash-refund-panel');
+  const histWrapEl = document.getElementById('dash-refund-history-wrap');
+  if(!panelEl) return;
+  if(REFUND_BALANCE <= 0){
+    panelEl.innerHTML = '';
+    if(histWrapEl) histWrapEl.style.display = 'none';
+    return;
+  }
+  if(histWrapEl) histWrapEl.style.display = '';
+  const st = refundWithdrawState, amt = parseFloat(st.amount), validAmt = !isNaN(amt);
+  const net = validAmt && amt>WITHDRAW_FEE ? +(amt-WITHDRAW_FEE).toFixed(4) : 0;
+  let html = '<div class="balance-card">'
+    + '<div class="l">Refunded balance</div><div class="n">'+REFUND_BALANCE+'π</div>'
+    + '<div class="withdraw-row"><input id="rf-amount-input" placeholder="Amount (min '+WITHDRAW_MIN+'π)" value="'+st.amount+'" oninput="updateRefundAmount(this.value)">'
+    + '<button id="rf-submit-btn" '+(refundCanSubmit()?'':'disabled')+' onclick="submitRefundWithdraw()">'+(st.submitting?'Requesting…':'Withdraw')+'</button></div>'
+    + '<div class="wd-fee-note" id="rf-fee-note" style="display:'+(validAmt&&amt>WITHDRAW_FEE?'':'none')+';">Network fee '+WITHDRAW_FEE+'π · you receive <strong>'+net+'π</strong></div>';
+  if(REFUND_BALANCE>=WITHDRAW_MIN) html += '<button class="wd-max-link" onclick="maxRefundWithdraw()">Withdraw all ('+REFUND_BALANCE+'π)</button>';
+  html += '<div class="wd-err" id="rf-err-msg" style="display:'+(st.errorMsg?'':'none')+';">'+st.errorMsg+'</div>'
+    + '<div class="wd-msg" id="rf-success-msg" style="display:'+(st.message?'':'none')+';">'+st.message+'</div>'
+    + '<div class="wd-note">Refunds from closed or missed job slots are sent to your <strong>active Pi wallet</strong>. Make sure the wallet you want to receive to is the one unlocked in your Pi Browser before withdrawing.</div>'
+    + '<button class="wd-demo-fail" onclick="demoRefundWithdrawFail()">Demo: simulate failed request</button>'
+    + '</div>';
+  panelEl.innerHTML = html;
+}
+function updateRefundAmount(v){
+  refundWithdrawState.amount = v; refundWithdrawState.errorMsg=''; refundWithdrawState.message='';
+  const amt = parseFloat(v), validAmt = !isNaN(amt);
+  const net = validAmt && amt>WITHDRAW_FEE ? +(amt-WITHDRAW_FEE).toFixed(4) : 0;
+  const feeEl = document.getElementById('rf-fee-note');
+  if(feeEl){ feeEl.style.display = (validAmt&&amt>WITHDRAW_FEE)?'':'none'; feeEl.innerHTML = 'Network fee '+WITHDRAW_FEE+'π · you receive <strong>'+net+'π</strong>'; }
+  const btn = document.getElementById('rf-submit-btn'); if(btn) btn.disabled = !refundCanSubmit();
+  const errEl = document.getElementById('rf-err-msg'); if(errEl) errEl.style.display = 'none';
+  const msgEl = document.getElementById('rf-success-msg'); if(msgEl) msgEl.style.display = 'none';
+}
+function maxRefundWithdraw(){
+  refundWithdrawState.amount = String(REFUND_BALANCE); refundWithdrawState.errorMsg=''; refundWithdrawState.message='';
+  const inp = document.getElementById('rf-amount-input'); if(inp) inp.value = refundWithdrawState.amount;
+  updateRefundAmount(refundWithdrawState.amount);
+}
+function submitRefundWithdraw(){
+  if(!refundCanSubmit()) return;
+  refundWithdrawState.submitting = true; renderRefundPanel();
+  const amt = parseFloat(refundWithdrawState.amount);
+  setTimeout(()=>{
+    REFUND_BALANCE = +(REFUND_BALANCE - amt).toFixed(4);
+    REFUND_HISTORY.unshift({id:'r'+Date.now(), requested_amount:amt, fee:WITHDRAW_FEE, net_amount:+(amt-WITHDRAW_FEE).toFixed(4), status:'queued', to_address:null, date: new Date().toISOString().slice(0,10)});
+    refundWithdrawState = {amount:'', submitting:false, message:'Withdrawal requested. It is being processed.', errorMsg:''};
+    renderRefundPanel(); renderDashRefundHistory();
+  }, 500);
+}
+function demoRefundWithdrawFail(){
+  refundWithdrawState.errorMsg = 'Could not request withdrawal.'; refundWithdrawState.message='';
+  renderRefundPanel();
+}
+function renderDashRefundHistory(){
+  const items = REFUND_HISTORY.slice(0,2);
+  const el = document.getElementById('dash-refund-history');
+  if(el) el.innerHTML = items.map(w=>renderRefundRow(w,'dash-refund')).join('');
+  mountWdFailedContacts(items, 'dash-refund', 'Refund withdrawal failed');
 }
 
 
