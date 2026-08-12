@@ -1338,3 +1338,39 @@ inconsistency user caught on preview. Added one in both shells, wired to
 all", since it's the same merged destination page). No new screen/route
 needed. Re-verified: brace-balance net-zero (JSX), `node --check` clean
 (HTML).
+
+## 21. JobCard "↩ Xπ refunded" badge demoed, both shells (2026-08-12)
+
+**Closes the gap tracked since Section 15 Correction #2 / Section 19:**
+the real `JobCard.tsx` already renders a "↩ Xπ refunded" badge via
+`!!job.refunded` — confirmed via Termux grep this was never rendered in
+either shell (zero matches for `JobCard`/`.refunded`/`refund-badge`).
+Genuinely a shell-demo gap, not a real-app gap.
+
+**Fix:** a third card added to the Dashboard myjobs "Jobs you've posted"
+list, representing a closed job whose unfilled slots were refunded —
+gated on a demo `refunded` flag, same "real-app-confirmed feature just
+needs shell-demoing" pattern Section 19 used for the WithdrawPanel refund
+kind.
+
+- `HiveworkApp.jsx`: new `DASH_CLOSED_JOB` demo constant, third
+  `.job-post-row` rendered conditionally on `DASH_CLOSED_JOB.refunded`.
+- `hivework-app-v4-3.html`: mirrors the JSX — `HW_DASH_CLOSED_JOB`
+  constant, static `#dash-closed-job-row` block (hidden by default),
+  populated by new `renderDashClosedJob()`, wired into the same dashboard
+  init call as `renderRefundPanel()`/`renderDashRefundHistory()`.
+- Both shells: new `.status-pill.closed` pill + `.jp-refund-badge`
+  (violet-bordered mono pill) CSS, reusing existing
+  `--violet-deep`/`--cream`/`--ink-soft` tokens — no new colors, same
+  design-system rule as every prior screen.
+
+**Verification:** brace/paren/bracket-balance re-checked on
+`HiveworkApp.jsx` (net-zero); `hivework-app-v4-3.html`'s inline
+`<script>` re-extracted and passed `node --check`. No headless-browser
+run — standing sandbox limitation (no network access to install one).
+
+**Status:** no other actionable shell-demo gaps currently tracked.
+Remaining items are standing/deferred: KYC/testnet badge wiring (deferred
+until KYC is actually implemented), Pi Browser real-presence detection
+(standing gap, Section 8/17), full backend pagination for History lists
+(data-source gap, per Section 20).

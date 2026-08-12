@@ -246,6 +246,8 @@
   }
   .status-pill.open{background:#E4F8F6;color:#1A9E92;}
   .status-pill.escrow{background:#FFF3DC;color:#B8860B;}
+  .status-pill.closed{background:#F1EFEA;color:var(--ink-soft);}
+  .jp-refund-badge{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--violet-deep);background:var(--cream);border:1px solid var(--violet-deep);padding:4px 10px;border-radius:100px;}
   /* Refund history rows — same card language as .job-post-row
      (border/radius/shadow) rather than .wd-item's flat list-row style, so
      the myjobs tab reads as one visual family instead of a flat list
@@ -1068,6 +1070,18 @@
           <div class="jp-divider"></div>
           <div class="jp-manage" onclick="openDetail('translate')">Review applicants →</div>
         </div>
+        <div class="job-post-row" id="dash-closed-job-row" style="display:none;">
+          <div class="jp-top">
+            <h4 id="dash-closed-job-title"></h4>
+            <span class="jp-amt" id="dash-closed-job-amt"></span>
+          </div>
+          <div class="jp-status-row">
+            <span class="status-pill closed">Closed</span>
+            <span class="jp-refund-badge" id="dash-closed-job-badge"></span>
+          </div>
+          <div class="jp-divider"></div>
+          <div class="jp-manage" onclick="openDetail('mine')">View details →</div>
+        </div>
         <button class="btn" style="margin-top:10px;" onclick="goToPostJob()">Post a new job →</button>
       </div>
     </div>
@@ -1137,7 +1151,7 @@ function showScreen(id, el){
   document.getElementById('segnav').style.display = mainScreens.includes(id) ? 'flex' : 'none';
   document.querySelectorAll('.segnav a').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
 
-  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); renderRefundPanel(); renderDashRefundHistory(); }
+  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); renderRefundPanel(); renderDashRefundHistory(); renderDashClosedJob(); }
 
   closeMenus();
   window.scrollTo(0,0);
@@ -2307,6 +2321,11 @@ const HW_JOBS_HISTORY = [
   {title:'Survey: worker satisfaction Q2', sub:'completed · closed 6/15/2026', amt:'4π', positive:true, date:'2026-06-15'},
   {title:'Usability pass on Post Job wizard', sub:'completed · closed 5/30/2026', amt:'7π', positive:true, date:'2026-05-30'},
 ];
+// Client's own posted job that had unfilled slots closed → refunded.
+// Demoes real JobCard.tsx's `!!job.refunded` badge ("↩ Xπ refunded") on the
+// Dashboard myjobs list — the real component already has this check, it was
+// just never rendered in either shell (roadmap Section 15 Correction #2).
+const HW_DASH_CLOSED_JOB = {title:'Beta test iOS build', amt:'8π', refunded:true, refundedAmt:4};
 // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
 // are a filtering-demo assumption, not real-code-derived (same note as JSX).
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
@@ -2497,6 +2516,18 @@ function renderRefundPanel(){
     + '<button class="wd-demo-fail" onclick="demoRefundWithdrawFail()">Demo: simulate failed request</button>'
     + '</div>';
   panelEl.innerHTML = html;
+}
+// Mirrors real JobCard.tsx's `!!job.refunded` check — see HW_DASH_CLOSED_JOB
+// comment above for context. Gated the same way as the refund WithdrawPanel
+// above (hidden entirely when the demo flag is falsy).
+function renderDashClosedJob(){
+  const rowEl = document.getElementById('dash-closed-job-row');
+  if(!rowEl) return;
+  if(!HW_DASH_CLOSED_JOB.refunded){ rowEl.style.display = 'none'; return; }
+  rowEl.style.display = '';
+  document.getElementById('dash-closed-job-title').textContent = HW_DASH_CLOSED_JOB.title;
+  document.getElementById('dash-closed-job-amt').textContent = HW_DASH_CLOSED_JOB.amt;
+  document.getElementById('dash-closed-job-badge').textContent = '↩ ' + HW_DASH_CLOSED_JOB.refundedAmt + 'π refunded';
 }
 function updateRefundAmount(v){
   refundWithdrawState.amount = v; refundWithdrawState.errorMsg=''; refundWithdrawState.message='';

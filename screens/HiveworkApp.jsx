@@ -102,6 +102,12 @@ const JOBS_HISTORY = [
   { title: "Usability pass on Post Job wizard", sub: "completed · closed 5/30/2026", amt: "7π", positive: true, date: "2026-05-30" },
 ];
 
+// Client's own posted job that had unfilled slots closed → refunded.
+// Demoes real JobCard.tsx's `!!job.refunded` badge ("↩ Xπ refunded") on the
+// Dashboard myjobs list — the real component already has this check, it was
+// just never rendered in either shell (roadmap Section 15 Correction #2).
+const DASH_CLOSED_JOB = { title: "Beta test iOS build", amt: "8π", refunded: true, refundedAmt: 4 };
+
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
 // requested_amount/fee/net_amount/status/to_address. Flat fee=0.01π across
 // every row is a demo simplification — the real API sources `fee` and
@@ -3003,6 +3009,8 @@ export default function HiveworkApp() {
         .hw-app .status-pill{background:#FFF3DC;color:#B8860B;font-size:11px;font-weight:700;padding:6px 12px;border-radius:100px;}
         .hw-app .status-pill.open{background:#E4F8F6;color:#1A9E92;}
         .hw-app .status-pill.escrow{background:#FFF3DC;color:#B8860B;}
+        .hw-app .status-pill.closed{background:#F1EFEA;color:var(--ink-soft);}
+        .hw-app .jp-refund-badge{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--violet-deep);background:var(--cream);border:1px solid var(--violet-deep);padding:4px 10px;border-radius:100px;}
 
         .hw-app .section-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;}
         .hw-app .section-title-row{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;}
@@ -3523,6 +3531,18 @@ export default function HiveworkApp() {
                       <div className="jp-divider"></div>
                       <button className="jp-manage" onClick={() => openDetail("translate")}>Review applicants →</button>
                     </div>
+
+                    {DASH_CLOSED_JOB.refunded && (
+                      <div className="job-post-row">
+                        <div className="jp-top"><h4>{DASH_CLOSED_JOB.title}</h4><span className="jp-amt">{DASH_CLOSED_JOB.amt}</span></div>
+                        <div className="jp-status-row">
+                          <span className="status-pill closed">Closed</span>
+                          <span className="jp-refund-badge">↩ {DASH_CLOSED_JOB.refundedAmt}π refunded</span>
+                        </div>
+                        <div className="jp-divider"></div>
+                        <button className="jp-manage" onClick={() => openDetail("mine")}>View details →</button>
+                      </div>
+                    )}
 
                     <button className="btn" style={{ marginTop: 10 }} onClick={() => goTo("post")}>Post a new job →</button>
                   </div>
