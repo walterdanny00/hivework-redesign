@@ -50,3 +50,17 @@ brief (`session-19.md`).
   actually implemented), Pi Browser real-presence detection (standing gap,
   Section 8/17), and full backend pagination for the History lists
   (data-source gap, not an unwired-feature gap, per Section 20).
+
+## Correction (2026-08-12, later same day — post-sweep)
+
+The "Next session" note above is now stale. A large structural sweep run
+later the same day (session 20, roadmap Section 22) found three real,
+actionable gaps this brief didn't anticipate: History rows have no
+click-through to Job Detail (the real `ApplicationCard.tsx` is fully
+clickable to `/jobs/:id`; the shell's `HistoryRow` has no click handler
+at all), Home's real content (stats row, categories, trust-badge concept,
+how-it-works) was never built, and a persistent support-access point
+outside the profile menu is worth reconsidering (the shell reverted its
+own footer link in session 15/16 without knowing the real `Layout.tsx`
+footer link exists specifically to fix a reported gap, BUG-106). See
+`session-20.md` and roadmap Section 22 for full detail.
