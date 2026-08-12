@@ -82,7 +82,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. **In the shells (both files, step 6, 2026-08-09), only wired into the Profile menu and worker Job Detail's wallet-error state** (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity) — Post Job has no payment-error anchor point in this simplified wizard, so that spot is logged as a gap rather than faked. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did this wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6 and Section 17. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Wired into: Profile menu (global access point — reachable from every main-app screen via the header avatar, same coverage real `Layout.tsx`'s footer link exists to provide; opens as a centered modal as of session 17/Section 18, not inline-expanded in the dropdown — the inline pattern looked cramped in a 228px menu) and worker Job Detail's wallet-error state (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity). A persistent footer link was built and then deliberately reverted (session 15/16, see Section 17) — decided the profile-menu entry already gives global coverage and running both was redundant. Post Job has no payment-error anchor point in this simplified wizard, so that spot is logged as a gap rather than faked. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
 
@@ -966,3 +966,97 @@ has no `/reject-application` (or un-reject) endpoint; this pattern is
 demoed entirely in local/session state per the sandbox's standing
 limitation, consistent with every other proposed pattern in this roadmap.
 
+
+## 17. Layout.tsx logged-out nav behavior, and Contact Support UX pass (2026-08-11)
+
+**Part A — Layout.tsx nav sweep.** Swept first, per standing rule. Read
+`Layout.tsx` directly. Finding: real code has **two separate navs with
+different logged-out behavior**, not one:
+- **Header nav** (`<header>`, desktop-style): Browse always shows; Post
+  Job, Dashboard, and `NotificationBell` are wrapped in
+  `{connected && (...)}` and genuinely disappear when logged out. The
+  avatar circle becomes a plain "Open in Pi Browser" text when
+  disconnected.
+- **Bottom tab nav** (sticky, mobile-style — Home/Jobs/Post/Earnings):
+  **always renders all 4 items unconditionally**, no `connected` check
+  at all. The shell's existing `segnav` (Home/Browse/Post/Dashboard,
+  settled per Section 1) maps to this bottom nav, not the header nav.
+
+This directly contradicted session 13's assumption that the shell's nav
+should hide Post/Dashboard/Bell when logged out — that behavior only
+exists in the header nav, which the shell doesn't have an equivalent of.
+
+Resolved by inspecting the shell, not by building anything new: it
+already has `hwLogout()` (a proposed fill for a real gap — the live app
+has no logout feature at all, session token is set on connect and never
+cleared, Section 8) which resets state and routes to the `landing`
+screen. Landing already renders full-page with no header/segnav at all
+(Section 1), and its CTAs already route into the Wallet Connect flow to
+reconnect. So logout → landing → reconnect was already fully working
+end-to-end before this session. **Decision, confirmed with the user:**
+keep this simple binary (landing vs. fully logged-in nav) rather than
+adding a third "browsing while logged out, partial nav" state to match
+the real header nav's behavior. No nav-hiding logic needed. The stale
+code comment on `hwLogout()` claiming this was still an open item was
+corrected.
+
+**Part B — Contact Support UX, three iterations in the same session.**
+
+1. *Tried a persistent footer.* Real `Layout.tsx` has a footer line
+   (`BUG-106` comment: several error states elsewhere tell users to
+   "contact support" with previously no way to actually do that) sitting
+   between main content and the bottom nav. Confirmed this was missing
+   from the shells and built it — a `.hw-footer-help` "Need help?
+   [Contact support]" line on every main-app screen. Verified end-to-end
+   in headless browser (correct subject line, sends successfully, no id
+   collision with the existing profile-menu instance).
+
+2. *Reverted the footer.* On reflection, judged redundant: the
+   profile-menu Contact Support entry (Section 6) is already reachable
+   from every main-app screen via the header avatar, giving the same
+   global coverage the real footer exists to provide in an app that has
+   no such menu item. Running both duplicated one access point rather
+   than adding a second. A footer restricted to a single screen was also
+   considered and rejected — it doesn't solve a coverage problem either.
+   Reverted the footer markup/CSS/init call in both shells; kept the
+   `hwLogout()` comment fix from Part A. Re-verified the profile-menu
+   instance still worked correctly post-revert.
+
+3. *Fixed the profile-menu form itself.* User flagged (confirmed by
+   actually rendering and screenshotting it) that the inline-expanding
+   form — textarea + Cancel/Send unfolding inside the profile menu's
+   228px dropdown, directly above "Log out" — looked cramped and
+   unprofessional. Considered modal, dedicated screen, and mobile-native
+   bottom sheet; no existing precedent for any of the three in the
+   codebase. Chose a centered modal: a dedicated screen is overkill for
+   a 2-field form, a bottom sheet reads more casual than this utility
+   form calls for, and a modal reuses the card/shadow language already
+   used elsewhere (profile menu, testnet tooltip). Built in both shells:
+   clicking "Contact support" closes the menu and opens a modal (dimmed
+   backdrop, `×` close, click-outside-to-close), opened straight to the
+   form. JSX shell: `HiveworkContactSupport` extended with optional
+   `startOpen`/`onCancel` props, both defaulting to prior behavior so
+   the two existing inline call sites (Job Detail wallet-error,
+   withdrawal-error) are unaffected. HTML shell: new
+   `openContactModal()`/`closeContactModal()`, a targeted one-line
+   addition to the shared `csCancel()` for the modal's container id, and
+   removal of the stale `initContactSupport('menu-contact-support', ...)`
+   call left from the old inline-menu wiring. Then, per user feedback,
+   repositioned the modal from screen-center to anchored near the bottom
+   edge (`bottom: 24px`, still a centered card, not a full-width sheet)
+   — CSS-only change in both shells.
+
+**Verified, all three iterations:** headless-browser runs in the HTML
+shell for each — footer built and confirmed working, footer reverted and
+profile-menu instance reconfirmed working, modal built and confirmed
+(opens on click with form immediately visible, sends and shows
+confirmation, all three close paths work, reopening after any close path
+shows a fresh empty form), and the bottom-repositioned modal
+re-confirmed identical behavior with a screenshot. One console message
+(403 on Google Fonts CDN) reconfirmed pre-existing/sandbox-related across
+all runs, not a regression. JSX shell balance-checked (net-zero) after
+each edit — same standing limitation, no JSX build tool in this sandbox.
+
+**Not built — real gap, unaddressed:** Post Job's wizard still has no
+payment-error anchor point for a `ContactSupport` instance (pre-existing
+gap, Section 6) — out of scope for this item.

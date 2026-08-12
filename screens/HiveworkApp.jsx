@@ -342,8 +342,8 @@ function HiveworkRangeFilter({ value, onChange }) {
    (worker view), PostJob payment error (not modeled in this shell's
    simplified wizard — remains a documented gap). */
 
-function HiveworkContactSupport({ subject, label = "Contact support" }) {
-  const [open, setOpen] = useState(false);
+function HiveworkContactSupport({ subject, label = "Contact support", startOpen = false, onCancel }) {
+  const [open, setOpen] = useState(startOpen);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -354,7 +354,15 @@ function HiveworkContactSupport({ subject, label = "Contact support" }) {
     // Send -> POST /api/support, unchanged from real flow
     setTimeout(() => { setSending(false); setSent(true); }, 500);
   }
-  function handleCancel() { setOpen(false); setMessage(""); setSent(false); }
+  function handleCancel() {
+    setOpen(false);
+    setMessage("");
+    setSent(false);
+    // Modal call site (profile menu, see below) passes onCancel to also
+    // dismiss the modal shell itself, not just collapse back to the link
+    // state — the link state has nowhere to live once the modal closes.
+    if (onCancel) onCancel();
+  }
 
   if (sent) {
     return (
@@ -397,6 +405,13 @@ const HW_CONTACT_SUPPORT_STYLES = `
   .hw-app .menu-item .hw-contact-link{font-size:13px;font-weight:400;color:var(--ink-soft);}
   .hw-app .hw-contact-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0;}
   .hw-app .menu-item .hw-contact-form{margin:0;border:none;background:none;padding:0;}
+  .hw-app .cs-modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(27,26,31,.45);}
+  .hw-app .cs-modal{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(92vw,380px);background:var(--card);border-radius:20px;box-shadow:0 -20px 60px -15px rgba(27,26,31,.35);z-index:61;padding:20px;}
+  .hw-app .cs-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .hw-app .cs-modal-head h3{font-size:16px;font-weight:800;margin:0;font-family:'Sora';}
+  .hw-app .cs-modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--ink-soft);cursor:pointer;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+  .hw-app .cs-modal-close:hover{background:var(--cream);color:var(--ink);}
+  .hw-app .cs-modal .hw-contact-form{margin:0;border:none;background:none;padding:0;}
   .hw-app .hw-contact-re{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
   .hw-app .hw-contact-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:'Inter';font-size:13px;color:var(--ink);resize:vertical;min-height:70px;background:var(--cream);}
   .hw-app .hw-contact-counter{font-size:10.5px;color:var(--ink-soft);text-align:right;margin-top:4px;font-family:'JetBrains Mono';}
@@ -2676,6 +2691,7 @@ export default function HiveworkApp() {
   const [lastScreen, setLastScreen] = useState("landing");
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const [onboardingIntent, setOnboardingIntent] = useState(null); // 'find' | 'post' | null
   const [workHistoryRange, setWorkHistoryRangeRaw] = useState("all");
@@ -2738,10 +2754,12 @@ export default function HiveworkApp() {
   // Real product gap (roadmap Section 8): no log-out feature exists
   // anywhere in the live app — Layout.tsx stores a session token on
   // connect and nothing clears it. This is the redesign's proposed fill:
-  // a client-side reset back to Landing. Does not yet gate nav items on a
-  // logged-out state (real Layout.tsx hides Post Job/Dashboard/
-  // NotificationBell when disconnected) — that's a separate, larger open
-  // item.
+  // a client-side reset back to Landing. Real Layout.tsx has two navs with
+  // different logged-out behavior (header nav hides Post Job/Dashboard/
+  // Bell when disconnected; the bottom tab nav never hides anything) —
+  // deliberately not replicated here. Confirmed with the user: logout
+  // stays a hard reset to the full-page Landing screen (no header/segnav
+  // at all), not a partial-nav browsing state. Nothing further to build.
   const hwLogout = () => {
     setMenuOpen(false);
     showToast("Logged out");
@@ -3096,9 +3114,26 @@ export default function HiveworkApp() {
               <div className="menu-item" onClick={() => goToProfile(false)}>View profile</div>
               <div className="menu-item" onClick={() => goToProfile(true)}>Edit profile</div>
               <div className="menu-item" onClick={() => { setMenuOpen(false); showToast("Notification settings — coming soon"); }}>Notification settings</div>
-              <div className="menu-item"><HiveworkContactSupport label="Contact support" subject="General inquiry" /></div>
+              <div className="menu-item" onClick={() => { setMenuOpen(false); setContactModalOpen(true); }}>Contact support</div>
               <div className="menu-item" onClick={hwLogout}>Log out</div>
             </div>
+
+            {contactModalOpen && (
+              <>
+                <div className="cs-modal-overlay" onClick={() => setContactModalOpen(false)}></div>
+                <div className="cs-modal">
+                  <div className="cs-modal-head">
+                    <h3>Contact support</h3>
+                    <button className="cs-modal-close" onClick={() => setContactModalOpen(false)} aria-label="Close">×</button>
+                  </div>
+                  <HiveworkContactSupport
+                    subject="General inquiry"
+                    startOpen
+                    onCancel={() => setContactModalOpen(false)}
+                  />
+                </div>
+              </>
+            )}
 
             {toast && <div className="hw-toast show">{toast}</div>}
 

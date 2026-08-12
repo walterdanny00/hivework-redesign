@@ -729,6 +729,15 @@
   .menu-item .hw-contact-link{font-size:13px;font-weight:400;color:var(--ink-soft);}
   .hw-contact-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0;}
   .menu-item .hw-contact-form{margin:0;border:none;background:none;padding:0;}
+  .cs-modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(27,26,31,.45);display:none;}
+  .cs-modal-overlay.open{display:block;}
+  .cs-modal{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(92vw,380px);background:var(--card);border-radius:20px;box-shadow:0 -20px 60px -15px rgba(27,26,31,.35);z-index:61;padding:20px;display:none;}
+  .cs-modal.open{display:block;}
+  .cs-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cs-modal-head h3{font-size:16px;font-weight:800;margin:0;font-family:'Sora';}
+  .cs-modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--ink-soft);cursor:pointer;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+  .cs-modal-close:hover{background:var(--cream);color:var(--ink);}
+  .cs-modal .hw-contact-form{margin:0;border:none;background:none;padding:0;}
   .hw-contact-re{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
   .hw-contact-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:'Inter';font-size:13px;color:var(--ink);resize:vertical;min-height:70px;background:var(--cream);}
   .hw-contact-counter{font-size:10.5px;color:var(--ink-soft);text-align:right;margin-top:4px;font-family:'JetBrains Mono';}
@@ -853,8 +862,17 @@
       <div class="menu-item" onclick="goToProfile(false)">View profile</div>
       <div class="menu-item" onclick="goToProfile(true)">Edit profile</div>
       <div class="menu-item" onclick="closeMenus(); hwToast('Notification settings — coming soon');">Notification settings</div>
-      <div class="menu-item" id="menu-contact-support"></div>
+      <div class="menu-item" onclick="openContactModal()">Contact support</div>
       <div class="menu-item" onclick="hwLogout()">Log out</div>
+    </div>
+
+    <div class="cs-modal-overlay" id="csModalOverlay" onclick="closeContactModal()"></div>
+    <div class="cs-modal" id="csModal">
+      <div class="cs-modal-head">
+        <h3>Contact support</h3>
+        <button class="cs-modal-close" onclick="closeContactModal()" aria-label="Close">&times;</button>
+      </div>
+      <div id="modal-contact-support"></div>
     </div>
 
     <div class="notif-panel" id="notifPanel">
@@ -2186,7 +2204,25 @@ function renderContactSupport(containerId){
     + '</div></div>';
 }
 function csOpen(containerId){ contactSupportState[containerId].open = true; renderContactSupport(containerId); }
-function csCancel(containerId){ const st = contactSupportState[containerId]; st.open = false; st.message = ''; st.sent = false; renderContactSupport(containerId); }
+function csCancel(containerId){
+  const st = contactSupportState[containerId]; st.open = false; st.message = ''; st.sent = false; renderContactSupport(containerId);
+  // Modal call site (profile menu, see openContactModal below) has nowhere
+  // for the collapsed "link" state to live once the modal closes — close
+  // the modal shell too, not just collapse the widget in place.
+  if(containerId === 'modal-contact-support') closeContactModal();
+}
+function openContactModal(){
+  closeMenus();
+  initContactSupport('modal-contact-support', 'General inquiry', 'Contact support');
+  contactSupportState['modal-contact-support'].open = true;
+  renderContactSupport('modal-contact-support');
+  document.getElementById('csModalOverlay').classList.add('open');
+  document.getElementById('csModal').classList.add('open');
+}
+function closeContactModal(){
+  document.getElementById('csModalOverlay').classList.remove('open');
+  document.getElementById('csModal').classList.remove('open');
+}
 // Direct patch on every keystroke (no full re-render), same focus-preserving
 // convention as every other continuously-typed field ported so far.
 function csUpdateMessage(containerId, v){
@@ -2393,7 +2429,6 @@ function toggleWork(view, el){
 
 // Boot straight into Landing, matching the real "/" route (JSX's
 // useState("landing") equivalent) instead of Home.
-initContactSupport('menu-contact-support', 'General inquiry', 'Contact support');
 renderProfileScreen();
 showScreen('landing');
 </script>
