@@ -1374,3 +1374,88 @@ Remaining items are standing/deferred: KYC/testnet badge wiring (deferred
 until KYC is actually implemented), Pi Browser real-presence detection
 (standing gap, Section 8/17), full backend pagination for History lists
 (data-source gap, per Section 20).
+
+## 22. Large structural sweep (2026-08-12) — findings reclassified against the
+##     roadmap's own "old code informs facts, never dictates UX" rule
+
+**Trigger:** user flagged the JobCard refund badge gap, which prompted a
+full sweep of `frontend/src` (real component/page inventory + `App.tsx`
+routing) rather than another one-off screen check. Files read in full:
+`ApplicationCard.tsx`, `Home.tsx`, `lib/RoutePersistence.tsx`,
+`Layout.tsx`.
+
+**Self-correction, same session:** the first pass of this sweep framed
+one finding — the shell's single sticky segmented-pill nav (`segnav`)
+vs. the real app's top-header-plus-bottom-tab-bar layout — as a
+"structural mismatch" to fix. User caught this against the roadmap's own
+opening rule before any work started. Re-sorted findings below into what
+old code legitimately informs (routing/data-shape/business-logic facts)
+vs. what would have been old code dictating UX (container shape,
+nav-chrome layout). The nav-shape framing is dropped entirely — `segnav`
+already covers all 4 real destinations functionally, and how it's
+containered is a design-system call, not something old layout should
+override.
+
+**Legitimate facts surfaced (routing/data-shape/business-logic — fair
+game per the roadmap's own rule):**
+- `ApplicationCard.tsx` is a single shared component (Dashboard summary
+  + `HistoryWork.tsx` both use it, "so the two can't visually drift") and
+  the **whole card is clickable**, navigating to `/jobs/:id`. This is a
+  routing fact: a real, reachable path from work history into Job Detail
+  exists that the shell's `HistoryRow` currently has no equivalent for
+  (`HistoryRow` has no click handler at all, for any of the 3 History
+  screens). Badge logic: green (approved/completed), red (rejected),
+  purple (else), plus a separate "Paid" badge — no separate earnings
+  ledger for workers; a completed application *is* the payment record.
+- `Home.tsx` has **no auth branch** — one component, identical content
+  whether connected or not. That's a routing/structure fact undercutting
+  the shell's invented Landing-vs-Home split (no `Landing.tsx` exists in
+  the real app at all).
+- `Home.tsx`'s content set is a fact, not a style: a "Sentinel Trust
+  Layer" trust-badge concept, a stat row (live open-job count from
+  `/api/jobs/stats`, platform fee %, category count), a Categories list
+  with live per-category counts, and a 3-step "How it works" explainer.
+  None of this exists anywhere in the shell today — the shell's "Home"
+  screen (personalized earnings hero, "Welcome back, Olawalt") has no
+  real counterpart; it reads closer to what Dashboard should show.
+- Nav destinations + auth-gating is business logic: 4 primary
+  destinations (Home/Jobs/Post/Dashboard), Post Job + Dashboard + the
+  notification bell hidden when not connected, logged-out state shows
+  plain text ("Open in Pi Browser"), not a CTA button.
+- A persistent, non-profile-menu support access point is a deliberate
+  fix for a real reported issue (`Layout.tsx`'s footer link, tagged
+  BUG-106: "several error messages elsewhere tell people to 'contact
+  support' but there was previously no way to actually do that anywhere
+  in the app"). That the *need* is real is a fact worth knowing — the
+  shell's session 15/16 decision to revert its own footer link (reasoning
+  the profile-menu already gave global coverage) was made without this
+  context and is now worth reconsidering. How any such access point looks
+  is still entirely our call.
+- `lib/RoutePersistence.tsx` — pure technical behavior (Pi Browser
+  refreshes reload to `/`, so the last in-app route is restored from
+  localStorage, gated to Pi Browser only). No visual component, no UX
+  implication either way — logged here so a future screen involving
+  reload/deep-link state doesn't get designed in ignorance of it.
+
+**Dropped (would have been old code dictating UX):**
+- Reshaping the shell's nav container to mirror the real app's literal
+  top-header + bottom-tab-bar split. `segnav` already reaches every real
+  destination; container shape is a design-system decision.
+
+**Next (not yet started, pending user prioritization):**
+1. Make History rows (Work especially) clickable through to Job Detail —
+   closes a real reachability gap.
+2. Design Home's real content set (stats/categories/trust-badge concept/
+   how-it-works) into the cream/ink/violet system — currently just
+   missing, not merely mis-styled.
+3. Decide, under our own design language, whether/how a global support
+   access point belongs outside the profile menu — informed by the fact
+   the gap was real (BUG-106), not by copying the literal footer.
+
+None of the three are gated behind KYC or real auth — they're pure
+visual/UX-design screens, buildable now the same way every other screen
+in the shell already is (demo data, no real backend/auth wiring
+required). The only state to account for is the existing connected/
+not-connected toggle, using the shell's existing demo-state convention
+(same pattern as the Wallet Connect flow's demo links) — not a hard gate
+on doing the work.
