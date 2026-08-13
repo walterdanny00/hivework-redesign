@@ -79,8 +79,8 @@ Section 6/7/8's findings surfaced in the first place.
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). |
-| History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen |
-| History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard |
+| History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen. Rows with a matching demo job click through to Job Detail (Section 23) — real `ApplicationCard.tsx` is always clickable, but only 1 of 6 demo rows has a matching demo job today. |
+| History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard. Rows with a matching demo job click through to Job Detail (Section 23) — real `JobCard.tsx` is always clickable, 2 of 5 demo rows currently have a matching demo job. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6 and Section 17. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Wired into: Profile menu (global access point — reachable from every main-app screen via the header avatar, same coverage real `Layout.tsx`'s footer link exists to provide; opens as a centered modal as of session 17/Section 18, not inline-expanded in the dropdown — the inline pattern looked cramped in a 228px menu) and worker Job Detail's wallet-error state (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity). A persistent footer link was built and then deliberately reverted (session 15/16, see Section 17) — decided the profile-menu entry already gives global coverage and running both was redundant. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
@@ -1442,9 +1442,8 @@ game per the roadmap's own rule):**
   top-header + bottom-tab-bar split. `segnav` already reaches every real
   destination; container shape is a design-system decision.
 
-**Next (not yet started, pending user prioritization):**
-1. Make History rows (Work especially) clickable through to Job Detail —
-   closes a real reachability gap.
+**Status:** item 1 closed 2026-08-13 — see Section 23. Items 2 and 3
+remain, not yet started:
 2. Design Home's real content set (stats/categories/trust-badge concept/
    how-it-works) into the cream/ink/violet system — currently just
    missing, not merely mis-styled.
@@ -1452,10 +1451,185 @@ game per the roadmap's own rule):**
    access point belongs outside the profile menu — informed by the fact
    the gap was real (BUG-106), not by copying the literal footer.
 
-None of the three are gated behind KYC or real auth — they're pure
-visual/UX-design screens, buildable now the same way every other screen
-in the shell already is (demo data, no real backend/auth wiring
-required). The only state to account for is the existing connected/
-not-connected toggle, using the shell's existing demo-state convention
-(same pattern as the Wallet Connect flow's demo links) — not a hard gate
-on doing the work.
+Neither is gated behind KYC or real auth — pure visual/UX-design screens,
+buildable now the same way every other screen in the shell already is
+(demo data, no real backend/auth wiring required). The only state to
+account for is the existing connected/not-connected toggle, using the
+shell's existing demo-state convention (same pattern as the Wallet
+Connect flow's demo links) — not a hard gate on doing the work.
+
+## 23. History → Job Detail click-through (2026-08-13)
+
+**Closes Section 22 "Next" item 1.** Scope confirmed before building:
+pulled `HistoryJobs.tsx`, `HistoryWork.tsx`, `JobCard.tsx` (not yet seen
+in full) — `HistoryJobs.tsx` renders via `JobCard`, same pattern as
+`HistoryWork.tsx`/`ApplicationCard`, and `JobCard.tsx` navigates to
+`/jobs/${job.id}` on click exactly like `ApplicationCard.tsx`. Fix covers
+both History → Work and History → Jobs; History → Withdrawals untouched
+(own `WithdrawalRow` component, a withdrawal is a payment record, not a
+job — no real click-through fact applies there).
+
+**Demo-data-set ceiling, not a shipped limitation:** both shells' Job
+Detail screens are backed by a fixed 3-entry demo set (`mine`/
+`translate`/`bug`), not real IDs, so only rows with a matching demo job
+could be wired: History → Jobs' "Test payment flow on Android"/"Localize
+onboarding copy" rows (identical titles to the demo jobs) → `mine`/
+`translate`; History → Work's "Test flow on hivework multi worker job
+post" (closest thematic match) → `bug`. Remaining rows in both lists have
+no matching demo job and stay non-clickable for now — every row would be
+clickable against a real backend/IDs. Also wired the Dashboard "Your
+work" preview's matching row in both shells, since the real
+`ApplicationCard.tsx` is confirmed shared by Dashboard summary and
+`HistoryWork.tsx` with the same clickable behavior in both places.
+
+**Back-navigation needed no changes:** both shells' `goBack()` already
+returns to `lastScreen`, tracked generically before every screen switch,
+and Job Detail's back button already calls `goBack()` — opening Job
+Detail from a History screen already returns to that screen.
+
+**`HiveworkApp.jsx`:** `jobKey` added to the two matching `WORK_HISTORY`/
+`JOBS_HISTORY` rows. `HistoryRow` takes an optional `onClick`;
+`HistoryList` takes an optional `onRowClick`, wiring a row's click
+handler only when both `onRowClick` and `row.jobKey` are present. Both
+History screens pass `onRowClick={openDetail}`; Withdrawals untouched
+(custom `renderRow`). Dashboard's "Your work" preview wired the same way.
+`.hw-app .hist-row.clickable{cursor:pointer;}` added — matches the
+shell's existing minimal clickable-row convention (`.rec-item`,
+`.ticket`), no added hover/elevation.
+
+**`hivework-app-v4-3.html`:** mirrors the JSX. `jobKey` added to the same
+two `HW_WORK_HISTORY`/`HW_JOBS_HISTORY` rows. `renderHistList()` takes an
+optional `onRowClickFn` (function-name string, since rows render as
+`onclick="..."` HTML strings), adding the `clickable` class + `onclick`
+only when a row has `jobKey`. Both History screens pass `'openDetail'`;
+Withdrawals untouched. Static Dashboard "Your work" preview row matching
+`bug` got `class="hist-row clickable" onclick="openDetail('bug')"` added
+directly — `.clickable` as a class name already matches this file's
+existing convention (`notif-row unread clickable`).
+`.hist-row.clickable{cursor:pointer;}` added to the CSS block.
+
+**Verification:** brace/paren/bracket-balance check (Python, net-zero) on
+`HiveworkApp.jsx`; `hivework-app-v4-3.html`'s inline `<script>` extracted
+and passed `node --check`. No headless-browser run — standing sandbox
+limitation (no network access to install one).
+
+**Follow-up, same session — closed/completed Job Detail rendering:**
+user asked directly whether the demo-data-set limit meant closed jobs
+have no detail screen at all. Answer: no, `/jobs/:id` is the same real
+route regardless of status — pulled the real `JobDetail.tsx` to confirm
+closed/completed is the same page with sections conditionally hidden/
+shown by `job.status`, not a separate screen. Found both shells'
+Owner-view simulations already let you interactively resolve a job live
+(close all slots, complete, rate) — the real gap was a hardcoded
+`"in progress"` header label that never reflected that resolved state,
+plus `JobDetailWorker`'s existing `state`/stage-pipeline (`completed_
+rated` already modeled, stage 4/paid) being force-started at `"ready"`
+every time. Fixed both: header status is now derived from actual slot
+counts (`isFullyClosed`) instead of hardcoded; Worker Job Detail now
+takes `job.state` instead of always `"ready"`. Added per-job override
+support (`initialApplicants`/`initialSlots`/`initialClosedCount`/
+`totalSlots`) to `JobDetailOwner`, falling back to the existing globals
+for `mine`/`translate`/`bug` — no change to those three. Added two new
+demo jobs: `closedJob` (3 completed+rated, 2 refunded-closed, 0 open →
+header now reads "closed") and `completedWork` (`state:
+"completed_rated"` → renders existing SETTLED paid-strip + rating-given
+panel on mount). Remapped every remaining unmapped History row to one of
+these — History → Jobs' 3 closed rows → `closedJob`; History → Work's 5
+remaining completed rows → `completedWork`. Every History row now clicks
+through to something real; verified via a Node `vm`-sandboxed DOM stub
+actually executing both shells' render functions for all 5 demo jobs
+with no exceptions, confirming `closedJob` renders "closed" while `mine`
+still renders "in progress" unaffected, and `completedWork` renders the
+paid strip and rating-given panel.
+
+## 24. History → Job Detail follow-up: two bugs found on user testing (2026-08-13)
+
+User tested Section 23's click-through fix directly and found it was
+incomplete: closed/completed jobs were still opening the "in progress"
+Job Detail screen (client view, both shells), and the worker view's
+completed job wasn't clickable at all in the HTML shell. Root cause was
+**not** the `openDetail()`/`JOB_DATA` override mechanism added in Section
+23 — that mechanism itself works correctly (verified by re-running the
+DOM-stub simulation, including the `mine` → `closedJob` sequence, which
+still renders "closed" correctly). The bugs were in surfaces that Section
+23 didn't touch:
+
+**Bug A (both shells) — Dashboard's separate "closed job" refund-demo
+preview.** `DASH_CLOSED_JOB`/`HW_DASH_CLOSED_JOB` is an older, unrelated
+demo card (`"Beta test iOS build"`, refunded) used to show the refund
+badge on the client Dashboard's "Jobs you've posted" panel. Its "View
+details →" button was hardcoded to `openDetail("mine")`/
+`openDetail('mine')` — a leftover from before `closedJob` existed in
+`JOB_DATA`/`jobData` — so clicking it always opened the in-progress
+`mine` job. Fixed in both shells to open `closedJob` instead. Title
+still reads "Beta test iOS build" (a different demo entry than
+`closedJob`'s "This is a test job") — same closest-available-match
+convention already used elsewhere in Section 23, not a full data
+reconciliation.
+
+**Bug B (HTML only) — Dashboard's "Your work" preview second row was
+static, unwired markup.** `HiveworkApp.jsx`'s equivalent preview maps
+live over `WORK_HISTORY.slice(0, 2)`, so it's automatically
+clickable via `jobKey` — this is why the JSX worker view already
+worked correctly. `hivework-app-v4-3.html`'s preview is hardcoded HTML;
+Section 23 only added the `clickable` class/`onclick` to the first row
+(`bug`), never the second (title-matches `completedWork`). Added
+`class="hist-row clickable" onclick="openDetail('completedWork')"` to
+that row, mirroring the JSX behavior.
+
+**Verification:** JSX — brace/paren/bracket balance (net-zero). HTML —
+`node --check` on the extracted script, plus a `vm`-free Node DOM stub
+actually calling `openDetail('closedJob')`, `openDetail('mine')` →
+`openDetail('closedJob')` (sequence check), and `openDetail('completedWork')`,
+confirming the rendered HTML shows "closed" (not "in progress") and a
+paid/settled marker respectively.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-22.md`.
+
+## 25. Owner-view "completed" vs "closed" split (2026-08-13)
+
+User asked directly what "closed" actually means when a multi-slot job
+has a mix of completed and refunded slots — Section 23/24's
+`isFullyClosed` derivation collapsed both "all slots completed" and
+"some slots refunded" into one "closed" label. Also raised a real
+underlying fact: not every job is multi-slot — the real `PostJob.tsx`
+supports single-worker jobs (`worker_slots:1`, Section 9), where the
+completed/closed distinction matters most since there's no partial-mix
+nuance to obscure.
+
+**Decision:** split the owner-view header into three states instead of
+two:
+- **`completed`** — every slot finished and was rated, zero refunded.
+- **`closed`** — at least one slot was refunded/closed unfilled, even
+  if other slots also completed (a mixed or all-refunded outcome —
+  matches `closedJob`'s existing 3-completed/2-refunded demo data,
+  which still correctly renders "closed" under the new logic, not
+  "completed").
+- **`in progress`** — unchanged.
+
+New `.status-chip.completed` CSS added in both shells (mint/success
+palette, matching the existing `--mint`/`.status-pill.open` success
+color already used elsewhere — not a new color introduced).
+
+**New demo job — `completedJob`, both shells:** single-worker (`totalSlots:
+1`), one slot, `status:'completed'`, `initialClosedCount:0` — deliberately
+single-slot rather than reusing a multi-slot pattern, since that's the
+case the completed/closed distinction matters most for. Wired to the
+existing "Usability pass on Post Job wizard" History → Jobs row
+(previously mapped to `closedJob`, now correctly reflects its own
+sub-label of "completed" rather than "completed · closed").
+
+**Verification:** JSX — brace/paren/bracket balance (net-zero), plus a
+standalone Node check of the derivation logic covering all four cases
+(empty/in-progress, closed with mixed outcome, pure completed,
+in-progress with a completed slot present). HTML — `node --check` on
+the extracted script, plus a DOM-stub run of `openDetail('mine')` →
+`openDetail('closedJob')` → `openDetail('completedJob')` →
+`openDetail('mine')` → `openDetail('completedJob')` (switch-sequence
+check), confirming each renders the correct one of the three header
+labels with no stale-state carryover.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-22.md` (this closes out the same session's
+follow-up thread, not a new session).

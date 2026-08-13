@@ -83,23 +83,112 @@ const JOB_DATA = {
     chips: ["Any device", "Swahili, Tagalog, or Vietnamese"],
     cta: "Apply now →",
   },
+  // Closed-job demo (roadmap Section 23 follow-up): overrides
+  // initialApplicants/initialSlots/initialClosedCount/totalSlots so
+  // JobDetailOwner mounts already-resolved instead of the live "mine"
+  // simulation — see JobDetailOwner's per-job override comment.
+  closedJob: {
+    cat: "Bug testing",
+    title: "This is a test job",
+    amt: "10π",
+    applicants: "0",
+    posted: "6/28/2026",
+    isOwner: true,
+    desc: "Closed bug-testing job — kept as a demo of the closed Job Detail state.",
+    reqs: [
+      "Test on a real device, not an emulator",
+      "Submit a structured report with screenshots",
+      "Complete within 48 hours of approval",
+    ],
+    chips: ["Android", "English"],
+    cta: "View details →",
+    totalSlots: 5,
+    initialApplicants: [],
+    initialSlots: [
+      { id: "cs1", name: "@sam_k", rating: 4.8, skills: ["Android testing", "Bug reports"], devices: ["Android"], trustBadge: "★ Gold", trustTier: "Gold",
+        status: "completed", submission: "Tested on Pixel 7. All good, no issues found.", givenRating: 5, draftRating: 0 },
+      { id: "cs2", name: "@devMia", rating: 4.5, skills: ["Android testing"], devices: ["Android"], trustBadge: "Silver", trustTier: "Silver",
+        status: "completed", submission: "Verified on Galaxy S22. One minor visual bug reported separately.", givenRating: 4, draftRating: 0 },
+      { id: "cs3", name: "@kwame_b", rating: 4.2, skills: ["Android testing"], devices: ["Android"], trustBadge: "Bronze", trustTier: "Bronze",
+        status: "completed", submission: "Tested on Pixel 6a, confirmed the fix.", givenRating: 5, draftRating: 0 },
+    ],
+    initialClosedCount: 2,
+  },
+  // Pure-completed owner-view demo (single-worker job, zero refunds) —
+  // exercises the new "completed" header status distinct from "closed".
+  // Single-worker on purpose: real PostJob.tsx supports worker_slots:1,
+  // and the completed/closed distinction matters most there, since a
+  // 1-slot job has only two possible resolved outcomes (fully completed
+  // or refunded) with no partial-mix nuance to obscure.
+  completedJob: {
+    cat: "Usability Testing",
+    title: "Usability pass on Post Job wizard",
+    amt: "4π",
+    applicants: "0",
+    posted: "5/30/2026",
+    isOwner: true,
+    desc: "Single-worker usability pass — kept as a demo of the fully-completed (not merely closed) Job Detail state.",
+    reqs: [
+      "Walk through the full 4-step Post Job wizard",
+      "Submit a structured report with screenshots",
+      "Complete within 48 hours of approval",
+    ],
+    chips: ["Any device", "English"],
+    cta: "View details →",
+    totalSlots: 1,
+    initialApplicants: [],
+    initialSlots: [
+      { id: "cj1", name: "@priya_codes", rating: 4.9, skills: ["Usability testing", "UI/UX feedback"], devices: ["Any device"], trustBadge: "★ Gold", trustTier: "Gold",
+        status: "completed", submission: "Completed the full wizard flow, flagged two minor copy issues, no blockers.", givenRating: 5, draftRating: 0 },
+    ],
+    initialClosedCount: 0,
+  },
+  // Completed/paid worker-side demo — passes state="completed_rated" into
+  // JobDetailWorker's existing HW_JDW_STATE_META pipeline (stage 4, isPaid)
+  // instead of always mounting at "ready".
+  completedWork: {
+    cat: "UI/UX Feedback",
+    title: "UI feedback on onboarding flow",
+    amt: "3π",
+    applicants: "3",
+    posted: "6/30/2026",
+    isOwner: false,
+    slotsTotal: 4,
+    slotsFilled: 4,
+    client: "@priya_codes",
+    desc: "Give structured feedback on the new onboarding flow — where users might get confused, drop off, or need clearer copy.",
+    reqs: [
+      "Walk through the full onboarding flow at least twice",
+      "Submit a structured report with screenshots",
+      "Complete within 48 hours of approval",
+    ],
+    chips: ["Any device", "English"],
+    cta: "Apply now →",
+    state: "completed_rated",
+  },
 };
 
+// jobKey wires a row to Job Detail (openDetail) for the click-through fix —
+// real ApplicationCard.tsx/JobCard.tsx are always fully clickable, but our
+// demo JOB_DATA only has 3 entries ("mine"/"translate"/"bug"), so only rows
+// with a thematically/title-matching demo job get one; the rest stay
+// non-clickable, a demo-data-set limitation, not a real gap (roadmap
+// Section 22, "Next" item 1).
 const WORK_HISTORY = [
-  { title: "Test flow on hivework multi worker job post", sub: "submitted · 7/6/2026", amt: "10π", positive: false, date: "2026-07-06" },
-  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
-  { title: "This is a test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
-  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05" },
-  { title: "UI feedback on onboarding flow", sub: "completed · paid · 6/30/2026", amt: "3π", positive: true, date: "2026-06-30" },
-  { title: "Bug bash — payment retry edge cases", sub: "completed · paid · 6/22/2026", amt: "8π", positive: true, date: "2026-06-22" },
+  { title: "Test flow on hivework multi worker job post", sub: "submitted · 7/6/2026", amt: "10π", positive: false, date: "2026-07-06", jobKey: "bug" },
+  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05", jobKey: "completedWork" },
+  { title: "This is a test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05", jobKey: "completedWork" },
+  { title: "A test job from walterdanny00", sub: "completed · paid · 7/5/2026", amt: "1π", positive: true, date: "2026-07-05", jobKey: "completedWork" },
+  { title: "UI feedback on onboarding flow", sub: "completed · paid · 6/30/2026", amt: "3π", positive: true, date: "2026-06-30", jobKey: "completedWork" },
+  { title: "Bug bash — payment retry edge cases", sub: "completed · paid · 6/22/2026", amt: "8π", positive: true, date: "2026-06-22", jobKey: "completedWork" },
 ];
 
 const JOBS_HISTORY = [
-  { title: "Test payment flow on Android", sub: "1 applicant · in escrow", amt: "10π", positive: false, date: null },
-  { title: "Localize onboarding copy", sub: "2 applicants · open", amt: "6π", positive: false, date: null },
-  { title: "This is a test job", sub: "completed · closed 6/28/2026", amt: "5π", positive: true, date: "2026-06-28" },
-  { title: "Survey: worker satisfaction Q2", sub: "completed · closed 6/15/2026", amt: "4π", positive: true, date: "2026-06-15" },
-  { title: "Usability pass on Post Job wizard", sub: "completed · closed 5/30/2026", amt: "7π", positive: true, date: "2026-05-30" },
+  { title: "Test payment flow on Android", sub: "1 applicant · in escrow", amt: "10π", positive: false, date: null, jobKey: "mine" },
+  { title: "Localize onboarding copy", sub: "2 applicants · open", amt: "6π", positive: false, date: null, jobKey: "translate" },
+  { title: "This is a test job", sub: "completed · closed 6/28/2026", amt: "5π", positive: true, date: "2026-06-28", jobKey: "closedJob" },
+  { title: "Survey: worker satisfaction Q2", sub: "completed · closed 6/15/2026", amt: "4π", positive: true, date: "2026-06-15", jobKey: "closedJob" },
+  { title: "Usability pass on Post Job wizard", sub: "completed · 5/30/2026", amt: "7π", positive: true, date: "2026-05-30", jobKey: "completedJob" },
 ];
 
 // Client's own posted job that had unfilled slots closed → refunded.
@@ -309,9 +398,9 @@ const BellIcon = () => (
   </svg>
 );
 
-function HistoryRow({ title, sub, amt, positive }) {
+function HistoryRow({ title, sub, amt, positive, onClick }) {
   return (
-    <div className="hist-row">
+    <div className={`hist-row${onClick ? " clickable" : ""}`} onClick={onClick}>
       <div>
         <h4>{title}</h4>
         <span className={`hist-sub${positive ? " pos" : ""}`}>{sub}</span>
@@ -321,12 +410,18 @@ function HistoryRow({ title, sub, amt, positive }) {
   );
 }
 
-function HistoryList({ rows, range, shown, onLoadMore, renderRow }) {
+function HistoryList({ rows, range, shown, onLoadMore, renderRow, onRowClick }) {
   const boundary = getRangeBoundary(range);
   const filtered = rows.filter((row) => !row.date || !boundary || new Date(row.date) >= boundary);
   const visible = filtered.slice(0, shown);
   const hasMore = filtered.length > shown;
-  const render = renderRow || ((row) => <HistoryRow key={row.title} {...row} />);
+  // Real ApplicationCard/JobCard are always clickable to /jobs/:id; here a
+  // row is only clickable when it has a jobKey pointing at a real demo job
+  // (see WORK_HISTORY/JOBS_HISTORY comment) — onRowClick is openDetail,
+  // passed in only by the two history screens that have matching demo jobs.
+  const render = renderRow || ((row) => (
+    <HistoryRow key={row.title} {...row} onClick={row.jobKey && onRowClick ? () => onRowClick(row.jobKey) : undefined} />
+  ));
   return (
     <>
       {visible.map(render)}
@@ -518,6 +613,8 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .detail-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
   .jdo .posted-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
   .jdo .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:#FFF3DC;color:#B8860B;text-transform:capitalize;}
+  .jdo .status-chip.closed{background:#F1EFEA;color:var(--ink-soft);}
+  .jdo .status-chip.completed{background:#E4F8F6;color:#1A9E92;}
   .jdo .toggle-row{display:flex;gap:6px;background:#EFECE5;border-radius:100px;padding:5px;margin-bottom:20px;}
   .jdo .toggle-btn{flex:1;text-align:center;padding:10px 6px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
   .jdo .toggle-btn.active{background:var(--card);color:var(--ink);box-shadow:0 6px 16px -10px rgba(27,26,31,.25);}
@@ -601,17 +698,21 @@ const JOB_DETAIL_OWNER_STYLES = `
 
 function JobDetailOwner({ job, onBack }) {
   const [activeTab, setActiveTab] = useState("overview");
-  const [applicants, setApplicants] = useState(INITIAL_APPLICANTS);
+  const [applicants, setApplicants] = useState(job.initialApplicants || INITIAL_APPLICANTS);
   const [declined, setDeclined] = useState([]);
   const [confirmingDeclineId, setConfirmingDeclineId] = useState(null);
   const [declinedExpanded, setDeclinedExpanded] = useState(false);
-  const [slots, setSlots] = useState(INITIAL_SLOTS);
+  const [slots, setSlots] = useState(job.initialSlots || INITIAL_SLOTS);
   const [closeCount, setCloseCount] = useState(1);
   const [closeCountText, setCloseCountText] = useState("1");
   const [closing, setClosing] = useState(false);
-  const [closedCount, setClosedCount] = useState(0);
+  const [closedCount, setClosedCount] = useState(job.initialClosedCount || 0);
 
-  const openCount = TOTAL_SLOTS - slots.length - closedCount;
+  // Per-job override so a job can mount already-resolved (see closedJob in
+  // JOB_DATA) instead of always the canonical "mine" live-simulation seed —
+  // real per-job applicant/slot data still isn't modeled beyond this.
+  const totalSlots = job.totalSlots || TOTAL_SLOTS;
+  const openCount = totalSlots - slots.length - closedCount;
   const perSlotBudget = 2;
 
   function approve(id) {
@@ -667,6 +768,19 @@ function JobDetailOwner({ job, onBack }) {
   if (counts.completed) summaryParts.push(`${counts.completed} completed`);
   if (counts.progress) summaryParts.push(`${counts.progress} in progress`);
   if (counts.submitted) summaryParts.push(`${counts.submitted} awaiting review`);
+  // Derived, not hardcoded. Three header states instead of two:
+  // - "completed": every slot finished and was rated, zero refunded —
+  //   the clean success case, most visible on single-worker jobs where
+  //   there's no partial-outcome nuance to hide.
+  // - "closed": at least one slot was refunded/closed unfilled, even if
+  //   other slots also completed — a mixed or all-refunded outcome.
+  // - otherwise: "in progress" (unchanged).
+  // Matches the real app gating "Close unfilled slots"/Approve on
+  // job.status rather than a fixed label.
+  const fullyResolved = openCount === 0 && counts.progress === 0 && counts.submitted === 0 && (slots.length > 0 || closedCount > 0);
+  const isCompleted = fullyResolved && closedCount === 0 && counts.completed === slots.length;
+  const isFullyClosed = fullyResolved && closedCount > 0;
+  const headerStatus = isCompleted ? "completed" : isFullyClosed ? "closed" : "in progress";
 
   return (
     <div className="jdo">
@@ -683,22 +797,22 @@ function JobDetailOwner({ job, onBack }) {
         <div className="detail-meta"><div className="l">Posted</div><div className="v">{job.posted}</div></div>
       </div>
       <div className="detail-sub">
-        👥 {slots.length}/{TOTAL_SLOTS} workers · {perSlotBudget}π each
+        👥 {slots.length}/{totalSlots} workers · {perSlotBudget}π each
       </div>
 
       <div className="posted-row">
         <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Posted by @you</span>
-        <span className="status-chip">in progress</span>
+        <span className={`status-chip${headerStatus !== "in progress" ? ` ${headerStatus}` : ""}`}>{headerStatus}</span>
       </div>
 
       <div className="slot-bar">
-        {Array.from({ length: TOTAL_SLOTS }).map((_, i) => {
+        {Array.from({ length: totalSlots }).map((_, i) => {
           const slot = slots[i];
           return <div key={i} className={"slot-seg" + (slot ? " " + slot.status : "")} />;
         })}
       </div>
       <div className="slot-summary">
-        <b>{slots.length} of {TOTAL_SLOTS} slots filled</b>
+        <b>{slots.length} of {totalSlots} slots filled</b>
         {summaryParts.length ? " — " + summaryParts.join(", ") : ""}
       </div>
 
@@ -3171,6 +3285,7 @@ export default function HiveworkApp() {
         .hw-app .nudge-dismiss{font-size:13px;color:var(--ink-soft);cursor:pointer;padding:2px;background:none;border:none;}
 
         .hw-app .hist-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
+        .hw-app .hist-row.clickable{cursor:pointer;}
         .hw-app .hist-row h4{margin:0 0 4px;font-size:13.5px;font-weight:700;}
         .hw-app .hist-row .hist-sub{font-size:11.5px;color:var(--ink-soft);}
         .hw-app .hist-row .hist-sub.pos{color:#1A9E92;}
@@ -3373,7 +3488,7 @@ export default function HiveworkApp() {
                     slotsTotal: job.slotsTotal,
                     perSlot: parseFloat(job.amt),
                   }}
-                  state="ready"
+                  state={job.state || "ready"}
                   onBack={goBack}
                 />
               </div>
@@ -3479,7 +3594,7 @@ export default function HiveworkApp() {
                       <button className="see-all" onClick={goToHistWork}>See all →</button>
                     </div>
                     {WORK_HISTORY.slice(0, 2).map((row) => (
-                      <HistoryRow key={row.title} {...row} />
+                      <HistoryRow key={row.title} {...row} onClick={row.jobKey ? () => openDetail(row.jobKey) : undefined} />
                     ))}
 
                     <div className="section-title-row" style={{ marginTop: 22 }}>
@@ -3540,7 +3655,7 @@ export default function HiveworkApp() {
                           <span className="jp-refund-badge">↩ {DASH_CLOSED_JOB.refundedAmt}π refunded</span>
                         </div>
                         <div className="jp-divider"></div>
-                        <button className="jp-manage" onClick={() => openDetail("mine")}>View details →</button>
+                        <button className="jp-manage" onClick={() => openDetail("closedJob")}>View details →</button>
                       </div>
                     )}
 
@@ -3561,6 +3676,7 @@ export default function HiveworkApp() {
                   range={workHistoryRange}
                   shown={workHistoryShown}
                   onLoadMore={() => setWorkHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                  onRowClick={openDetail}
                 />
               </div>
             )}
@@ -3576,6 +3692,7 @@ export default function HiveworkApp() {
                   range={jobsHistoryRange}
                   shown={jobsHistoryShown}
                   onLoadMore={() => setJobsHistoryShown((n) => n + HIST_PAGE_SIZE)}
+                  onRowClick={openDetail}
                 />
               </div>
             )}

@@ -282,6 +282,7 @@
   .see-all{font-size:12px;font-weight:700;color:var(--violet-deep);cursor:pointer;}
 
   .hist-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
+  .hist-row.clickable{cursor:pointer;}
   .hist-row h4{margin:0 0 4px;font-size:13.5px;font-weight:700;}
   .hist-row .hist-sub{font-size:11.5px;color:var(--ink-soft);}
   .hist-row .hist-sub.pos{color:#1A9E92;}
@@ -309,6 +310,8 @@
   .jdo .detail-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
   .jdo .posted-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
   .jdo .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:#FFF3DC;color:#B8860B;text-transform:capitalize;}
+  .jdo .status-chip.closed{background:#F1EFEA;color:var(--ink-soft);}
+  .jdo .status-chip.completed{background:#E4F8F6;color:#1A9E92;}
   .jdo .toggle-row{display:flex;gap:6px;background:#EFECE5;border-radius:100px;padding:5px;margin-bottom:20px;}
   .jdo .toggle-btn{flex:1;text-align:center;padding:10px 6px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
   .jdo .toggle-btn.active{background:var(--card);color:var(--ink);box-shadow:0 6px 16px -10px rgba(27,26,31,.25);}
@@ -1021,8 +1024,8 @@
           <div class="section-title" style="margin:0;">Your work</div>
           <span class="see-all" onclick="goToHistWork()">See all →</span>
         </div>
-        <div class="hist-row"><div><h4>Test flow on hivework multi worker job post</h4><span class="hist-sub">submitted · 7/6/2026</span></div><span class="hist-amt">10π</span></div>
-        <div class="hist-row"><div><h4>A test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
+        <div class="hist-row clickable" onclick="openDetail('bug')"><div><h4>Test flow on hivework multi worker job post</h4><span class="hist-sub">submitted · 7/6/2026</span></div><span class="hist-amt">10π</span></div>
+        <div class="hist-row clickable" onclick="openDetail('completedWork')"><div><h4>A test job from walterdanny00</h4><span class="hist-sub pos">completed · paid · 7/5/2026</span></div><span class="hist-amt">1π</span></div>
 
         <div class="section-title-row" style="margin-top:22px;">
           <div class="section-title" style="margin:0;">Withdrawals</div>
@@ -1080,7 +1083,7 @@
             <span class="jp-refund-badge" id="dash-closed-job-badge"></span>
           </div>
           <div class="jp-divider"></div>
-          <div class="jp-manage" onclick="openDetail('mine')">View details →</div>
+          <div class="jp-manage" onclick="openDetail('closedJob')">View details →</div>
         </div>
         <button class="btn" style="margin-top:10px;" onclick="goToPostJob()">Post a new job →</button>
       </div>
@@ -1275,7 +1278,50 @@ const jobData = {
   translate: {cat:'Translation', title:'Localize onboarding copy', amt:'6π', app:'2', posted:'3 days ago',
     desc:"Translate the onboarding flow copy (about 40 short strings) into your target language. Tone should stay casual and friendly, matching the English original.",
     reqs:['Native or fluent speaker of the target language','Familiar with mobile app UI copy conventions','Delivered as a single spreadsheet'],
-    chips:['Any device','Swahili, Tagalog, or Vietnamese'], cta:'Apply now →', isOwner:true}
+    chips:['Any device','Swahili, Tagalog, or Vietnamese'], cta:'Apply now →', isOwner:true},
+  // Closed-job demo (roadmap Section 23 follow-up): overrides
+  // initialApplicants/initialSlots/initialClosedCount/totalSlots so
+  // initOwnerState() mounts already-resolved instead of the live "mine"
+  // simulation.
+  closedJob: {cat:'Bug testing', title:'This is a test job', amt:'10π', app:'0', posted:'6/28/2026',
+    desc:"Closed bug-testing job — kept as a demo of the closed Job Detail state.",
+    reqs:['Test on a real device, not an emulator','Submit a structured report with screenshots','Complete within 48 hours of approval'],
+    chips:['Android','English'], cta:'View details →', isOwner:true,
+    totalSlots:5,
+    initialApplicants:[],
+    initialSlots:[
+      {id:'cs1', name:'@sam_k', rating:4.8, skills:['Android testing','Bug reports'], devices:['Android'], trustBadge:'★ Gold', trustTier:'Gold',
+        status:'completed', submission:'Tested on Pixel 7. All good, no issues found.', givenRating:5, draftRating:0},
+      {id:'cs2', name:'@devMia', rating:4.5, skills:['Android testing'], devices:['Android'], trustBadge:'Silver', trustTier:'Silver',
+        status:'completed', submission:'Verified on Galaxy S22. One minor visual bug reported separately.', givenRating:4, draftRating:0},
+      {id:'cs3', name:'@kwame_b', rating:4.2, skills:['Android testing'], devices:['Android'], trustBadge:'Bronze', trustTier:'Bronze',
+        status:'completed', submission:'Tested on Pixel 6a, confirmed the fix.', givenRating:5, draftRating:0},
+    ],
+    initialClosedCount:2},
+  // Pure-completed owner-view demo (single-worker job, zero refunds) —
+  // exercises the new "completed" header status distinct from "closed"
+  // (roadmap Section 24). Single-worker on purpose: real PostJob.tsx
+  // supports worker_slots:1, and completed/closed matters most there.
+  completedJob: {cat:'Usability Testing', title:'Usability pass on Post Job wizard', amt:'4π', app:'0', posted:'5/30/2026',
+    desc:"Single-worker usability pass — kept as a demo of the fully-completed (not merely closed) Job Detail state.",
+    reqs:['Walk through the full 4-step Post Job wizard','Submit a structured report with screenshots','Complete within 48 hours of approval'],
+    chips:['Any device','English'], cta:'View details →', isOwner:true,
+    totalSlots:1,
+    initialApplicants:[],
+    initialSlots:[
+      {id:'cj1', name:'@priya_codes', rating:4.9, skills:['Usability testing','UI/UX feedback'], devices:['Any device'], trustBadge:'★ Gold', trustTier:'Gold',
+        status:'completed', submission:'Completed the full wizard flow, flagged two minor copy issues, no blockers.', givenRating:5, draftRating:0},
+    ],
+    initialClosedCount:0},
+  // Completed/paid worker-side demo — initWorkerState() seeds currentState
+  // from job.state ("completed_rated": stage 4, isPaid) instead of always
+  // starting at "ready".
+  completedWork: {cat:'UI/UX Feedback', title:'UI feedback on onboarding flow', amt:'3π', app:'3', posted:'6/30/2026', isOwner:false,
+    eyebrow:'UI/UX FEEDBACK', client:'@priya_codes', slotsFilled:4, slotsTotal:4, perSlot:0.75,
+    desc:"Give structured feedback on the new onboarding flow — where users might get confused, drop off, or need clearer copy.",
+    reqs:['Walk through the full onboarding flow at least twice','Submit a structured report with screenshots','Complete within 48 hours of approval'],
+    chips:['Any device','English'], cta:'Apply now →',
+    state:'completed_rated'}
 };
 
 /* ===== JOB DETAIL — OWNER: state + render (vanilla port of JobDetailOwner) ===== */
@@ -1308,14 +1354,15 @@ let ownerState = null;
 let workerState = null;
 
 function initOwnerState(){
+  const job = jobData[currentJobKey] || {};
   ownerState = {
     activeTab:'overview',
-    applicants: JSON.parse(JSON.stringify(INITIAL_APPLICANTS)),
+    applicants: JSON.parse(JSON.stringify(job.initialApplicants || INITIAL_APPLICANTS)),
     declined: [],
     confirmingDeclineId: null,
     declinedExpanded: false,
-    slots: JSON.parse(JSON.stringify(INITIAL_SLOTS)),
-    closeCount:1, closeCountText:'1', closing:false, closedCount:0
+    slots: JSON.parse(JSON.stringify(job.initialSlots || INITIAL_SLOTS)),
+    closeCount:1, closeCountText:'1', closing:false, closedCount: job.initialClosedCount || 0
   };
 }
 function setOwnerTab(t){ ownerState.activeTab = t; renderOwnerDetail(); }
@@ -1365,7 +1412,8 @@ function closeSlots(){
 // keeps focus while typing — a full innerHTML swap on every keystroke would
 // drop cursor position, unlike React's controlled-input diffing.
 function handleCloseCountChange(raw){
-  const openCount = TOTAL_SLOTS - ownerState.slots.length - ownerState.closedCount;
+  const totalSlots = (jobData[currentJobKey] && jobData[currentJobKey].totalSlots) || TOTAL_SLOTS;
+  const openCount = totalSlots - ownerState.slots.length - ownerState.closedCount;
   const digits = raw.replace(/[^0-9]/g,'');
   const input = document.querySelector('.cs-input');
   if(digits===''){ ownerState.closeCountText=''; return; }
@@ -1378,7 +1426,8 @@ function handleCloseCountChange(raw){
   if(btn) btn.textContent = 'Close '+clamped+' · refund '+(PER_SLOT_BUDGET*clamped).toFixed(2)+'π';
 }
 function blurCloseCount(){
-  const openCount = TOTAL_SLOTS - ownerState.slots.length - ownerState.closedCount;
+  const totalSlots = (jobData[currentJobKey] && jobData[currentJobKey].totalSlots) || TOTAL_SLOTS;
+  const openCount = totalSlots - ownerState.slots.length - ownerState.closedCount;
   const n = parseInt(ownerState.closeCountText,10);
   const clamped = isNaN(n) ? 1 : Math.max(1, Math.min(openCount, n));
   ownerState.closeCount = clamped; ownerState.closeCountText = String(clamped);
@@ -1388,13 +1437,25 @@ function blurCloseCount(){
 function renderOwnerDetail(){
   const job = jobData[currentJobKey];
   const s = ownerState;
-  const openCount = TOTAL_SLOTS - s.slots.length - s.closedCount;
+  const totalSlots = job.totalSlots || TOTAL_SLOTS;
+  const openCount = totalSlots - s.slots.length - s.closedCount;
   const counts = {completed:0, progress:0, submitted:0};
   s.slots.forEach(sl=>counts[sl.status]++);
   const summaryParts=[];
   if(counts.completed) summaryParts.push(counts.completed+' completed');
   if(counts.progress) summaryParts.push(counts.progress+' in progress');
   if(counts.submitted) summaryParts.push(counts.submitted+' awaiting review');
+  // Derived, not hardcoded. Three header states instead of two:
+  // - "completed": every slot finished and was rated, zero refunded.
+  // - "closed": at least one slot was refunded/closed unfilled, even if
+  //   other slots also completed — a mixed or all-refunded outcome.
+  // - otherwise: "in progress" (unchanged). Matches the real app gating
+  // Close-slots/Approve on job.status rather than a fixed label
+  // (roadmap Section 23 follow-up + Section 24 completed/closed split).
+  const fullyResolved = openCount === 0 && counts.progress === 0 && counts.submitted === 0 && (s.slots.length > 0 || s.closedCount > 0);
+  const isCompleted = fullyResolved && s.closedCount === 0 && counts.completed === s.slots.length;
+  const isFullyClosed = fullyResolved && s.closedCount > 0;
+  const headerStatus = isCompleted ? 'completed' : (isFullyClosed ? 'closed' : 'in progress');
 
   let html = '<div class="jdo">';
   html += '<button class="back-btn" onclick="goBack()" style="background:none;border:none;">'+BACK_ICON_SVG+'Back</button>';
@@ -1404,16 +1465,16 @@ function renderOwnerDetail(){
     + '<div class="detail-meta"><div class="l">Per slot</div><div class="v mono">'+PER_SLOT_BUDGET+'π</div></div>'
     + '<div class="detail-meta"><div class="l">Posted</div><div class="v">'+job.posted+'</div></div>'
     + '</div>';
-  html += '<div class="detail-sub">👥 '+s.slots.length+'/'+TOTAL_SLOTS+' workers · '+PER_SLOT_BUDGET+'π each</div>';
-  html += '<div class="posted-row"><span style="font-size:13px;color:var(--ink-soft);">Posted by @you</span><span class="status-chip">in progress</span></div>';
+  html += '<div class="detail-sub">👥 '+s.slots.length+'/'+totalSlots+' workers · '+PER_SLOT_BUDGET+'π each</div>';
+  html += '<div class="posted-row"><span style="font-size:13px;color:var(--ink-soft);">Posted by @you</span><span class="status-chip'+(headerStatus!=='in progress'?' '+headerStatus:'')+'">'+headerStatus+'</span></div>';
 
   html += '<div class="slot-bar">';
-  for(let i=0;i<TOTAL_SLOTS;i++){
+  for(let i=0;i<totalSlots;i++){
     const slot = s.slots[i];
     html += '<div class="slot-seg'+(slot?' '+slot.status:'')+'"></div>';
   }
   html += '</div>';
-  html += '<div class="slot-summary"><b>'+s.slots.length+' of '+TOTAL_SLOTS+' slots filled</b>'+(summaryParts.length?' — '+summaryParts.join(', '):'')+'</div>';
+  html += '<div class="slot-summary"><b>'+s.slots.length+' of '+totalSlots+' slots filled</b>'+(summaryParts.length?' — '+summaryParts.join(', '):'')+'</div>';
 
   html += '<div class="toggle-row">'
     + '<button class="toggle-btn'+(s.activeTab==='overview'?' active':'')+'" onclick="setOwnerTab(\'overview\')">Overview</button>'
@@ -1534,8 +1595,9 @@ const HW_JDW_STATE_META = {
 };
 
 function initWorkerState(){
-  workerState = { currentState:'ready', coverNote:'', submission:'', applying:false, submitting:false,
-    ratingSubmitting:false, rateScore:0, rateComment:'', myRatingScore:null, verifyError:'Verification failed — try again.' };
+  const job = jobData[currentJobKey] || {};
+  workerState = { currentState: job.state || 'ready', coverNote:'', submission:'', applying:false, submitting:false,
+    ratingSubmitting:false, rateScore:0, rateComment:'', myRatingScore: job.state === 'completed_rated' ? 5 : null, verifyError:'Verification failed — try again.' };
 }
 function verifyWallet(){ workerState.currentState = 'profile_off'; renderWorkerDetail(); }
 function setupProfile(){ workerState.currentState = 'ready'; renderWorkerDetail(); }
@@ -2306,20 +2368,26 @@ function csSend(containerId){
    Range Filter can actually filter them, ported alongside the JSX file's
    equivalent `date` fields added to WORK_HISTORY/JOBS_HISTORY/
    WITHDRAWAL_HISTORY. */
+// jobKey wires a row to Job Detail (openDetail) for the click-through fix —
+// real ApplicationCard.tsx/JobCard.tsx are always fully clickable, but our
+// demo jobData only has 3 entries ("mine"/"translate"/"bug"), so only rows
+// with a thematically/title-matching demo job get one; the rest stay
+// non-clickable, a demo-data-set limitation, not a real gap (roadmap
+// Section 22, "Next" item 1).
 const HW_WORK_HISTORY = [
-  {title:'Test flow on hivework multi worker job post', sub:'submitted · 7/6/2026', amt:'10π', positive:false, date:'2026-07-06'},
-  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
-  {title:'This is a test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
-  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05'},
-  {title:'UI feedback on onboarding flow', sub:'completed · paid · 6/30/2026', amt:'3π', positive:true, date:'2026-06-30'},
-  {title:'Bug bash — payment retry edge cases', sub:'completed · paid · 6/22/2026', amt:'8π', positive:true, date:'2026-06-22'},
+  {title:'Test flow on hivework multi worker job post', sub:'submitted · 7/6/2026', amt:'10π', positive:false, date:'2026-07-06', jobKey:'bug'},
+  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05', jobKey:'completedWork'},
+  {title:'This is a test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05', jobKey:'completedWork'},
+  {title:'A test job from walterdanny00', sub:'completed · paid · 7/5/2026', amt:'1π', positive:true, date:'2026-07-05', jobKey:'completedWork'},
+  {title:'UI feedback on onboarding flow', sub:'completed · paid · 6/30/2026', amt:'3π', positive:true, date:'2026-06-30', jobKey:'completedWork'},
+  {title:'Bug bash — payment retry edge cases', sub:'completed · paid · 6/22/2026', amt:'8π', positive:true, date:'2026-06-22', jobKey:'completedWork'},
 ];
 const HW_JOBS_HISTORY = [
-  {title:'Test payment flow on Android', sub:'1 applicant · in escrow', amt:'10π', positive:false, date:null},
-  {title:'Localize onboarding copy', sub:'2 applicants · open', amt:'6π', positive:false, date:null},
-  {title:'This is a test job', sub:'completed · closed 6/28/2026', amt:'5π', positive:true, date:'2026-06-28'},
-  {title:'Survey: worker satisfaction Q2', sub:'completed · closed 6/15/2026', amt:'4π', positive:true, date:'2026-06-15'},
-  {title:'Usability pass on Post Job wizard', sub:'completed · closed 5/30/2026', amt:'7π', positive:true, date:'2026-05-30'},
+  {title:'Test payment flow on Android', sub:'1 applicant · in escrow', amt:'10π', positive:false, date:null, jobKey:'mine'},
+  {title:'Localize onboarding copy', sub:'2 applicants · open', amt:'6π', positive:false, date:null, jobKey:'translate'},
+  {title:'This is a test job', sub:'completed · closed 6/28/2026', amt:'5π', positive:true, date:'2026-06-28', jobKey:'closedJob'},
+  {title:'Survey: worker satisfaction Q2', sub:'completed · closed 6/15/2026', amt:'4π', positive:true, date:'2026-06-15', jobKey:'closedJob'},
+  {title:'Usability pass on Post Job wizard', sub:'completed · 5/30/2026', amt:'7π', positive:true, date:'2026-05-30', jobKey:'completedJob'},
 ];
 // Client's own posted job that had unfilled slots closed → refunded.
 // Demoes real JobCard.tsx's `!!job.refunded` badge ("↩ Xπ refunded") on the
@@ -2574,11 +2642,19 @@ function renderDashRefundHistory(){
 // fetch, since there's no backend to page against here.
 const HIST_PAGE_SIZE = 2;
 
-function renderHistList(rows, range, shown, loadMoreFn, rowRenderer){
+function renderHistList(rows, range, shown, loadMoreFn, rowRenderer, onRowClickFn){
   const boundary = getRangeBoundary(range);
   const filtered = rows.filter(r=>!r.date || !boundary || new Date(r.date) >= boundary);
   const visible = filtered.slice(0, shown);
-  const render = rowRenderer || (r=>'<div class="hist-row"><div><h4>'+r.title+'</h4><span class="hist-sub'+(r.positive?' pos':'')+'">'+r.sub+'</span></div><span class="hist-amt">'+r.amt+'</span></div>');
+  // Real ApplicationCard/JobCard are always clickable to /jobs/:id; here a
+  // row is only clickable when it has a jobKey pointing at a real demo job
+  // (see HW_WORK_HISTORY/HW_JOBS_HISTORY comment) — onRowClickFn is the name
+  // of a global fn (openDetail), passed in only by the two history screens
+  // that have matching demo jobs.
+  const render = rowRenderer || (r=>{
+    const clickable = r.jobKey && onRowClickFn;
+    return '<div class="hist-row'+(clickable?' clickable':'')+'"'+(clickable?' onclick="'+onRowClickFn+'(\''+r.jobKey+'\')"':'')+'><div><h4>'+r.title+'</h4><span class="hist-sub'+(r.positive?' pos':'')+'">'+r.sub+'</span></div><span class="hist-amt">'+r.amt+'</span></div>';
+  });
   const rowsHtml = visible.map(render).join('');
   const hasMore = filtered.length > shown;
   const loadMoreHtml = hasMore ? '<button class="hist-load-more" onclick="'+loadMoreFn+'()">Load more</button>' : (filtered.length ? '' : '<div class="hist-empty-more">Nothing here yet.</div>');
@@ -2588,7 +2664,7 @@ function renderHistList(rows, range, shown, loadMoreFn, rowRenderer){
 let histWorkRange = 'all', histWorkShown = HIST_PAGE_SIZE;
 function goToHistWork(){ histWorkRange = 'all'; histWorkShown = HIST_PAGE_SIZE; renderHistWork(); showScreen('history-work'); }
 function renderHistWork(){
-  document.getElementById('hist-work-render').innerHTML = renderRangeFilter(histWorkRange, 'setHistWorkRange') + renderHistList(HW_WORK_HISTORY, histWorkRange, histWorkShown, 'loadMoreHistWork');
+  document.getElementById('hist-work-render').innerHTML = renderRangeFilter(histWorkRange, 'setHistWorkRange') + renderHistList(HW_WORK_HISTORY, histWorkRange, histWorkShown, 'loadMoreHistWork', null, 'openDetail');
 }
 function setHistWorkRange(k){ histWorkRange = k; histWorkShown = HIST_PAGE_SIZE; renderHistWork(); }
 function loadMoreHistWork(){ histWorkShown += HIST_PAGE_SIZE; renderHistWork(); }
@@ -2596,7 +2672,7 @@ function loadMoreHistWork(){ histWorkShown += HIST_PAGE_SIZE; renderHistWork(); 
 let histJobsRange = 'all', histJobsShown = HIST_PAGE_SIZE;
 function goToHistJobs(){ histJobsRange = 'all'; histJobsShown = HIST_PAGE_SIZE; renderHistJobs(); showScreen('history-jobs'); }
 function renderHistJobs(){
-  document.getElementById('hist-jobs-render').innerHTML = renderRangeFilter(histJobsRange, 'setHistJobsRange') + renderHistList(HW_JOBS_HISTORY, histJobsRange, histJobsShown, 'loadMoreHistJobs');
+  document.getElementById('hist-jobs-render').innerHTML = renderRangeFilter(histJobsRange, 'setHistJobsRange') + renderHistList(HW_JOBS_HISTORY, histJobsRange, histJobsShown, 'loadMoreHistJobs', null, 'openDetail');
 }
 function setHistJobsRange(k){ histJobsRange = k; histJobsShown = HIST_PAGE_SIZE; renderHistJobs(); }
 function loadMoreHistJobs(){ histJobsShown += HIST_PAGE_SIZE; renderHistJobs(); }
