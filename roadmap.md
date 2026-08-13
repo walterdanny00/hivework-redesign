@@ -1820,3 +1820,81 @@ done. Section 22 item 3 (support access point placement outside the
 profile menu) is still untouched — the only open item from that
 original scope.
 
+## 28. Home hero reconciliation — earnings hero → reputation, escrow ticket → activity ticker (2026-08-13)
+
+**Context:** Section 27's "fully done" claim on Section 22 item 2 turned
+out to be premature. Re-reading Section 22's original finding closely
+surfaced a gap Section 27 never touched: real `Home.tsx` has no auth
+branch (identical content whether connected or not), and the shell's
+personalized hero (earnings total, active-ticket card) was flagged back
+then as having no real counterpart — it "reads closer to what Dashboard
+should show." Section 27 stacked the real content set (trust badge,
+stat row, categories, Help link) directly under that unresolved
+personalized hero without reconciling it. That reconciliation is what
+this session closes.
+
+**Decision, discussed with user:** the "no auth branch" fact is
+structural information from the old code, not a UX mandate — per the
+standing rule, it doesn't dictate stripping personalization. The actual
+call was content-overlap with Dashboard, decided independently:
+- **Earnings hero → reputation stat.** Dashboard shows *balance*
+  (withdrawable, drops on withdrawal), not lifetime earned — so the old
+  "Total earned 116π" never literally duplicated a Dashboard number.
+  Still swapped out, on narrower grounds: it's a ledger/money metric by
+  category, which is Dashboard's domain by convention regardless of the
+  specific figure. Rating + jobs-completed is identity, not money —
+  genuinely Home's territory. Data already existed in the old hero's
+  subtext, just promoted to the headline.
+- **Escrow-locked ticket → live activity ticker.** The single ticket
+  showed the user's *own* job status — a straight duplicate of an item
+  from Dashboard's active-jobs list. Rather than dropping the ticket
+  visual (the design system's signature element) entirely, reused the
+  same ticket shape to show anonymized, platform-wide recent activity
+  instead — proof for the Sentinel trust badge sitting above it, not a
+  personal-status duplicate. Auto-advancing carousel (3 slides, 4s
+  interval), swipeable via pointer drag, dot indicators, pauses while
+  dragging, disables both the auto-advance interval and the live-dot
+  pulse animation under `prefers-reduced-motion`.
+
+**Data collision caught before shipping:** first draft of the ticker's
+lead slide reused "Localize onboarding copy / Translation / 6π" —
+identical to the "Recommended for you" item directly below it on the
+same screen. Caught on a rendered screenshot check, not just a code
+read; swapped to a distinct demo job (Content review / "Product FAQ
+copy pass" / 5π).
+
+**Self-caught regression:** a `sed` pass used to temporarily boot the
+HTML shell to `home` for a screenshot check used too broad a match and
+also silently rewrote `routeAfterOnboarding()`'s unrelated `else`
+fallback from `showScreen('home')` to `showScreen('landing')`. Caught by
+re-grepping for the target string after the sed ran, before treating the
+task as done; reverted, boot screen restored to real `landing` default
+per Section 26/27's established boot-route convention.
+
+**Flagged as demo data, both shells:** `ACTIVITY_TICKER`'s three entries
+are placeholder content, same convention as `CATEGORY_COUNTS` — no real
+"recent activity feed" endpoint has been confirmed to exist in the real
+app. Worth a Termux sweep before treating this as more than shell demo
+content.
+
+**Left undecided, intentionally:** whether ticker slides should deep-
+link anywhere. Original build (HTML shell) briefly wired the first two
+slides to `openDetail()`, which was inconsistent with the JSX shell
+(no click-through) and conceptually shaky besides — anonymized platform
+activity isn't naturally "yours" to click into. Removed rather than
+guessed; both shells currently render the ticker as informational-only.
+
+**Verification:** JSX and HTML both brace/paren/bracket-balance
+(net-zero) after every edit. Rendered the HTML shell with Playwright
+(local `file://`, no network needed) and screenshotted Home directly to
+catch the content-collision bug above — first session this project has
+had an actual visual render check rather than code-only verification.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`.
+
+**Status:** Section 22 item 2 is now genuinely fully done — hero and
+ticket both reconciled against Dashboard, not just content-added-on-top.
+Section 22 item 3 (support access point) remains the only open item.
+
+

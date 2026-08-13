@@ -1534,6 +1534,18 @@ const TOP_CATEGORIES = [...CATEGORY_OPTIONS]
 // in the shell rather than re-invented.
 const TOTAL_OPEN_JOBS = Object.values(CATEGORY_COUNTS).reduce((a, b) => a + b, 0);
 
+// Home hero-slot activity ticker (Section 22 item 2 follow-up, 2026-08-13):
+// replaces the old personal "escrow locked" ticket with anonymized,
+// platform-wide recent activity — proof for the Sentinel trust badge above
+// it rather than a duplicate of Dashboard's own active-jobs status. Demo
+// data only, same placeholder convention as CATEGORY_COUNTS; no real
+// "recent activity feed" endpoint confirmed yet.
+const ACTIVITY_TICKER = [
+  { cat: "Content review", title: "Product FAQ copy pass", amt: "5π", stubL: "Status", stubV: "Escrow opened", pill: "Just now", pillKind: "escrow" },
+  { cat: "Bug testing", title: "Payment flow QA pass", amt: "10π", stubL: "Status", stubV: "Submission approved", pill: "Paid out", pillKind: "paid" },
+  { cat: "Usability testing", title: "Checkout flow feedback", amt: "4π", stubL: "Status", stubV: "2 applicants joined", pill: "Open", pillKind: "open" },
+];
+
 // Browse's "Open now" list. Only "bug" has a real JOB_DATA/detail-screen
 // entry today — same demo-data ceiling as History's click-through work
 // (roadmap Section 21/23): every other category will show the empty
@@ -3034,6 +3046,26 @@ export default function HiveworkApp() {
   const [detailKey, setDetailKey] = useState("mine");
   const [workView, setWorkView] = useState("mywork"); // 'mywork' | 'myjobs'
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const tickerDragX = useRef(null);
+  const tickerPaused = useRef(false);
+  useEffect(() => {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => {
+      if (!tickerPaused.current) setTickerIndex((i) => (i + 1) % ACTIVITY_TICKER.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, []);
+  const tickerGo = (n) => setTickerIndex((n + ACTIVITY_TICKER.length) % ACTIVITY_TICKER.length);
+  const tickerPointerDown = (e) => { tickerPaused.current = true; tickerDragX.current = e.clientX; };
+  const tickerPointerUp = (e) => {
+    if (tickerDragX.current === null) return;
+    const dx = e.clientX - tickerDragX.current;
+    if (dx > 40) tickerGo(tickerIndex - 1);
+    else if (dx < -40) tickerGo(tickerIndex + 1);
+    tickerDragX.current = null;
+    tickerPaused.current = false;
+  };
   // Real WithdrawPanel.tsx state — 'earnings' kind (worker balance).
   const [withdrawBalance, setWithdrawBalance] = useState(4);
   const [withdrawalHistory, setWithdrawalHistory] = useState(WITHDRAWAL_HISTORY);
@@ -3232,6 +3264,7 @@ export default function HiveworkApp() {
         .hw-app .hero-label{color:var(--ink-soft);font-size:13px;margin-bottom:2px;}
         .hw-app .hero-num{font-family:'Sora';font-weight:800;font-size:52px;letter-spacing:-2px;line-height:1;}
         .hw-app .hero-num .unit{color:var(--violet);}
+        .hw-app .hero-num .star{color:var(--butter);}
         .hw-app .hero-sub{color:var(--ink-soft);font-size:13px;margin-top:6px;}
 
         .hw-app .ticket{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);margin-bottom:28px;overflow:hidden;cursor:pointer;}
@@ -3247,6 +3280,18 @@ export default function HiveworkApp() {
         .hw-app .status-pill.open{background:#E4F8F6;color:#1A9E92;}
         .hw-app .status-pill.escrow{background:#FFF3DC;color:#B8860B;}
         .hw-app .status-pill.closed{background:#F1EFEA;color:var(--ink-soft);}
+        .hw-app .status-pill.paid{background:#EFEAFB;color:var(--violet-deep);}
+
+        .hw-app .hw-ticker-label{font-size:10.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+        .hw-app .hw-live-dot{width:6px;height:6px;border-radius:50%;background:var(--mint);flex-shrink:0;animation:hwPulse 1.8s ease-in-out infinite;}
+        @keyframes hwPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+        @media(prefers-reduced-motion:reduce){.hw-app .hw-live-dot{animation:none;}}
+        .hw-app .hw-ticker-outer{overflow:hidden;border-radius:20px;margin-bottom:10px;}
+        .hw-app .hw-ticker-track{display:flex;transition:transform .45s cubic-bezier(.4,0,.2,1);touch-action:pan-y;}
+        .hw-app .hw-ticket-slide{flex:0 0 100%;margin-bottom:0;cursor:grab;}
+        .hw-app .hw-ticker-dots{display:flex;justify-content:center;gap:5px;margin-bottom:28px;}
+        .hw-app .hw-ticker-dot{width:5px;height:5px;border-radius:50%;background:var(--line);transition:background .25s,width .25s;cursor:pointer;}
+        .hw-app .hw-ticker-dot.active{background:var(--violet);width:14px;border-radius:3px;}
         .hw-app .jp-refund-badge{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--violet-deep);background:var(--cream);border:1px solid var(--violet-deep);padding:4px 10px;border-radius:100px;}
 
         .hw-app .hw-eyebrow{display:inline-flex;align-items:center;gap:7px;background:#EFEAFB;color:var(--violet-deep);padding:6px 12px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:14px;}
@@ -3603,21 +3648,38 @@ export default function HiveworkApp() {
                 </div>
 
                 <div className="hero-block">
-                  <div className="hero-label">Total earned</div>
-                  <div className="hero-num">116<span className="unit">π</span></div>
-                  <div className="hero-sub">17 jobs done · 4.3★ average rating</div>
+                  <div className="hero-label">Your standing</div>
+                  <div className="hero-num"><span className="star">★</span> 4.3</div>
+                  <div className="hero-sub">17 jobs completed</div>
                 </div>
 
-                <div className="ticket" onClick={() => openDetail("mine")}>
-                  <div className="ticket-main">
-                    <div><div className="ticket-cat">Bug testing</div><div className="ticket-title">Test payment flow on Android</div></div>
-                    <div className="ticket-amt">10π</div>
+                <div className="hw-ticker-label"><span className="hw-live-dot"></span>Happening now</div>
+                <div className="hw-ticker-outer">
+                  <div
+                    className="hw-ticker-track"
+                    style={{ transform: `translateX(-${tickerIndex * 100}%)` }}
+                    onPointerDown={tickerPointerDown}
+                    onPointerUp={tickerPointerUp}
+                  >
+                    {ACTIVITY_TICKER.map((t, idx) => (
+                      <div className="ticket hw-ticket-slide" key={idx}>
+                        <div className="ticket-main">
+                          <div><div className="ticket-cat">{t.cat}</div><div className="ticket-title">{t.title}</div></div>
+                          <div className="ticket-amt">{t.amt}</div>
+                        </div>
+                        <div className="ticket-div"></div>
+                        <div className="ticket-stub">
+                          <div><div className="stub-l">{t.stubL}</div><div className="stub-v">{t.stubV}</div></div>
+                          <span className={`status-pill${t.pillKind ? " " + t.pillKind : ""}`}>{t.pill}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="ticket-div"></div>
-                  <div className="ticket-stub">
-                    <div><div className="stub-l">Status</div><div className="stub-v">Escrow locked</div></div>
-                    <span className="status-pill">Awaiting your report</span>
-                  </div>
+                </div>
+                <div className="hw-ticker-dots">
+                  {ACTIVITY_TICKER.map((_, idx) => (
+                    <span key={idx} className={`hw-ticker-dot${idx === tickerIndex ? " active" : ""}`} onClick={() => tickerGo(idx)}></span>
+                  ))}
                 </div>
 
                 <div className="section-title">Recommended for you</div>

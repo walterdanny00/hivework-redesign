@@ -84,6 +84,7 @@
   .hero-label{color:var(--ink-soft);font-size:13px;margin-bottom:2px;}
   .hero-num{font-family:'Sora';font-weight:800;font-size:52px;letter-spacing:-2px;line-height:1;}
   .hero-num .unit{color:var(--violet);}
+  .hero-num .star{color:var(--butter);}
   .hero-sub{color:var(--ink-soft);font-size:13px;margin-top:6px;}
 
   .ticket{
@@ -99,6 +100,18 @@
   .stub-l{font-size:9.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;}
   .stub-v{font-size:12.5px;font-weight:700;margin-top:2px;}
   .status-pill{background:#FFF3DC;color:#B8860B;font-size:11px;font-weight:700;padding:6px 12px;border-radius:100px;}
+  .status-pill.paid{background:#EFEAFB;color:var(--violet-deep);}
+
+  .hw-ticker-label{font-size:10.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .hw-live-dot{width:6px;height:6px;border-radius:50%;background:var(--mint);flex-shrink:0;animation:hwPulse 1.8s ease-in-out infinite;}
+  @keyframes hwPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media(prefers-reduced-motion:reduce){.hw-live-dot{animation:none;}}
+  .hw-ticker-outer{overflow:hidden;border-radius:20px;margin-bottom:10px;}
+  .hw-ticker-track{display:flex;transition:transform .45s cubic-bezier(.4,0,.2,1);touch-action:pan-y;}
+  .hw-ticket-slide{flex:0 0 100%;margin-bottom:0;cursor:grab;}
+  .hw-ticker-dots{display:flex;justify-content:center;gap:5px;margin-bottom:28px;}
+  .hw-ticker-dot{width:5px;height:5px;border-radius:50%;background:var(--line);transition:background .25s,width .25s;cursor:pointer;}
+  .hw-ticker-dot.active{background:var(--violet);width:14px;border-radius:3px;}
 
   .section-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;}
   .hw-eyebrow{display:inline-flex;align-items:center;gap:7px;background:#EFEAFB;color:var(--violet-deep);padding:6px 12px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:14px;}
@@ -993,22 +1006,50 @@
       </div>
 
       <div class="hero-block">
-        <div class="hero-label">Total earned</div>
-        <div class="hero-num">116<span class="unit">π</span></div>
-        <div class="hero-sub">17 jobs done · 4.3★ average rating</div>
+        <div class="hero-label">Your standing</div>
+        <div class="hero-num"><span class="star">★</span> 4.3</div>
+        <div class="hero-sub">17 jobs completed</div>
       </div>
 
-      <div class="ticket" onclick="openDetail('mine')" style="cursor:pointer;">
-        <div class="ticket-main">
-          <div><div class="ticket-cat">Bug testing</div><div class="ticket-title">Test payment flow on Android</div></div>
-          <div class="ticket-amt">10π</div>
-        </div>
-        <div class="ticket-div"></div>
-        <div class="ticket-stub">
-          <div><div class="stub-l">Status</div><div class="stub-v">Escrow locked</div></div>
-          <span class="status-pill">Awaiting your report</span>
+      <div class="hw-ticker-label"><span class="hw-live-dot"></span>Happening now</div>
+      <div class="hw-ticker-outer">
+        <div class="hw-ticker-track" id="hw-ticker-track">
+          <div class="ticket hw-ticket-slide">
+            <div class="ticket-main">
+              <div><div class="ticket-cat">Content review</div><div class="ticket-title">Product FAQ copy pass</div></div>
+              <div class="ticket-amt">5π</div>
+            </div>
+            <div class="ticket-div"></div>
+            <div class="ticket-stub">
+              <div><div class="stub-l">Status</div><div class="stub-v">Escrow opened</div></div>
+              <span class="status-pill escrow">Just now</span>
+            </div>
+          </div>
+          <div class="ticket hw-ticket-slide">
+            <div class="ticket-main">
+              <div><div class="ticket-cat">Bug testing</div><div class="ticket-title">Payment flow QA pass</div></div>
+              <div class="ticket-amt">10π</div>
+            </div>
+            <div class="ticket-div"></div>
+            <div class="ticket-stub">
+              <div><div class="stub-l">Status</div><div class="stub-v">Submission approved</div></div>
+              <span class="status-pill paid">Paid out</span>
+            </div>
+          </div>
+          <div class="ticket hw-ticket-slide">
+            <div class="ticket-main">
+              <div><div class="ticket-cat">Usability testing</div><div class="ticket-title">Checkout flow feedback</div></div>
+              <div class="ticket-amt">4π</div>
+            </div>
+            <div class="ticket-div"></div>
+            <div class="ticket-stub">
+              <div><div class="stub-l">Status</div><div class="stub-v">2 applicants joined</div></div>
+              <span class="status-pill open">Open</span>
+            </div>
+          </div>
         </div>
       </div>
+      <div class="hw-ticker-dots" id="hw-ticker-dots"></div>
 
       <div class="section-title">Recommended for you</div>
       <div class="rec-item" onclick="openDetail('translate')" style="cursor:pointer;">
@@ -2911,10 +2952,51 @@ function toggleWork(view, el){
   document.getElementById('myjobs-panel').style.display = view==='myjobs' ? 'block' : 'none';
 }
 
+// Home hero-slot activity ticker (Section 22 item 2 follow-up, 2026-08-13):
+// replaces the old personal "escrow locked" ticket with anonymized,
+// platform-wide recent activity. Demo data only, hardcoded in markup
+// above — no real "recent activity feed" endpoint confirmed yet.
+let hwTickerIndex = 0;
+let hwTickerTimer = null;
+let hwTickerPaused = false;
+let hwTickerDragX = null;
+function hwTickerGo(n){
+  const track = document.getElementById('hw-ticker-track');
+  const slides = track.children;
+  hwTickerIndex = (n + slides.length) % slides.length;
+  track.style.transform = `translateX(-${hwTickerIndex * 100}%)`;
+  document.querySelectorAll('#hw-ticker-dots .hw-ticker-dot').forEach((d,i)=>d.classList.toggle('active', i===hwTickerIndex));
+}
+function initHomeTicker(){
+  const track = document.getElementById('hw-ticker-track');
+  const dots = document.getElementById('hw-ticker-dots');
+  if(!track || !dots || dots.children.length) return; // already initialized
+  [...track.children].forEach((_,i)=>{
+    const d = document.createElement('span');
+    d.className = 'hw-ticker-dot' + (i===0 ? ' active' : '');
+    d.onclick = () => hwTickerGo(i);
+    dots.appendChild(d);
+  });
+  track.addEventListener('pointerdown', e => { hwTickerPaused = true; hwTickerDragX = e.clientX; });
+  track.addEventListener('pointerup', e => {
+    if(hwTickerDragX === null) return;
+    const dx = e.clientX - hwTickerDragX;
+    if(dx > 40) hwTickerGo(hwTickerIndex - 1);
+    else if(dx < -40) hwTickerGo(hwTickerIndex + 1);
+    hwTickerDragX = null;
+    hwTickerPaused = false;
+  });
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduceMotion){
+    hwTickerTimer = setInterval(() => { if(!hwTickerPaused) hwTickerGo(hwTickerIndex + 1); }, 4000);
+  }
+}
+
 // Boot straight into Landing, matching the real "/" route (JSX's
 // useState("landing") equivalent) instead of Home.
 renderProfileScreen();
 showScreen('landing');
+initHomeTicker();
 </script>
 </body>
 </html>
