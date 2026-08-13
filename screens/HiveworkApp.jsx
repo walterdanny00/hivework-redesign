@@ -1462,6 +1462,31 @@ const CATEGORY_OPTIONS = [
 
 const CATEGORY_LABELS = Object.fromEntries(CATEGORY_OPTIONS.map((c) => [c.value, c.label]));
 
+// Demo open-job counts per category, for Browse's tile grid and Home's
+// curated teaser (top 3 by count). Matches existing demo job data where a
+// category already has one (bug-testing, translation, ui-ux-feedback).
+const CATEGORY_COUNTS = {
+  "bug-testing": 1,
+  translation: 0,
+  "ui-ux-feedback": 0,
+  "usability-testing": 2,
+  "content-review": 1,
+  "survey-data-collection": 0,
+  "localization-testing": 3,
+};
+
+const TOP_CATEGORIES = [...CATEGORY_OPTIONS]
+  .sort((a, b) => CATEGORY_COUNTS[b.value] - CATEGORY_COUNTS[a.value])
+  .slice(0, 3);
+
+// Browse's "Open now" list. Only "bug" has a real JOB_DATA/detail-screen
+// entry today — same demo-data ceiling as History's click-through work
+// (roadmap Section 21/23): every other category will show the empty
+// state until more open-job demo entries exist, not a bug.
+const BROWSE_OPEN_JOBS = [
+  { key: "bug", catValue: "bug-testing", cat: "Bug testing", barClass: "bug", title: "This is a test job", sub: "by @Olawalt · 1m ago", amt: "10π" },
+];
+
 const DEVICE_OPTIONS = ["Android", "iOS", "Web / Browser", "Desktop", "Any device"];
 const LANGUAGE_OPTIONS = [
   "English", "Mandarin Chinese", "Spanish", "Hindi", "Arabic", "Bengali", "Portuguese", "Russian", "French", "Urdu",
@@ -2891,6 +2916,7 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
 export default function HiveworkApp() {
   const [screen, setScreen] = useState("landing");
   const [lastScreen, setLastScreen] = useState("landing");
+  const [browseCategory, setBrowseCategory] = useState(null); // category value or null (all)
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -3142,12 +3168,34 @@ export default function HiveworkApp() {
         .hw-app .rec-amt{font-family:'JetBrains Mono';font-weight:700;font-size:15px;flex-shrink:0;align-self:center;color:var(--violet-deep);}
 
         .hw-app .tile-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;}
-        .hw-app .tile{border-radius:18px;padding:18px;position:relative;height:118px;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid var(--line);}
-        .hw-app .tile:nth-child(1){background:#FFE8E5;}
-        .hw-app .tile:nth-child(2){background:#FFF3DC;}
-        .hw-app .tile:nth-child(3){background:#E4F8F6;grid-column:span 2;height:92px;flex-direction:row;align-items:center;justify-content:space-between;}
+        .hw-app .tile{border-radius:18px;padding:16px;position:relative;height:104px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--line);}
+        .hw-app .tile:nth-child(7n+1){background:#FFE8E5;}
+        .hw-app .tile:nth-child(7n+2){background:#FFF3DC;}
+        .hw-app .tile:nth-child(7n+3){background:#E4F8F6;}
+        .hw-app .tile:nth-child(7n+4){background:#F3E8FF;}
+        .hw-app .tile:nth-child(7n+5){background:#E8F0FF;}
+        .hw-app .tile:nth-child(7n+6){background:#FFE8E5;}
+        .hw-app .tile:nth-child(7n+7){background:#FFF3DC;}
+        .hw-app .tile .t-icon{color:var(--ink);}
+        .hw-app .tile .t-icon svg{display:block;width:20px;height:20px;stroke:var(--ink);}
         .hw-app .tile .t-name{font-weight:700;font-size:14.5px;font-family:'Sora';color:var(--ink);}
         .hw-app .tile .t-count{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+        .hw-app .tile{cursor:pointer;transition:box-shadow .15s ease,border-color .15s ease;}
+        .hw-app .tile.selected{border-color:var(--violet);box-shadow:inset 0 0 0 1.5px var(--violet);}
+        .hw-app .cat-clear{font-size:12px;color:var(--ink-soft);cursor:pointer;}
+        .hw-app .cat-empty{padding:20px 0;text-align:center;font-size:13px;color:var(--ink-soft);}
+
+        .hw-app .cat-list{margin-bottom:4px;}
+        .hw-app .cat-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);cursor:pointer;}
+        .hw-app .cat-row:last-of-type{border-bottom:none;}
+        .hw-app .cat-icon{width:38px;height:38px;border-radius:12px;background:rgba(108,92,231,.1);color:var(--violet-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .hw-app .cat-icon svg{display:block;width:18px;height:18px;stroke:var(--violet-deep);}
+        .hw-app .cat-info{flex:1;min-width:0;}
+        .hw-app .cat-name{font-weight:700;font-size:14.5px;color:var(--ink);}
+        .hw-app .cat-count{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+        .hw-app .cat-arrow{color:var(--ink-soft);font-size:14px;flex-shrink:0;}
+        .hw-app .cat-row.ghost{border:1.5px dashed var(--line);border-radius:14px;padding:14px 16px;margin-top:6px;}
+        .hw-app .cat-row.ghost .cat-name{color:var(--ink-soft);font-weight:600;}
 
         .hw-app .wizard-track{display:flex;margin-bottom:24px;}
         .hw-app .wz-seg{flex:1;text-align:center;position:relative;}
@@ -3450,6 +3498,24 @@ export default function HiveworkApp() {
                   <div className="rec-body"><div className="rec-cat">Translation</div><h4>Localize onboarding copy</h4><p>2 applicants · posted 3d ago</p></div>
                   <div className="rec-amt">6π</div>
                 </div>
+
+                <div className="section-title">Categories</div>
+                <div className="cat-list">
+                  {TOP_CATEGORIES.map((c) => (
+                    <div className="cat-row" key={c.value} onClick={() => { setBrowseCategory(c.value); goTo("browse"); }}>
+                      <div className="cat-icon">{c.icon}</div>
+                      <div className="cat-info">
+                        <div className="cat-name">{c.label}</div>
+                        <div className="cat-count">{CATEGORY_COUNTS[c.value]} open job{CATEGORY_COUNTS[c.value] === 1 ? "" : "s"}</div>
+                      </div>
+                      <div className="cat-arrow">→</div>
+                    </div>
+                  ))}
+                  <div className="cat-row ghost" onClick={() => { setBrowseCategory(null); goTo("browse"); }}>
+                    <div className="cat-info"><div className="cat-name">+{CATEGORY_OPTIONS.length - TOP_CATEGORIES.length} more categories</div></div>
+                    <div className="cat-arrow">→</div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -3458,16 +3524,32 @@ export default function HiveworkApp() {
               <div className="screen active">
                 <div className="page-head"><div className="kicker">Explore</div><h1>Find work you're good at.</h1></div>
                 <div className="tile-row">
-                  <div className="tile"><div className="t-name">Bug testing</div><div className="t-count">1 open job</div></div>
-                  <div className="tile"><div className="t-name">UI feedback</div><div className="t-count">0 open jobs</div></div>
-                  <div className="tile"><div className="t-name">Translation</div><div className="t-count">0 open jobs</div></div>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <div
+                      className={`tile${browseCategory === c.value ? " selected" : ""}`}
+                      key={c.value}
+                      onClick={() => setBrowseCategory(browseCategory === c.value ? null : c.value)}
+                    >
+                      <div className="t-icon">{c.icon}</div>
+                      <div><div className="t-name">{c.label}</div><div className="t-count">{CATEGORY_COUNTS[c.value]} open job{CATEGORY_COUNTS[c.value] === 1 ? "" : "s"}</div></div>
+                    </div>
+                  ))}
                 </div>
-                <div className="section-title">Open now</div>
-                <div className="rec-item" onClick={() => openDetail("bug")}>
-                  <div className="rec-bar bug"></div>
-                  <div className="rec-body"><div className="rec-cat">Bug testing</div><h4>This is a test job</h4><p>by @Olawalt · 1m ago</p></div>
-                  <div className="rec-amt">10π</div>
+                <div className="section-title-row">
+                  <div className="section-title">{browseCategory ? `Open now · ${CATEGORY_LABELS[browseCategory]}` : "Open now"}</div>
+                  {browseCategory && <span className="cat-clear" onClick={() => setBrowseCategory(null)}>Clear ✕</span>}
                 </div>
+                {BROWSE_OPEN_JOBS.filter((j) => !browseCategory || j.catValue === browseCategory).length === 0 ? (
+                  <div className="cat-empty">No open jobs in this category yet.</div>
+                ) : (
+                  BROWSE_OPEN_JOBS.filter((j) => !browseCategory || j.catValue === browseCategory).map((j) => (
+                    <div className="rec-item" key={j.key} onClick={() => openDetail(j.key)}>
+                      <div className={`rec-bar ${j.barClass}`}></div>
+                      <div className="rec-body"><div className="rec-cat">{j.cat}</div><h4>{j.title}</h4><p>{j.sub}</p></div>
+                      <div className="rec-amt">{j.amt}</div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 

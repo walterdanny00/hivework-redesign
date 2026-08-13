@@ -1633,3 +1633,79 @@ labels with no stale-state carryover.
 **Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
 `roadmap.md`, `session-22.md` (this closes out the same session's
 follow-up thread, not a new session).
+
+## 26. Home & Browse categories, rebuilt from scratch (2026-08-13)
+
+**Context:** a prior chat session (not part of this roadmap's session-brief
+sequence — recovered from a shared chat export) had scoped and partially
+built this same work — Browse's category grid extended from 3 to 7, plus
+a Home categories teaser — but the session was cut off mid-edit and never
+synced back to Termux. The uploaded `HiveworkApp.jsx`/`hivework-app-v4-3.html`
+at the start of this session still had none of it (confirmed by direct
+inspection, not assumed). Rebuilt from scratch this session rather than
+resumed.
+
+**Scope carried over from that prior session's agreement (re-confirmed
+before building, per this roadmap's standing rule):** fix Browse first so
+all 7 categories are represented, then give Home a curated top-3 category
+teaser linking into Browse — Home should not duplicate Browse's own list.
+Browse keeps its original pastel-tile grid look (not the alternate
+row-list style that prior session had also explored) extended to fit 7
+tiles; Home's teaser uses a row-list (icon circle, label, live count,
+chevron).
+
+**Browse, both shells:** the original 3-tile layout hardcoded one
+"featured" wide tile for the 3rd item — dropped, since that doesn't
+generalize to 7. Now a uniform 2-col grid of all 7 `CATEGORY_OPTIONS`,
+cycling the existing pastel palette (plus two additions in the same
+family) instead of one-off per-tile colors, with the SVG line-icons
+already built for Post Job's category picker swapping in for the old
+emoji.
+
+**Home, both shells:** new "Categories" section after "Recommended for
+you" — top 3 categories by demo open-job count as a row list, ending in
+a "+4 more categories" ghost row into Browse. Demo per-category open-job
+counts (`CATEGORY_COUNTS` in JSX) were invented for this pass — only
+bug-testing/translation/ui-ux-feedback had any count before (carried over
+from the old 3-tile data); usability-testing, content-review,
+survey-data-collection, and localization-testing are new invented values,
+not sourced from anything real.
+
+**Bug found and fixed, both shells — invisible category icons:** the
+shared `CATEGORY_OPTIONS` SVGs carry no `stroke` color of their own; they
+only render visibly in Post Job's picker because of a `.cat-opt svg{stroke:
+var(--ink-soft)}` rule scoped to that component. The new Browse tiles and
+Home category rows had no equivalent rule, so the icons rendered
+invisible (empty violet-tinted circles / blank tile icons) — not a missing
+feature, a missing CSS line. Fixed with explicit `stroke` on `.tile
+.t-icon svg` (`var(--ink)`) and `.cat-icon svg` (`var(--violet-deep)`).
+
+**Category filtering, both shells (new — not part of the recovered prior
+session's work):** Browse tiles are now clickable and toggle a selected
+state (violet inset border), filtering the "Open now" list to that
+category; clicking the same tile again, or a "Clear ✕" next to the section
+title, resets to showing everything. Home's category rows and the ghost
+row now navigate into Browse with that category pre-selected (or cleared,
+for "more categories") instead of just landing on an unfiltered Browse.
+Only `bug` has a real demo job to filter to today — same demo-data
+ceiling as History's click-through work (Section 21/23) — so every other
+category correctly renders a "No open jobs in this category yet" empty
+state rather than nothing, by design.
+
+**Verification:** JSX — brace/paren/bracket balance (net-zero). HTML —
+`node --check` on the extracted script, plus a Node DOM stub actually
+calling `renderBrowseOpenNow()`/`toggleBrowseCategory()` through a
+selection → different-selection → deselection sequence, confirming: the
+default state shows the one real open job, selecting a category updates
+the title and highlights the right tile only, an unmatched category
+correctly shows the empty state, and toggling off returns to the default
+unfiltered view with the clear button hidden again. No headless browser —
+same standing sandbox limitation as every prior session.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-23.md` (new).
+
+**Status:** Section 22 item 2 (Home's real content set) is now partially
+done — categories are live; trust-badge pill, 3-stat row, and "How it
+works" are still missing from Home. Section 22 item 3 (support access
+point) is untouched. See "Next session" in `session-23.md`.
