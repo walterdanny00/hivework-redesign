@@ -1709,3 +1709,114 @@ same standing sandbox limitation as every prior session.
 done — categories are live; trust-badge pill, 3-stat row, and "How it
 works" are still missing from Home. Section 22 item 3 (support access
 point) is untouched. See "Next session" in `session-23.md`.
+
+## 27. Home content completed — trust badge, stat row, Help screen, submission composer (2026-08-13)
+
+**Context:** picked up Section 22 item 2's remaining pieces. Swept the
+real `Home.tsx` first per standing rule — found all three missing pieces
+(trust badge, 3-stat row, "How it works") already exist there verbatim,
+resolving the open scoping question from session 23. Also found a real
+discrepancy: `Home.tsx`'s own `CATEGORY_OPTIONS`-equivalent list only has
+3 categories (bug-testing, translation, ui-feedback) — it never got
+updated when the redesign expanded categories 3→7 (confirmed via
+`grep -rln CATEGORY_OPTIONS`, which only matches `Home.tsx`, `Jobs.tsx`,
+`PostJob.tsx` — the 7-category system is a real redesign addition, not
+invented, but `Home.tsx` itself is stale relative to it). Decision: kept
+the session-23 top-3-teaser as-is rather than shrinking to match Home's
+stale 3-item list, since the 7-category system is the more current fact.
+
+**Overkill check before building (user-requested), both shells:** ran
+targeted greps against the real app before writing anything —
+- Categories → filtered Browse: not new, real `Home.tsx` already does
+  `navigate('/jobs?category=slug')`. Extends an existing pattern.
+- "How it works": zero matches anywhere else in the real app. Home-only,
+  safe to port.
+- Trust badge ("Sentinel"): appears in both `Home.tsx` and `JobDetail.tsx`
+  — but different claims (Home: platform-wide "Powered by Sentinel Trust
+  Layer" pill; JobDetail: job-scoped "Client wallet verified by Sentinel"
+  banner). Confirmed as a family of related-but-distinct indicators, not
+  duplication — safe to build independently.
+
+**Design-system reuse (further overkill reduction):** rather than
+inventing new CSS, found the Landing screen already has design-system
+versions of all three Home needs — `.eyebrow`/`.eyebrow-dot` (trust
+badge), `.trust-row`/`.trust-item` (stat row), `.flow`/`.flow-steps`/
+`.flow-step` (how-it-works, same 3-step copy verbatim). Home's new
+`.hw-*`-prefixed classes (`hw-eyebrow`, `hw-trust-row`, `hw-help-*`) are
+compact/stacked re-implementations of that same visual language scoped
+to `.hw-app` (Landing's originals are scoped to `.hivework-landing` —
+shared design tokens, separate component scope, same convention as the
+rest of the shell).
+
+**Home scope decision:** rather than stacking all three educational
+sections onto Home (which already carries hero-block, active ticket,
+recommended job, and categories), Home gets only the trust badge + stat
+row directly, plus one link row ("❔ How it works, submissions & FAQ →")
+into a new dedicated **Help** screen — reached the same way Profile/
+History are (drill-in from Home only, not in segnav). Keeps Home lean
+for a returning user while still surfacing the content.
+
+**Help screen, both shells:** three sections — "How it works" (Landing's
+3-step copy, compact stacked layout), "Submitting valid proof of work"
+(explanatory guide to the new composer's 4 parts, see below), and an
+FAQ (4 entries — flagged to the user as invented placeholder content,
+same convention as `CATEGORY_COUNTS`, since nothing equivalent exists in
+the real app).
+
+**Submission structure, both shells — new standard proof-of-work
+composer:** user asked directly for a standard way to submit valid proof
+of work. Swept the real `JobDetail.tsx` first — confirmed the actual API
+(`/api/jobs/:id/submit-work`) only ever accepts one field, `submission`
+(plain string); no structured-report endpoint, no attachment endpoint.
+Replaced the worker Job Detail's single generic textarea (placeholder
+tried to cover bug/translation/feedback jobs in one sentence) with a
+templated composer that stays inside that real constraint:
+- **What was done** — required, all job types.
+- **Evidence** — required, placeholder varies by job type (bug: repro
+  steps; translation: before/after text; feedback: reviewed verdict),
+  classified from the job's free-text `cat` label via `getSubmissionKind()`
+  since neither shell's demo data has a category slug field on job
+  objects (only Browse/Post Job's `CATEGORY_OPTIONS` do).
+- **Environment** — bug-testing jobs only (device/OS/browser).
+- **Notes** — optional, all job types.
+
+All 4 fields concatenate into one `###`-headed string via
+`composeSubmission()` on submit — no backend/schema change, just smarter
+client-side composition of the same real field. Submit button now gates
+on "What was done" + "Evidence" both non-empty (`canSubmitWork()`)
+instead of the old single-field non-empty check.
+
+**Bug found and fixed along the way, JSX only:** the `job` object built
+for `JobDetailWorker` at the job-detail routing site was missing a `cat`
+field entirely (only had `eyebrow`, which embeds `cat` as a substring
+but isn't parseable back out) — would have made `getSubmissionKind()`
+silently receive `undefined` and always fall through to the generic
+`feedback` kind, even for bug-testing jobs. Fixed by passing `cat: job.cat`
+into the constructed object alongside the existing fields.
+
+**Attachments block, both shells:** kept visually (per the existing
+shell convention of showing intended future state) but relabeled
+"Coming soon" and disabled, rather than looking like a working upload
+feature backed by nothing — same honesty-over-polish call as other
+placeholder content in this project.
+
+**Verification:** JSX — brace/paren/bracket balance (net-zero) after
+every edit. HTML — `node --check` on the extracted inline script. Both
+— a standalone Node logic test of `getSubmissionKind()`/
+`composeSubmission()`/`canSubmitWork()` across bug/translation/feedback
+job kinds, confirming: Environment only appears for bug kind even when
+filled for others, all-fields-present composes correctly with `###`
+headers, and the submit gate correctly blocks when Evidence is empty.
+No headless-browser DOM run this session (no `jsdom` available, no
+network access to install it) — same standing sandbox limitation as
+every prior session, but a first for not even having the Node-DOM-stub
+option; logic-level testing substituted.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-24.md` (new).
+
+**Status:** Section 22 item 2 (Home's real content set) is now fully
+done. Section 22 item 3 (support access point placement outside the
+profile menu) is still untouched — the only open item from that
+original scope.
+
