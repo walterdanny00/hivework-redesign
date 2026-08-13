@@ -1053,6 +1053,12 @@ const HW_JDW_STYLES = `
   .hw-jdw .field-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:6px;}
   .hw-jdw textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;min-height:100px;background:var(--cream-deep);}
   .hw-jdw textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:#fff;}
+  .hw-jdw .sub-composer-hint{font-size:12px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;}
+  .hw-jdw .sub-field{min-height:70px;}
+  .hw-jdw .sub-field-sm{min-height:52px;}
+  .hw-jdw .sub-soon-tag{text-transform:none;font-weight:600;color:var(--violet-deep);background:#EFEAFB;border-radius:100px;padding:2px 8px;font-size:10px;letter-spacing:0;margin-left:4px;}
+  .hw-jdw .attach-disabled{opacity:.55;}
+  .hw-jdw .attach-add-wide:disabled{cursor:not-allowed;opacity:.6;}
   .hw-jdw .counter-row{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
 
   .hw-jdw .btn{border:none;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;font-size:13.5px;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:12px;}
@@ -1117,7 +1123,8 @@ const HW_JDW_STATE_META = {
 
 function JDWPanel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCancelApply, onSubmitApply,
                   coverNote, onCoverNoteChange, submitting, applying,
-                  submission, onSubmissionChange, onSubmitWork,
+                  submissionKind, subWhat, onSubWhatChange, subEvidence, onSubEvidenceChange,
+                  subEnvironment, onSubEnvironmentChange, subNotes, onSubNotesChange, canSubmitWork, onSubmitWork,
                   rateScore, onRateScore, rateComment, onRateCommentChange, onSubmitRating, ratingSubmitting,
                   myRating, verifyError }) {
   switch (state) {
@@ -1200,31 +1207,62 @@ function JDWPanel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCa
       return (
         <div className="panel">
           <div className="panel-title">Submit your work</div>
-          <label className="field-label">Report / findings</label>
+          <div className="sub-composer-hint">A good submission has two parts — what you did, and the proof of it.</div>
+
+          <label className="field-label">What was done</label>
           <textarea
-            placeholder="Describe what you did, bugs found, translations completed, feedback given..."
-            value={submission}
-            onChange={e => onSubmissionChange(e.target.value)}
+            className="sub-field"
+            placeholder="One or two lines tying your work back to what the job asked for."
+            value={subWhat}
+            onChange={e => onSubWhatChange(e.target.value)}
           />
-          <div className="counter-row"><span>&nbsp;</span><span>{(submission || '').length} characters</span></div>
+
+          <label className="field-label" style={{ marginTop: 14 }}>Evidence</label>
+          <textarea
+            className="sub-field"
+            placeholder={SUBMISSION_EVIDENCE_HINT[submissionKind]}
+            value={subEvidence}
+            onChange={e => onSubEvidenceChange(e.target.value)}
+          />
+
+          {submissionKind === 'bug' && (
+            <>
+              <label className="field-label" style={{ marginTop: 14 }}>Environment</label>
+              <textarea
+                className="sub-field sub-field-sm"
+                placeholder="Device, OS, browser/app version — whatever made the bug reproducible."
+                value={subEnvironment}
+                onChange={e => onSubEnvironmentChange(e.target.value)}
+              />
+            </>
+          )}
+
+          <label className="field-label" style={{ marginTop: 14 }}>
+            Notes <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--ink-soft)' }}>(optional)</span>
+          </label>
+          <textarea
+            className="sub-field sub-field-sm"
+            placeholder="Anything incomplete, or that needs the client's attention."
+            value={subNotes}
+            onChange={e => onSubNotesChange(e.target.value)}
+          />
 
           <label className="field-label" style={{ marginTop: 16 }}>
-            Attachments <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--ink-soft)' }}>(optional)</span>
+            Attachments <span className="sub-soon-tag">Coming soon</span>
           </label>
-          <div className="attach-list">
+          <div className="attach-list attach-disabled">
             <div className="attach-row2">
               <div className="attach-icon">🖼️</div>
               <div className="attach-info">
                 <div className="attach-name">checkout-error.png</div>
-                <div className="attach-meta">2.1 MB · uploaded</div>
+                <div className="attach-meta">Preview only — not yet wired to a real upload</div>
               </div>
-              <button className="attach-x" aria-label="Remove attachment">×</button>
             </div>
           </div>
-          <button className="attach-add-wide">+ Add photo or video</button>
-          <div className="attach-hint">Up to 5 files, 25MB each.</div>
+          <button className="attach-add-wide" disabled>+ Add photo or video</button>
+          <div className="attach-hint">File attachments aren't live yet — for now, describe evidence in the fields above.</div>
 
-          <button className="btn btn-primary" disabled={submitting || !submission?.trim()} onClick={onSubmitWork}>
+          <button className="btn btn-primary" disabled={submitting || !canSubmitWork} onClick={onSubmitWork}>
             {submitting ? 'Submitting...' : 'Submit Work'}
           </button>
         </div>
@@ -1287,7 +1325,15 @@ function JobDetailWorker({
   verifyError,
 }) {
   const [coverNote, setCoverNote] = useState('');
-  const [submission, setSubmission] = useState('');
+  // Structured submission composer (Section 27) — 4 mini-fields, concatenated
+  // into one string on submit; the real API only ever accepts one field.
+  const [subWhat, setSubWhat] = useState('');
+  const [subEvidence, setSubEvidence] = useState('');
+  const [subEnvironment, setSubEnvironment] = useState('');
+  const [subNotes, setSubNotes] = useState('');
+  const submissionKind = getSubmissionKind(job.cat);
+  const submission = composeSubmission({ what: subWhat, evidence: subEvidence, environment: subEnvironment, notes: subNotes, kind: submissionKind });
+  const canSubmitWork = subWhat.trim().length > 0 && subEvidence.trim().length > 0;
   const [applying, setApplying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
@@ -1348,8 +1394,12 @@ function JobDetailWorker({
                       coverNote={coverNote}
                       onCoverNoteChange={setCoverNote}
                       applying={applying}
-                      submission={submission}
-                      onSubmissionChange={setSubmission}
+                      submissionKind={submissionKind}
+                      subWhat={subWhat} onSubWhatChange={setSubWhat}
+                      subEvidence={subEvidence} onSubEvidenceChange={setSubEvidence}
+                      subEnvironment={subEnvironment} onSubEnvironmentChange={setSubEnvironment}
+                      subNotes={subNotes} onSubNotesChange={setSubNotes}
+                      canSubmitWork={canSubmitWork}
                       submitting={submitting}
                       onSubmitWork={async () => {
                         setSubmitting(true);
@@ -1479,6 +1529,11 @@ const TOP_CATEGORIES = [...CATEGORY_OPTIONS]
   .sort((a, b) => CATEGORY_COUNTS[b.value] - CATEGORY_COUNTS[a.value])
   .slice(0, 3);
 
+// Home's stat row (Section 27) — same 3 stats real Home.tsx shows
+// (open jobs / platform fee / category count), derived from data already
+// in the shell rather than re-invented.
+const TOTAL_OPEN_JOBS = Object.values(CATEGORY_COUNTS).reduce((a, b) => a + b, 0);
+
 // Browse's "Open now" list. Only "bug" has a real JOB_DATA/detail-screen
 // entry today — same demo-data ceiling as History's click-through work
 // (roadmap Section 21/23): every other category will show the empty
@@ -1486,6 +1541,48 @@ const TOP_CATEGORIES = [...CATEGORY_OPTIONS]
 const BROWSE_OPEN_JOBS = [
   { key: "bug", catValue: "bug-testing", cat: "Bug testing", barClass: "bug", title: "This is a test job", sub: "by @Olawalt · 1m ago", amt: "10π" },
 ];
+
+// Submission composer (Section 27 — standard proof-of-work structure).
+// The real API (/api/jobs/:id/submit-work) only ever accepts one field,
+// `submission` (plain string) — there is no structured-report endpoint.
+// This composer stays inside that real constraint: it presents 3-4
+// labeled mini-fields in the UI, then concatenates them into one
+// ###-headed string on submit, so the client-side view of the report
+// (`s.submission` in the owner's ledger) still reads as one clean report.
+// "Evidence" placeholder differs by job type since what counts as valid
+// proof genuinely differs; classified from the demo job's free-text
+// `cat` label since JOB_DATA has no category slug field.
+function getSubmissionKind(catLabel) {
+  const c = (catLabel || "").toLowerCase();
+  if (c.includes("bug")) return "bug";
+  if (c.includes("translat") || c.includes("localiz")) return "translation";
+  return "feedback"; // UI feedback, usability testing, content review, etc.
+}
+
+// Help screen FAQ (Section 27). Invented for this pass — flagged, like
+// CATEGORY_COUNTS, as placeholder content, not sourced from anything real;
+// nothing equivalent exists in the real app today.
+const HELP_FAQ = [
+  { q: "When does payment actually release?", a: "As soon as the client approves your submitted work, your share of the escrowed Pi releases straight to your wallet — no separate payout step or waiting period." },
+  { q: "What happens if my application is rejected?", a: "You'll see it reflected on the job and in your History → Work list. Nothing is deducted — applications don't lock any Pi on the worker side." },
+  { q: "Can I apply to more than one job at a time?", a: "Yes — there's no limit on open applications. Just make sure each submission is specific to that job's requirements." },
+  { q: "What if the client doesn't respond to my submission?", a: "Your Pi stays locked in escrow until they act. If it's been a while, use Contact Support from the profile menu and reference the job." },
+];
+
+const SUBMISSION_EVIDENCE_HINT = {
+  bug: "Exact repro steps, and what happened vs. what you expected.",
+  translation: "Paste the original text alongside your translation.",
+  feedback: "What you reviewed, and your specific verdict or findings.",
+};
+
+function composeSubmission({ what, evidence, environment, notes, kind }) {
+  const parts = [];
+  if (what.trim()) parts.push(`### What was done\n${what.trim()}`);
+  if (evidence.trim()) parts.push(`### Evidence\n${evidence.trim()}`);
+  if (kind === "bug" && environment.trim()) parts.push(`### Environment\n${environment.trim()}`);
+  if (notes.trim()) parts.push(`### Notes\n${notes.trim()}`);
+  return parts.join("\n\n");
+}
 
 const DEVICE_OPTIONS = ["Android", "iOS", "Web / Browser", "Desktop", "Any device"];
 const LANGUAGE_OPTIONS = [
@@ -3152,6 +3249,30 @@ export default function HiveworkApp() {
         .hw-app .status-pill.closed{background:#F1EFEA;color:var(--ink-soft);}
         .hw-app .jp-refund-badge{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--violet-deep);background:var(--cream);border:1px solid var(--violet-deep);padding:4px 10px;border-radius:100px;}
 
+        .hw-app .hw-eyebrow{display:inline-flex;align-items:center;gap:7px;background:#EFEAFB;color:var(--violet-deep);padding:6px 12px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:14px;}
+        .hw-app .hw-eyebrow-dot{width:6px;height:6px;border-radius:50%;background:var(--mint);flex-shrink:0;}
+        .hw-app .hw-trust-row{display:flex;gap:0;margin-bottom:22px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 0;}
+        .hw-app .hw-trust-item{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;border-left:1px solid var(--line);}
+        .hw-app .hw-trust-item:first-child{border-left:none;}
+        .hw-app .hw-trust-item .num{font-family:'Sora';font-weight:800;font-size:17px;color:var(--ink);}
+        .hw-app .hw-trust-item .label{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
+        .hw-app .hw-help-row{margin-top:10px;}
+        .hw-app .hw-help-steps{display:flex;flex-direction:column;gap:16px;margin-bottom:8px;}
+        .hw-app .hw-help-step{display:flex;gap:12px;}
+        .hw-app .hw-help-step-n{width:26px;height:26px;border-radius:50%;background:var(--violet);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+        .hw-app .hw-help-step-title{font-weight:700;font-size:14px;color:var(--ink);}
+        .hw-app .hw-help-step-desc{font-size:12.5px;color:var(--ink-soft);margin-top:2px;line-height:1.4;}
+        .hw-app .hw-help-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;font-size:13.5px;color:var(--ink);line-height:1.5;}
+        .hw-app .hw-help-card p{margin:0 0 10px;}
+        .hw-app .hw-help-list{margin:0 0 10px;padding-left:18px;}
+        .hw-app .hw-help-list li{margin-bottom:6px;font-size:13px;color:var(--ink-soft);line-height:1.45;}
+        .hw-app .hw-help-list b{color:var(--ink);}
+        .hw-app .hw-help-note{font-size:12px;color:var(--ink-soft);margin:0;}
+        .hw-app .hw-help-faq{display:flex;flex-direction:column;gap:8px;}
+        .hw-app .hw-help-faq-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+        .hw-app .hw-help-faq-item summary{font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;list-style:none;}
+        .hw-app .hw-help-faq-item summary::-webkit-details-marker{display:none;}
+        .hw-app .hw-help-faq-item p{font-size:12.5px;color:var(--ink-soft);margin:8px 0 0;line-height:1.45;}
         .hw-app .section-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;}
         .hw-app .section-title-row{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;}
         .hw-app .see-all{font-size:12px;font-weight:700;color:var(--violet-deep);cursor:pointer;background:none;border:none;}
@@ -3474,6 +3595,13 @@ export default function HiveworkApp() {
               <div className="screen active">
                 <div className="page-head"><div className="kicker">Good afternoon</div><h1>Welcome back, Olawalt.</h1></div>
 
+                <div className="hw-eyebrow"><span className="hw-eyebrow-dot"></span>Powered by Sentinel Trust Layer</div>
+                <div className="hw-trust-row">
+                  <div className="hw-trust-item"><span className="num">{TOTAL_OPEN_JOBS}</span><span className="label">Open jobs</span></div>
+                  <div className="hw-trust-item"><span className="num">{Math.round(PLATFORM_FEE_RATE * 100)}%</span><span className="label">Platform fee</span></div>
+                  <div className="hw-trust-item"><span className="num">{CATEGORY_OPTIONS.length}</span><span className="label">Categories</span></div>
+                </div>
+
                 <div className="hero-block">
                   <div className="hero-label">Total earned</div>
                   <div className="hero-num">116<span className="unit">π</span></div>
@@ -3515,6 +3643,11 @@ export default function HiveworkApp() {
                     <div className="cat-info"><div className="cat-name">+{CATEGORY_OPTIONS.length - TOP_CATEGORIES.length} more categories</div></div>
                     <div className="cat-arrow">→</div>
                   </div>
+                </div>
+
+                <div className="cat-row ghost hw-help-row" onClick={() => goTo("help")}>
+                  <div className="cat-info"><div className="cat-name">❔ How it works, submissions &amp; FAQ</div></div>
+                  <div className="cat-arrow">→</div>
                 </div>
               </div>
             )}
@@ -3564,6 +3697,7 @@ export default function HiveworkApp() {
                 <JobDetailWorker
                   job={{
                     eyebrow: `${job.cat} · Job`,
+                    cat: job.cat,
                     title: job.title,
                     client: job.client,
                     slotsFilled: job.slotsFilled,
@@ -3800,6 +3934,53 @@ export default function HiveworkApp() {
                 Swapping the canonical HiveworkJobDetail owner component in
                 is the next recompile step; the flat job-detail screen above
                 is a placeholder until then. */}
+
+            {/* HELP — Section 27. Reached only from Home's single link row
+                (not in segnav, same "drill-in" pattern as History/Profile).
+                Bundles How it works + submission guide + FAQ in one place
+                so Home itself stays lean for a returning user. */}
+            {screen === "help" && (
+              <div className="screen active">
+                <button className="back-btn" onClick={() => goTo("home")}><BackIcon />Back</button>
+                <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>How it works, submissions &amp; FAQ</h1></div>
+
+                <div className="section-title">How it works</div>
+                <div className="hw-help-steps">
+                  {[
+                    { n: "1", title: "Developer posts a job", desc: "Sets the task, requirements, and locks the Pi budget in escrow up front." },
+                    { n: "2", title: "Pioneer applies & works", desc: "Claims the task, does the work, submits a report for review." },
+                    { n: "3", title: "Approved & paid", desc: "Developer approves. Pi releases straight to your wallet — instantly." },
+                  ].map((s) => (
+                    <div className="hw-help-step" key={s.n}>
+                      <div className="hw-help-step-n">{s.n}</div>
+                      <div><div className="hw-help-step-title">{s.title}</div><div className="hw-help-step-desc">{s.desc}</div></div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="section-title" style={{ marginTop: 28 }}>Submitting valid proof of work</div>
+                <div className="hw-help-card">
+                  <p>Every submission is built from a few short parts, so the client can review it at a glance:</p>
+                  <ul className="hw-help-list">
+                    <li><b>What was done</b> — a line tying the work back to the job's requirements.</li>
+                    <li><b>Evidence</b> — the specific proof for the task type: repro steps for a bug, before/after text for a translation, or your reviewed verdict for feedback work.</li>
+                    <li><b>Environment</b> — device/OS/browser, for bug-testing jobs specifically.</li>
+                    <li><b>Notes</b> — anything incomplete or worth flagging to the client, optional.</li>
+                  </ul>
+                  <p className="hw-help-note">You'll see these as separate fields when you submit work on a job — they're combined into one clear report for the client automatically.</p>
+                </div>
+
+                <div className="section-title" style={{ marginTop: 28 }}>FAQ</div>
+                <div className="hw-help-faq">
+                  {HELP_FAQ.map((f, i) => (
+                    <details className="hw-help-faq-item" key={i}>
+                      <summary>{f.q}</summary>
+                      <p>{f.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
