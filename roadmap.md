@@ -576,10 +576,14 @@ later implementation pass.
 ### Wiring pass, done (2026-08-10)
 
 - **Log out** — real product gap fill: clears back to Landing with a
-  confirmation toast ("Logged out"). Client-side reset only — does not yet
-  gate other nav items on a logged-out state (real `Layout.tsx` hides Post
-  Job/Dashboard/NotificationBell when disconnected); that remains a
-  separate, larger open item.
+  confirmation toast ("Logged out"). Client-side reset only — does not
+  gate other nav items on a logged-out state (real `Layout.tsx` hides
+  Post Job/Dashboard/NotificationBell when disconnected). **Resolved the
+  next day, Section 17 Part A:** decided to keep the shell's simple
+  binary (landing vs. fully-logged-in nav) rather than add a third
+  "browsing while logged out, partial nav" state to match the real
+  header nav — confirmed with the user, no nav-hiding logic needed. Not
+  an open item.
 - **Notification settings** — no real feature exists to wire to, so this
   now surfaces an honest "coming soon" toast rather than doing nothing or
   implying a feature that isn't there.
