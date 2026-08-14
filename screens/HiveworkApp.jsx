@@ -3511,6 +3511,9 @@ export default function HiveworkApp() {
         .hw-app .segnav{display:flex;gap:3px;background:#EFECE5;border-radius:100px;padding:4px;margin:6px 24px 4px;position:sticky;top:0;z-index:8;}
         .hw-app .segnav button{flex:1;text-align:center;padding:9px 0;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
         .hw-app .segnav button.active{background:var(--ink);color:white;}
+        .hw-app .help-strip{text-align:center;padding:20px 24px 6px;margin-top:4px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-soft);}
+        .hw-app .help-strip .help-strip-link{color:var(--violet-deep);font-weight:700;cursor:pointer;}
+        .hw-app .help-strip .help-strip-link:hover{text-decoration:underline;}
 
         ${JOB_DETAIL_OWNER_STYLES}
         ${HW_RANGE_FILTER_STYLES}
@@ -4043,6 +4046,18 @@ export default function HiveworkApp() {
                 </div>
               </div>
             )}
+
+            {/* Section 22 item 3 / BUG-106 parity: persistent, low-key
+                support access point on every in-app screen, not just the
+                4 MAIN_SCREENS segnav covers — real Layout.tsx wraps every
+                route via <Outlet/>, so this is rendered unconditionally
+                here (outside the screen===X branches) rather than gated
+                on showSegnav. It disappears automatically whenever this
+                whole .hw-app branch isn't rendered (fullpage flows), same
+                as everything else in this wrapper. */}
+            <div className="help-strip">
+              Need help? <span className="help-strip-link" onClick={() => setContactModalOpen(true)}>Contact support</span>
+            </div>
 
           </div>
         </div>

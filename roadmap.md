@@ -1442,14 +1442,9 @@ game per the roadmap's own rule):**
   top-header + bottom-tab-bar split. `segnav` already reaches every real
   destination; container shape is a design-system decision.
 
-**Status:** item 1 closed 2026-08-13 — see Section 23. Items 2 and 3
-remain, not yet started:
-2. Design Home's real content set (stats/categories/trust-badge concept/
-   how-it-works) into the cream/ink/violet system — currently just
-   missing, not merely mis-styled.
-3. Decide, under our own design language, whether/how a global support
-   access point belongs outside the profile menu — informed by the fact
-   the gap was real (BUG-106), not by copying the literal footer.
+**Status:** item 1 closed 2026-08-13 — see Section 23. Item 2 closed
+2026-08-13 — see Section 28. Item 3 closed 2026-08-14 — see Section 29.
+All three items from this sweep are now done.
 
 Neither is gated behind KYC or real auth — pure visual/UX-design screens,
 buildable now the same way every other screen in the shell already is
@@ -1897,4 +1892,61 @@ had an actual visual render check rather than code-only verification.
 ticket both reconciled against Dashboard, not just content-added-on-top.
 Section 22 item 3 (support access point) remains the only open item.
 
+## 29. Persistent support access point — Section 22 item 3 closed (2026-08-14)
+
+**Sweep, per standing rule:** user pulled `frontend/src/components/Layout.tsx`
+directly via Termux and pasted it in, rather than working from Section
+17/22's secondhand notes. Full file read. Confirmed facts:
+- The `BUG-106` footer sits between `<main>` and the bottom tab nav — its
+  own row, not inside either — and **always renders, no `connected`
+  gate**, unlike Post/Dashboard/Bell which do hide when logged out.
+- Deliberately minimal styling: 11px, muted color, centered, "Need help?
+  Contact support" as plain text-into-link, not a button or icon.
+- It's the *only* real clickable support entry point in the app — a
+  second grep (`grep -rn "contact.support\|BUG-106\|support@\|help@"
+  frontend/src/`) turned up five other "contact support" mentions
+  (`WithdrawPanel.tsx`, `JobDetail.tsx` ×2, `PostJob.tsx`,
+  `HistoryWithdrawals.tsx`), all inline error-state text with no link at
+  all.
+- Layout.tsx wraps **every** route via `<Outlet/>` — so the footer shows
+  on all real pages, not a subset. This contradicts treating it as
+  redundant with the shell's profile-menu entry: that entry has no real
+  counterpart at all (real app has no dropdown behind the avatar,
+  Section 8) — it's a pure shell invention, so keeping both isn't
+  duplicating one real thing twice.
+
+**Design decision:** rather than tie visibility to `segnav`'s 4
+MAIN_SCREENS (which intentionally hides on drill-in screens like Job
+Detail/History/Profile/Help), matched the real `<Outlet/>` scope instead
+— visible on all 10 in-app screens. In both shells this needed **no
+JS/state toggle at all**: the strip is a single static element placed
+once, inside the same container (`.frame` / the `.hw-app` conditional
+branch) that's already hidden during the fullpage flows (landing/
+welcome/onboarding) and shown for every real screen — it rides along
+with whichever screen is active for free, the same mechanism `segnav`
+uses but without needing its own `mainScreens.includes(id)` check.
+Reused the existing centered contact-support modal (session 17/18) via
+`openContactModal()` (HTML) / `setContactModalOpen(true)` (JSX) rather
+than forking a new instance.
+
+**Built, both shells:** `.help-strip` — centered, 11.5px, `var(--ink-soft)`,
+top border in `var(--line)`, "Contact support" in `var(--violet-deep)`
+700-weight matching the existing link-color convention (e.g. `.see-all`).
+Placed after the last screen block, before the shell's closing container
+tags.
+
+**Verified:** Playwright screenshots (local `file://`) on Home (main
+tab) and Help (drill-in screen) confirm the strip renders on both;
+confirmed absent on the landing page (`.help-strip` in DOM but
+`is_visible() === False`); clicked through and confirmed the modal opens
+correctly from the new entry point. Diffed the full `showScreen('...')`
+call list against the pre-edit file (sorted, `diff`) to positively rule
+out a repeat of Section 28's `sed` regression. JSX brace/paren/bracket
+net-zero after edit.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-26.md`.
+
+**Status:** Section 22 item 3 closed. All three items from the Section
+22 structural sweep (2026-08-12) are now fully done.
 
