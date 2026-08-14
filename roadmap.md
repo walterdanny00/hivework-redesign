@@ -82,7 +82,7 @@ Section 6/7/8's findings surfaced in the first place.
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen. Rows with a matching demo job click through to Job Detail (Section 23) — real `ApplicationCard.tsx` is always clickable, but only 1 of 6 demo rows has a matching demo job today. |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard. Rows with a matching demo job click through to Job Detail (Section 23) — real `JobCard.tsx` is always clickable, 2 of 5 demo rows currently have a matching demo job. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
-| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done · ⚠️ Wired into shell with reduced scope | See Section 6 and Section 17. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Wired into: Profile menu (global access point — reachable from every main-app screen via the header avatar, same coverage real `Layout.tsx`'s footer link exists to provide; opens as a centered modal as of session 17/Section 18, not inline-expanded in the dropdown — the inline pattern looked cramped in a 228px menu) and worker Job Detail's wallet-error state (that error state is currently unreachable via the demo's default flow, wired anyway for fidelity). A persistent footer link was built and then deliberately reverted (session 15/16, see Section 17) — decided the profile-menu entry already gives global coverage and running both was redundant. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
+| Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6, 17, and 29. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Two access points now live in both shells, both routing to the same centered modal (session 17/18): the Profile menu entry (shell invention — real app has no dropdown behind the avatar at all, Section 8) and the `.help-strip` footer (Section 29, BUG-106 parity — real `Layout.tsx`'s actual footer link, present on all 10 in-app screens). **Acknowledged functionally redundant, kept as-is (2026-08-14):** within the shell's binary connected model (no partial logged-out browsing state, Section 17 Part A), the profile menu is always reachable whenever the footer is, so the footer isn't covering a state the menu misses — they point at the same modal in the same situations. Section 29's original reasoning ("not duplicating one real thing twice") explained why this wasn't copying real code twice, but doesn't by itself establish the two serve different users; that's a separate, still-open question. Decided to leave both rather than drop either — not resolved on discoverability grounds, just not forced by this fact. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
 
@@ -1909,11 +1909,25 @@ directly via Termux and pasted it in, rather than working from Section
   `HistoryWithdrawals.tsx`), all inline error-state text with no link at
   all.
 - Layout.tsx wraps **every** route via `<Outlet/>` — so the footer shows
-  on all real pages, not a subset. This contradicts treating it as
-  redundant with the shell's profile-menu entry: that entry has no real
-  counterpart at all (real app has no dropdown behind the avatar,
-  Section 8) — it's a pure shell invention, so keeping both isn't
-  duplicating one real thing twice.
+  on all real pages, not a subset.
+
+**Correction (2026-08-14, user-caught):** the paragraph above originally
+argued the footer wasn't redundant with the shell's profile-menu entry
+because that entry "has no real counterpart" and is a pure shell
+invention — so keeping both wasn't duplicating one real thing twice.
+That's true but doesn't actually settle redundancy *within the shell*:
+"not copying real code twice" and "serves a different user need" are
+different claims, and only the second one matters for whether keeping
+both is good UX. Checked directly: the shell's binary connected model
+(landing vs. fully-logged-in, no partial browsing-while-disconnected
+state — Section 17 Part A) means the profile menu is reachable in every
+situation the footer is. They point at the identical modal in identical
+circumstances — functionally redundant, full stop. **Decision: left
+both in place anyway (not resolved on discoverability grounds — just
+not forced to choose by this fact).** Real app itself only has one
+access point (no dropdown exists there at all), so this redundancy is
+purely a shell artifact, worth revisiting if either surfaces as
+actual clutter later.
 
 **Design decision:** rather than tie visibility to `segnav`'s 4
 MAIN_SCREENS (which intentionally hides on drill-in screens like Job
