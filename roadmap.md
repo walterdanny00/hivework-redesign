@@ -58,6 +58,12 @@ Since commit hashes will never match between the two (unrelated
 histories), the `diff -rq` check is the only reliable way to verify
 they're actually in sync — `git log` can't be used for that.
 
+**This two-repo routine applies to `hivework-redesign`'s own content
+only (roadmap, session briefs, shell files in `screens/`). Once the
+patching-into-main-app phase begins (Section 30), real edits to
+`~/Piwork/frontend/src/` push to the Piwork repo alone — see Section 30
+for why.**
+
 **Standing rule — sweep before designing:** before redesigning any
 particular screen, always do a thorough sweep of the code/files on Termux
 first, to see all information and components actually supposed to be on
@@ -1967,4 +1973,72 @@ net-zero after edit.
 
 **Status:** Section 22 item 3 closed. All three items from the Section
 22 structural sweep (2026-08-12) are now fully done.
+
+## 30. Patching-into-main-app phase — methodology and standing rules (2026-08-14)
+
+Not started yet — this section is the guide for when it does. Everything
+built so far has lived in two standalone demo files with no build
+tooling, no real data, no real auth, no consequences if something broke.
+Patching means editing real `~/Piwork/frontend/src/` components with
+real routing, real API calls, and a real build — a different risk class,
+and this section's rules exist because of that, not out of caution for
+its own sake.
+
+**Pre-flight, before this phase starts at all:** one more full sweep of
+the real app, specifically for anything not yet gated behind KYC/auth —
+i.e. any real screen/feature this project hasn't found or designed for
+yet. Everything covered so far was buildable without a KYC/auth gate
+(Section 22's own closing note); this sweep checks whether that's still
+the complete set, not just the covered set. To be done in a fresh chat,
+before the first patch.
+
+**Pilot screen selection:** not every "done" screen is equally safe to
+start with. Screens explicitly logged as *reconciled with real code*
+(skeleton/routing/logic already match, only visuals differ — Post Job
+Section 9, real `/onboarding` Profile Complete Section 10, Job Detail
+worker view Section 11, Job Detail owner view diff-confirmed identical)
+are the low-risk case: swap styling onto an unchanged structure. Screens
+that are pure shell inventions with no 1:1 real counterpart — Landing
+(no `Landing.tsx` exists; `Home.tsx` has no auth branch at all, Section
+22), the Wallet-Connect flow (Section 3), the profile-menu (Section 8)
+— are NOT safe pilots: patching those means adding real logic that
+never existed, a product decision, not a restyle. Save those for after
+the workflow is proven on a reconciled screen.
+
+**Sweep checklist, per screen, before any patch (not grep — full reads):**
+1. The real component in full — every hook, every conditional branch,
+   every prop from `Outlet`/route params.
+2. Data dependencies — what it actually fetches (`apiFetch` calls,
+   `usePiConnection`, etc.) vs. what the shell fakes with a demo
+   constant. Every demo constant (`CATEGORY_COUNTS`, `ACTIVITY_TICKER`,
+   `DASH_CLOSED_JOB`, etc.) needs an explicit decision on patch: wire to
+   the real call, or leave a flagged stopgap — never silently left in
+   as if it were real.
+3. Styling mechanism in the real repo for that file — global
+   stylesheet/theme vs. inline styles (`Layout.tsx`'s pattern) —
+   determines how the patch is even applied.
+4. Shared dependencies the screen pulls in (`ContactSupport`,
+   `NotificationBell`) that also need patched form, or knowingly stay
+   old-style until their own turn.
+5. Existing tests that'll break or need updating.
+6. Real build/lint/test commands (`package.json` scripts) — verification
+   target shifts from brace/paren/bracket balance to the actual toolchain.
+7. Sort findings the same way Section 22 already does: facts we must
+   preserve (data shape, routing, business logic) vs. what we're free to
+   restyle.
+
+**Branch discipline:** work on a feature branch, never `main` — nothing
+done so far has needed this, since nothing touched the real repo before
+now.
+
+**Push workflow change, from this phase on:** real patches to
+`~/Piwork/frontend/src/` push to the Piwork repo only. The
+`hivework-redesign` two-repo routine (top of this file) does NOT apply
+to these edits — `hivework-redesign` is a public repo, and production
+app code doesn't belong there. `hivework-redesign` keeps getting the
+roadmap/session-brief/shell-file pushes exactly as before; it's only
+real-app patches that are Piwork-only from here on.
+
+**Status:** not started. Pre-flight KYC/auth-gap sweep planned for a
+new chat before the first patch.
 
