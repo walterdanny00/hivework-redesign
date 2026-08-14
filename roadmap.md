@@ -2042,8 +2042,9 @@ real-app patches that are Piwork-only from here on.
 **Status:** Pre-flight KYC/auth-gap sweep complete (session 27) — see
 Section 31 for both findings. As of session 28, the account-
 verification gate is fully designed and built (canonical + both
-shells); the `LEVEL_MAP` badge remains the one open design item before
-the first patch can be picked.
+shells). As of session 29, `LEVEL_MAP` is also fully wired (Section
+32) — Section 31 is closed and the first-patch pilot decision is
+unblocked. Job Detail (worker view) is the standing pilot candidate.
 
 ## 31. Account verification gate — newly discovered, undesigned (2026-08-14)
 
@@ -2228,10 +2229,69 @@ bracket-balanced. Not yet re-recompiled into either shell (the shells
 already have this composer natively — see below — so no shell change
 is needed for this specific fix).
 
-**Section 31 status: both findings now fully designed and built.**
-The wallet-gate states live in the canonical file and both shells.
-The `LEVEL_MAP` progression badge (Profile + Dashboard) remains the
-one open item from this section — see session-28.md.
+**Section 31 status: CLOSED (2026-08-14, session 29).** Both findings
+now fully designed and built. The wallet-gate states live in the
+canonical file and both shells (session 28). The `LEVEL_MAP`
+progression badge (Profile + Dashboard) is now also fully wired — see
+Section 32.
+
+## 32. LEVEL_MAP progression badge — wired (2026-08-14, session 29)
+
+Closes Section 31's remaining open item. Sweep-before-designing pull
+(`grep -n -B 3 -A 15 "LEVEL_MAP"` against `Profile.tsx`/`Dashboard.tsx`)
+confirmed the real system: one `LEVEL_MAP` (🥉 Pioneer / 🥈 Verified /
+🥇 Expert / 💎 Validator, gold text) under `@username` on both screens,
+bare text, no container.
+
+**Precedent-matching find, same pattern as session 28's wallet-gate
+discovery:** the shell already had undocumented chip infrastructure —
+a hardcoded `chip-verified`/`chip-gold` pair in three spots
+(`HiveworkApp.jsx` profile-menu, profile-edit cover, profile-view
+cover; HTML shell confirmed at parity). "Verified" and "Gold" are real
+`LEVEL_MAP`/`trust_tier` values, just hardcoded to one state each
+instead of driven by the 4-state maps. Decision: wire it, don't
+redesign it (user call). Dashboard had no identity header/card at all
+— handled narrower than a full identity block, per user call: level
+chip + earned total only, not a 1:1 port of the real card.
+
+**Went through three passes before landing** (full iteration log in
+`session-29.md`) — generic pastel pills + page-head corner tuck,
+rejected; tiered chips (Pioneer outline / Validator dark-ink-gold
+pulled from `.job-head`/`.amt`) + bordered strip, rejected on the
+Dashboard treatment specifically (chip tier styling kept); final:
+Dashboard's earned total reuses `.hero-block`/`.hero-num`/`.hero-sub`
+verbatim — the same big-Sora-number/violet-π treatment Home's rating
+stat uses since Section 28 moved the earned figure off Home — with the
+level chip sitting quietly in `.hero-sub` underneath the number.
+
+**Built, both files:**
+- `LEVEL_CHIP_CLASS`/`LEVEL_LABEL` and `TRUST_CHIP_CLASS` maps
+- CSS: `.chip-pioneer` (outline), `.chip-expert` (violet-tint, reused),
+  `.chip-validator` (solid ink+gold), `.chip-silver`/`.chip-bronze`/
+  `.chip-unverified` (alongside existing `.chip-verified`/`.chip-gold`)
+- All 3 profile chip spots wired to real data instead of hardcoded text
+- Dashboard: `.hero-block` reused directly (JSX: static markup; HTML
+  shell: `PROFILE_DATA` object + `levelChipHtml()`/`trustChipHtml()`
+  helpers populated at boot into `#dash-earned-num`/`#dash-level-chip`)
+- No emoji in the chip treatment (real code's 🥉🥈🥇💎 prefixes
+  dropped) — consistent with the SVG-icons-not-emoji convention from
+  Post Job, Section 9
+
+**Verification:** `HiveworkApp.jsx` braces 1869/1869, parens
+1913/1913, brackets 217/217; `hivework-app-v4-3.html` 664/664 div
+open/close, parses clean. No leftover class references from the two
+superseded passes (corner block, bordered strip) in either file.
+
+**Open flag, unresolved:** whether real `Dashboard.tsx`'s
+`total_earned` is a top-level field on the same payload as
+`level`/`trust_tier`, or a separate call — designed off session 28's
+terminal pull (showed it inline), not re-verified this session. Worth
+confirming via Termux before Dashboard specifically becomes a Section
+30 patch target.
+
+**Status:** Section 30's first-patch pilot decision is now fully
+unblocked — both Section 31 findings are closed. Job Detail (worker
+view) remains the standing pilot candidate.
 
 **Follow-up, same day:** the standalone canonical *HTML* snapshot,
 `hivework-job-detail-worker.html`, was also found stale on the same
@@ -2249,4 +2309,86 @@ Usability Testing, which classifies as "feedback" not "bug"; the
 Environment field only shows for bug jobs). Attachments changed to the
 static "Coming soon" disabled treatment matching the JSX. See
 session-28.md.
+
+## 33. Dashboard identity block — username, rating, final placement (2026-08-14, session 29 cont'd)
+
+Follow-up to Section 32, same day. After Section 32 landed, user
+flagged the Dashboard build still couldn't be called complete without
+the username actually showing, and asked whether the chat file held
+anything on star rating/tier badge — it didn't, directly, but the
+question prompted a wider Termux sweep than Section 32's original
+`LEVEL_MAP`-scoped grep.
+
+**Wider sweep, real `Dashboard.tsx`:**
+```
+grep -n -B 5 -A 40 "LEVEL_MAP" pages/Dashboard.tsx
+```
+Confirmed two things Section 32 hadn't checked:
+- The identity card is exactly `avatar + @username + LEVEL_MAP` (left)
+  / `total_earned` (right) — **no `trust_tier` anywhere in it.** This
+  settles Section 31's original open question in Dashboard's case
+  specifically: the trust badge (Gold/Silver/Bronze/Unverified) is
+  Profile-only, real code confirms it. Nothing needed there.
+- A second, separate real element sits just below the card: a 3-pill
+  stat row — `jobs_completed`, `rating` (⭐, one decimal), and
+  `total_earned` again (duplicated from the card above, in the real
+  app). Rating was not previously part of any Dashboard design in this
+  project.
+
+**Cross-check against Section 28:** Section 28 had moved rating +
+jobs-completed onto Home's hero, reasoned as "identity, not money —
+genuinely Home's territory," deliberately not Dashboard's. This sweep
+doesn't overturn that reasoning as a design call, but it is worth
+flagging as a technical fact per the roadmap's standing distinction:
+the real app shows rating in both places, not exclusively on a
+Home/Dashboard split. The redesign is allowed to differ from that (old
+code doesn't dictate UX), and the resulting design here does still
+differ from the real app on one point — see below.
+
+**Built:**
+- **Identity elements:** avatar (reused `.dash-id-avatar`, same 38px
+  violet-gradient circle convention as `.app-avatar`/`.avatar-sm`
+  elsewhere) + `@Olawalt` (Sora bold) + level chip, grouped as
+  `.dash-id`.
+- **Stat row:** two `.stat-pill` cards — Jobs done / Rating — reusing
+  the exact elevated-card component already built for Profile's stat
+  row (Section 9/step-6 era), same demo figures (17 / 4.3★) so numbers
+  stay consistent across screens for the same demo user. **Deliberately
+  left out a third "Earned" pill**, even though real `Dashboard.tsx`
+  shows one there — it's already shown prominently in the hero-block
+  directly above, and repeating it as a small pill underneath read as
+  redundant rather than complete. Noted here as an intentional
+  divergence from the real card's exact field count, not an oversight.
+
+**Placement — iterated live with the user, three positions tried:**
+1. Standalone row above the hero-block (avatar+username+chip on its
+   own line, hero-block untouched below) — first build, functional but
+   untested against the header.
+2. Moved into the page-head itself, right-aligned against "Wallet &
+   jobs / Dashboard." (`.dash-head` flex row) — user's direct request.
+3. **Final:** moved again, this time to the right side of the
+   hero-block's own row, sitting level with the "Total earned" figure
+   rather than the page title (`.dash-hero` flex row: label+number on
+   the left, avatar+username+chip on the right, vertically centered
+   against the number). User confirmed this as the landed placement.
+   Page-head reverted back to its original plain two-line form (no
+   `.dash-head` split); that class and its CSS were fully removed
+   rather than left dormant.
+
+**Verification:** `HiveworkApp.jsx` braces 1875/1875, parens
+1917/1917, brackets 217/217. `hivework-app-v4-3.html` 676/676 div
+open/close, parses clean via `lxml`. Confirmed no leftover
+`.dash-head` references in either file after the final move — grepped
+clean.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `session-29.md` (updated).
+
+**Status:** Dashboard's identity block is now complete against the
+real card's fields (avatar, username, level) plus the adjacent rating
+stat, with one documented, deliberate omission (no duplicate Earned
+pill). Trust-tier badge confirmed correctly absent from Dashboard —
+stays Profile-only. Nothing else changed on Dashboard; the page-head,
+nudge banner, toggle row, `WithdrawPanel`, and history rows remain
+untouched throughout this and Section 32.
 

@@ -68,6 +68,17 @@
   .chip{font-size:10px;font-weight:600;padding:4px 9px;border-radius:100px;}
   .chip-verified{background:#E4F8F6;color:#1A9E92;}
   .chip-gold{background:#FFF3DC;color:#B8860B;}
+  /* LEVEL_MAP chip variants — pioneer/expert/validator (verified reuses chip-verified above) */
+  .chip-pioneer{background:transparent;border:1px solid var(--line);color:var(--ink-soft);}
+  .chip-expert{background:#EFEAFB;color:var(--violet-deep);}
+  /* Validator: the top tier borrows the ink+gold combo from .job-head/.amt
+     (Job Detail's header, this app's actual signature "money moment")
+     instead of another pastel fill — makes the top badge feel earned. */
+  .chip-validator{background:var(--ink);color:#F4D584;}
+  /* Remaining trust-chip variants — chip-gold above already covered Gold */
+  .chip-silver{background:#F1F1F3;color:#6B7280;}
+  .chip-bronze{background:#F7E7D9;color:#B45309;}
+  .chip-unverified{background:#F1EFEA;color:var(--ink-soft);}
   .menu-item{padding:12px 16px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:11px;cursor:pointer;border-bottom:1px solid var(--line);}
   .menu-item:last-child{border-bottom:none;}
   .menu-item:hover{background:var(--cream);color:var(--ink);}
@@ -78,6 +89,11 @@
   .page-head{padding:16px 0 22px;}
   .page-head .kicker{color:var(--violet-deep);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
   .page-head h1{font-size:28px;font-weight:800;letter-spacing:-.7px;margin:0;line-height:1.1;}
+  /* Dashboard identity strip — level chip + lifetime-earned, own row below
+     the page-head, same bordered-card language as .hw-trust-row (Home)
+     rather than squeezed into a header corner. total_earned has no other
+     home since Section 28 moved it off the Home hero. */
+
 
   /* ===== HOME: hero number + light ticket ===== */
   .hero-block{margin-bottom:26px;}
@@ -956,7 +972,7 @@
     <div class="profile-menu" id="menu">
       <div class="who">
         <div class="name">@Olawalt</div>
-        <div class="badges"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>
+        <div class="badges" id="menu-badges"></div>
       </div>
       <div class="menu-item" onclick="goToProfile(false)">View profile</div>
       <div class="menu-item" onclick="goToProfile(true)">Edit profile</div>
@@ -1126,7 +1142,15 @@
 
     <!-- DASHBOARD -->
     <div class="screen" id="dashboard">
-      <div class="page-head"><div class="kicker">Wallet & jobs</div><h1>Dashboard.</h1></div>
+      <div class="page-head">
+        <div class="kicker">Wallet & jobs</div><h1>Dashboard.</h1>
+      </div>
+
+      <div class="hero-block">
+        <div class="hero-label">Total earned</div>
+        <div class="hero-num" id="dash-earned-num"></div>
+        <div class="hero-sub" id="dash-level-chip"></div>
+      </div>
 
       <div class="nudge-banner" id="nudge-banner">
         <div class="nudge-text">
@@ -1443,6 +1467,16 @@ function pfSaveEdit(){
   renderProfileScreen();
   hwToast('Profile updated');
 }
+function renderMenuBadges(){
+  const el = document.getElementById('menu-badges');
+  if(el) el.innerHTML = levelChipHtml() + trustChipHtml();
+}
+function renderDashIdentity(){
+  const numEl = document.getElementById('dash-earned-num');
+  const chipEl = document.getElementById('dash-level-chip');
+  if(numEl) numEl.innerHTML = PROFILE_DATA.totalEarned+'<span class="unit">π</span>';
+  if(chipEl) chipEl.innerHTML = levelChipHtml();
+}
 function renderProfileScreen(){
   const s = profileEditState;
   let html;
@@ -1450,7 +1484,7 @@ function renderProfileScreen(){
     const allSkillOptions = ['Android tester','Android','iOS','English','Bug testing','UI feedback','Translation'];
     html = '<div class="cover">'
       + '<div class="big-avatar">O</div><div class="handle">@Olawalt</div>'
-      + '<div class="badges-row"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>'
+      + '<div class="badges-row">'+levelChipHtml()+trustChipHtml()+'</div>'
       + '</div>'
       + '<div class="pf-edit-section"><div class="pf-edit-label">Bio</div><div class="field"><textarea id="pf-bio-input" placeholder="A short line about what you do...">'+s.bio+'</textarea></div></div>'
       + '<div class="pf-edit-section"><div class="pf-edit-label">Skills & devices</div>'+owChipGroup(allSkillOptions, s.skills, 'pfToggleSkill')+'</div>'
@@ -1459,9 +1493,9 @@ function renderProfileScreen(){
     html = '<div class="cover">'
       + '<div class="big-avatar">O</div><div class="handle">@Olawalt</div>'
       + '<div class="bio">'+s.bio+'</div>'
-      + '<div class="badges-row"><span class="chip chip-verified">Verified</span><span class="chip chip-gold">Gold</span></div>'
+      + '<div class="badges-row">'+levelChipHtml()+trustChipHtml()+'</div>'
       + '</div>'
-      + '<div class="stat-pills"><div class="stat-pill"><div class="n">17</div><div class="l">Jobs done</div></div><div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div><div class="stat-pill"><div class="n">116π</div><div class="l">Earned</div></div></div>'
+      + '<div class="stat-pills"><div class="stat-pill"><div class="n">17</div><div class="l">Jobs done</div></div><div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div><div class="stat-pill"><div class="n">'+PROFILE_DATA.totalEarned+'π</div><div class="l">Earned</div></div></div>'
       + '<div class="section-title">Skills & devices</div>'
       + '<div style="margin-bottom:24px;">'+s.skills.map(sk=>'<span class="skill-chip">'+sk+'</span>').join('')+'</div>'
       + '<div class="section-title">Reviews (27)</div>'
@@ -1548,6 +1582,19 @@ const jobData = {
 const TOTAL_SLOTS = 5;
 const PER_SLOT_BUDGET = 2;
 const TRUST_COLOR = { Gold:'var(--butter)', Silver:'#9CA3AF', Bronze:'#B45309', Unverified:'var(--ink-soft)' };
+
+// Mirrors real Profile.tsx/Dashboard.tsx's LEVEL_MAP — see JSX shell,
+// Section 31/32. Real code uses plain gold text + emoji; this shell's
+// chip-pill language (profile-menu, profile-edit) is extended rather than
+// replaced.
+const LEVEL_LABEL = { pioneer:'Pioneer', verified:'Verified', expert:'Expert', validator:'Validator' };
+const LEVEL_CHIP_CLASS = { pioneer:'chip-pioneer', verified:'chip-verified', expert:'chip-expert', validator:'chip-validator' };
+const TRUST_CHIP_CLASS = { Gold:'chip-gold', Silver:'chip-silver', Bronze:'chip-bronze', Unverified:'chip-unverified' };
+// profile.level / profile.trust_tier / total_earned — one source of truth
+// shared by the profile-menu, Profile screen, and Dashboard header.
+const PROFILE_DATA = { level:'verified', trustTier:'Gold', totalEarned:116 };
+function levelChipHtml(){ return '<span class="chip '+LEVEL_CHIP_CLASS[PROFILE_DATA.level]+'">'+LEVEL_LABEL[PROFILE_DATA.level]+'</span>'; }
+function trustChipHtml(){ return '<span class="chip '+TRUST_CHIP_CLASS[PROFILE_DATA.trustTier]+'">'+PROFILE_DATA.trustTier+'</span>'; }
 const STATUS_LABEL = { completed:'Completed', progress:'In progress', submitted:'Submitted' };
 const STAR_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
 const BACK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -3031,6 +3078,8 @@ function initHomeTicker(){
 // Boot straight into Landing, matching the real "/" route (JSX's
 // useState("landing") equivalent) instead of Home.
 renderProfileScreen();
+renderMenuBadges();
+renderDashIdentity();
 showScreen('landing');
 initHomeTicker();
 </script>

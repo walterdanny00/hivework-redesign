@@ -582,6 +582,18 @@ const STAR_ICON = (
 const TOTAL_SLOTS = 5;
 const TRUST_COLOR = { Gold: "var(--butter)", Silver: "#9CA3AF", Bronze: "#B45309", Unverified: "var(--ink-soft)" };
 
+// Mirrors real Profile.tsx/Dashboard.tsx's LEVEL_MAP (pioneer/verified/expert/
+// validator) — a separate progression field from trust_tier above, rendered
+// as its own chip. Real code uses plain gold text + emoji; this shell already
+// had a chip-pill visual language established (profile-menu, profile-edit),
+// so that's extended here rather than introduced fresh — see Section 31/32.
+const LEVEL_LABEL = { pioneer: "Pioneer", verified: "Verified", expert: "Expert", validator: "Validator" };
+const LEVEL_CHIP_CLASS = { pioneer: "chip-pioneer", verified: "chip-verified", expert: "chip-expert", validator: "chip-validator" };
+// Trust chip variant of the same pill language — Profile's own badges-row had
+// "Gold" hardcoded (never wired to trustTier like Job Detail/Applicants
+// already are), so this closes that gap in the same pass.
+const TRUST_CHIP_CLASS = { Gold: "chip-gold", Silver: "chip-silver", Bronze: "chip-bronze", Unverified: "chip-unverified" };
+
 const INITIAL_APPLICANTS = [
   { id: "a1", name: "@sam_k", rating: 4.8, skills: ["Android testing", "Bug reports", "QA"], devices: ["Android"], trustBadge: "★ Gold", trustTier: "Gold",
     coverNote: "I've tested payment flows on 6 different Android devices for two other Pi apps — happy to send examples of past reports." },
@@ -3155,6 +3167,13 @@ export default function HiveworkApp() {
   const [profileBio, setProfileBio] = useState("I am a tester");
   const [profileBioDraft, setProfileBioDraft] = useState("I am a tester");
   const [profileSkills, setProfileSkills] = useState(["Android tester", "Android", "iOS", "English"]);
+  // profile.level / profile.trust_tier / total_earned — real Profile.tsx and
+  // Dashboard.tsx fields, one source of truth shared by both screens plus the
+  // profile-menu chip pair (previously hardcoded "Verified"/"Gold" in all 3
+  // spots, never wired to the 4-state LEVEL_MAP — see Section 31/32).
+  const [profileLevel] = useState("verified"); // pioneer | verified | expert | validator
+  const [profileTrustTier] = useState("Gold"); // Gold | Silver | Bronze | Unverified
+  const totalEarned = 116; // same figure Section 28 promoted out of the Home hero; Dashboard is its real home per real Dashboard.tsx
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const showToast = (msg) => {
@@ -3291,6 +3310,17 @@ export default function HiveworkApp() {
         .hw-app .chip{font-size:10px;font-weight:600;padding:4px 9px;border-radius:100px;}
         .hw-app .chip-verified{background:#E4F8F6;color:#1A9E92;}
         .hw-app .chip-gold{background:#FFF3DC;color:#B8860B;}
+        /* LEVEL_MAP chip variants — pioneer/expert/validator (verified reuses chip-verified above) */
+        .hw-app .chip-pioneer{background:transparent;border:1px solid var(--line);color:var(--ink-soft);}
+        .hw-app .chip-expert{background:#EFEAFB;color:var(--violet-deep);}
+        /* Validator: the top tier borrows the ink+gold combo from .job-head/.amt
+           (Job Detail's header, this app's actual signature "money moment")
+           instead of another pastel fill — makes the top badge feel earned. */
+        .hw-app .chip-validator{background:var(--ink);color:#F4D584;}
+        /* Remaining trust-chip variants — chip-gold above already covered Gold */
+        .hw-app .chip-silver{background:#F1F1F3;color:#6B7280;}
+        .hw-app .chip-bronze{background:#F7E7D9;color:#B45309;}
+        .hw-app .chip-unverified{background:#F1EFEA;color:var(--ink-soft);}
         .hw-app .menu-item{padding:12px 16px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:11px;cursor:pointer;border-bottom:1px solid var(--line);}
         .hw-app .menu-item:last-child{border-bottom:none;}
         .hw-app .menu-item:hover{background:var(--cream);color:var(--ink);}
@@ -3299,7 +3329,13 @@ export default function HiveworkApp() {
         .hw-app .page-head .kicker{color:var(--violet-deep);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
         .hw-app .page-head h1{font-size:28px;font-weight:800;letter-spacing:-.7px;margin:0;line-height:1.1;}
 
+        .hw-app .dash-id{display:flex;align-items:center;gap:10px;}
+        .hw-app .dash-id-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:#fff;font-weight:700;font-family:'Sora';font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .hw-app .dash-id-name{font-weight:700;font-size:14px;font-family:'Sora';color:var(--ink);}
+        .hw-app .dash-id-chip{margin-top:3px;}
+        .hw-app .dash-stat-row{display:flex;gap:10px;margin:0 0 26px;}
         .hw-app .hero-block{margin-bottom:26px;}
+        .hw-app .dash-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;}
         .hw-app .hero-label{color:var(--ink-soft);font-size:13px;margin-bottom:2px;}
         .hw-app .hero-num{font-family:'Sora';font-weight:800;font-size:52px;letter-spacing:-2px;line-height:1;}
         .hw-app .hero-num .unit{color:var(--violet);}
@@ -3612,8 +3648,8 @@ export default function HiveworkApp() {
               <div className="who">
                 <div className="name">@Olawalt</div>
                 <div className="badges">
-                  <span className="chip chip-verified">Verified</span>
-                  <span className="chip chip-gold">Gold</span>
+                  <span className={`chip ${LEVEL_CHIP_CLASS[profileLevel]}`}>{LEVEL_LABEL[profileLevel]}</span>
+                  <span className={`chip ${TRUST_CHIP_CLASS[profileTrustTier]}`}>{profileTrustTier}</span>
                 </div>
               </div>
               <div className="menu-item" onClick={() => goToProfile(false)}>View profile</div>
@@ -3830,7 +3866,7 @@ export default function HiveworkApp() {
                     <div className="cover">
                       <div className="big-avatar">O</div>
                       <div className="handle">@Olawalt</div>
-                      <div className="badges-row"><span className="chip chip-verified">Verified</span><span className="chip chip-gold">Gold</span></div>
+                      <div className="badges-row"><span className={`chip ${LEVEL_CHIP_CLASS[profileLevel]}`}>{LEVEL_LABEL[profileLevel]}</span><span className={`chip ${TRUST_CHIP_CLASS[profileTrustTier]}`}>{profileTrustTier}</span></div>
                     </div>
                     <div className="pf-edit-section">
                       <div className="pf-edit-label">Bio</div>
@@ -3861,12 +3897,12 @@ export default function HiveworkApp() {
                       <div className="big-avatar">O</div>
                       <div className="handle">@Olawalt</div>
                       <div className="bio">{profileBio}</div>
-                      <div className="badges-row"><span className="chip chip-verified">Verified</span><span className="chip chip-gold">Gold</span></div>
+                      <div className="badges-row"><span className={`chip ${LEVEL_CHIP_CLASS[profileLevel]}`}>{LEVEL_LABEL[profileLevel]}</span><span className={`chip ${TRUST_CHIP_CLASS[profileTrustTier]}`}>{profileTrustTier}</span></div>
                     </div>
                     <div className="stat-pills">
                       <div className="stat-pill"><div className="n">17</div><div className="l">Jobs done</div></div>
                       <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
-                      <div className="stat-pill"><div className="n">116π</div><div className="l">Earned</div></div>
+                      <div className="stat-pill"><div className="n">{totalEarned}π</div><div className="l">Earned</div></div>
                     </div>
                     <div className="section-title">Skills & devices</div>
                     <div style={{ marginBottom: 24 }}>
@@ -3886,6 +3922,25 @@ export default function HiveworkApp() {
             {screen === "dashboard" && (
               <div className="screen active">
                 <div className="page-head"><div className="kicker">Wallet & jobs</div><h1>Dashboard.</h1></div>
+
+                <div className="hero-block dash-hero">
+                  <div>
+                    <div className="hero-label">Total earned</div>
+                    <div className="hero-num">{totalEarned}<span className="unit">π</span></div>
+                  </div>
+                  <div className="dash-id">
+                    <div className="dash-id-avatar">O</div>
+                    <div>
+                      <div className="dash-id-name">@Olawalt</div>
+                      <div className="dash-id-chip"><span className={`chip ${LEVEL_CHIP_CLASS[profileLevel]}`}>{LEVEL_LABEL[profileLevel]}</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dash-stat-row">
+                  <div className="stat-pill"><div className="n">17</div><div className="l">Jobs done</div></div>
+                  <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
+                </div>
 
                 {!nudgeDismissed && (
                   <div className="nudge-banner">
