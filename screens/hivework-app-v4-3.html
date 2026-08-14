@@ -513,6 +513,9 @@
   .hw-jdw .paid-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:#1A9E92;}
   .hw-jdw .paid-amt span{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:4px;}
   .hw-jdw .paid-sub{font-size:11px;color:var(--ink-soft);text-align:right;font-family:'JetBrains Mono',monospace;}
+  .hw-jdw .verified-strip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:12px 14px;margin-top:10px;}
+  .hw-jdw .verified-icon{width:22px;height:22px;border-radius:50%;background:var(--mint);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hw-jdw .verified-text{font-size:12.5px;font-weight:600;color:#1A9E92;}
   .hw-jdw .rate-given{text-align:center;padding:4px 0;}
   .hw-jdw .rate-given .stars{color:var(--butter);font-size:20px;letter-spacing:3px;}
   .hw-jdw .rate-given p{font-size:13px;color:var(--ink-soft);margin:8px 0 0;line-height:1.5;}
@@ -1805,7 +1808,7 @@ const HW_JDW_STAGES = [
   { key:'paid', label:'Payment settled', note:'Funds released to your balance' },
 ];
 const HW_JDW_STATE_META = {
-  wallet_off:{stage:0}, wallet_error:{stage:0}, profile_off:{stage:1},
+  wallet_off:{stage:0}, wallet_error:{stage:0}, wallet_verified:{stage:0}, profile_off:{stage:1},
   ready:{stage:2}, form:{stage:2}, pending:{stage:2}, rejected:{stage:2, rejected:true},
   approved:{stage:3}, submitted:{stage:3},
   completed_unrated:{stage:4}, completed_rated:{stage:4}
@@ -1841,9 +1844,19 @@ function initWorkerState(){
   const job = jobData[currentJobKey] || {};
   workerState = { currentState: job.state || 'ready', coverNote:'',
     subWhat:'', subEvidence:'', subEnvironment:'', subNotes:'', applying:false, submitting:false,
+    verifying:false,
     ratingSubmitting:false, rateScore:0, rateComment:'', myRatingScore: job.state === 'completed_rated' ? 5 : null, verifyError:'Verification failed — try again.' };
 }
-function verifyWallet(){ workerState.currentState = 'profile_off'; renderWorkerDetail(); }
+function verifyWallet(){
+  workerState.verifying = true;
+  renderWorkerDetail();
+  setTimeout(()=>{
+    workerState.verifying = false;
+    workerState.currentState = 'wallet_verified';
+    renderWorkerDetail();
+    setTimeout(()=>{ workerState.currentState = 'profile_off'; renderWorkerDetail(); }, 1400);
+  }, 900);
+}
 function setupProfile(){ workerState.currentState = 'ready'; renderWorkerDetail(); }
 function openApplyForm(){ workerState.currentState = 'form'; renderWorkerDetail(); }
 function cancelApply(){ workerState.currentState = 'ready'; renderWorkerDetail(); }
@@ -1877,9 +1890,17 @@ function renderJDWPanel(){
     case 'wallet_error':
       return '<div class="panel"><div class="panel-title">Verify your wallet</div>'
         + '<div class="entry-note" style="margin-bottom:10px;">A 0.01π confirmation payment tells us where to send earnings. One-time only.</div>'
-        + '<button class="btn btn-primary" onclick="verifyWallet()">Verify wallet · 0.01π</button>'
+        + '<button class="btn btn-primary" '+(st.verifying?'disabled':'')+' onclick="verifyWallet()">'+(st.verifying?'Confirm in Pi Wallet...':'Verify wallet · 0.01π')+'</button>'
         + (st.currentState==='wallet_error' ? '<div class="error-note">'+st.verifyError+' <span id="jdw-contact-support"></span></div>' : '')
         + '</div>';
+    // Brief confirmation shown after a successful verification payment,
+    // before the ledger advances to the profile-complete stage. Generic
+    // wording deliberately — Sentinel (separate security project) is kept
+    // out of this design per standing decision.
+    case 'wallet_verified':
+      return '<div class="panel"><div class="verified-strip">'
+        + '<div class="verified-icon">✓</div><div class="verified-text">Wallet verified</div>'
+        + '</div></div>';
     case 'profile_off':
       return '<div class="panel"><div class="panel-title">Complete your profile</div>'
         + '<div class="entry-note" style="margin-bottom:10px;">Clients screen applicants by skill — yours isn\'t on file yet.</div>'

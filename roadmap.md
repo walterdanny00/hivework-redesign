@@ -2039,9 +2039,11 @@ app code doesn't belong there. `hivework-redesign` keeps getting the
 roadmap/session-brief/shell-file pushes exactly as before; it's only
 real-app patches that are Piwork-only from here on.
 
-**Status:** Pre-flight KYC/auth-gap sweep started 2026-08-14 (this
-session) — see Section 31 for the finding. Sweep not yet complete;
-resume before the first patch.
+**Status:** Pre-flight KYC/auth-gap sweep complete (session 27) — see
+Section 31 for both findings. As of session 28, the account-
+verification gate is fully designed and built (canonical + both
+shells); the `LEVEL_MAP` badge remains the one open design item before
+the first patch can be picked.
 
 ## 31. Account verification gate — newly discovered, undesigned (2026-08-14)
 
@@ -2174,4 +2176,77 @@ by design, or purely internal plumbing). Recommend treating this as the
 completed pre-flight sweep referenced at the top of Section 30, pending
 a final decision on how the two findings get designed before the first
 patch.
+
+**Update, 2026-08-14 (session 28) — reconciled, not fully undesigned
+as originally logged.** The canonical `HiveworkJobDetailWorker.jsx`
+already had `wallet_off`/`wallet_error` states (session 8) with
+generic, non-Sentinel copy — session 27's "undesigned" framing was
+correct that the real `hasWallet` gate was undocumented in the
+roadmap, but didn't cross-check whether a canonical mockup file
+already covered it. What was actually missing — a `verifying` loading
+state and a success/confirmation transition — has now been built into
+the canonical file and recompiled into both shells (`HiveworkApp.jsx`,
+`hivework-app-v4-3.html`): a new `wallet_verified` state (mint
+"Wallet verified" strip, reusing the `.paid-strip` visual convention
+via new `.verified-strip`/`.verified-icon`/`.verified-text` classes)
+and a `verifying` button state ("Confirm in Pi Wallet..."), sequenced
+`verifying → wallet_verified → profile_off`.
+
+**Standing decision, newly logged:** Sentinel is a separate security
+project, to be integrated in the future. It is deliberately kept out
+of this redesign's visual language — no Sentinel branding, icon, or
+naming in any wallet-verification UI (this rules out the raw
+"🛡️ Client wallet verified by Sentinel" banner text originally quoted
+above; the real payment/API layer itself has no Sentinel reference —
+`memo: 'Hivework wallet verification'`, `metadata.type:
+'wallet_verification'` — so only display copy needed to stay generic).
+This had been discussed before this session but never written down.
+
+**Submission-composer drift — found mid-session, unrelated to the
+wallet gate, now reconciled (2026-08-14).** While verifying the
+wallet-gate edit hadn't regressed anything nearby, a second drift
+surfaced: canonical `HiveworkJobDetailWorker.jsx`'s work-submission
+(`'approved'`) case had gone stale relative to the shell — the reverse
+of this project's normal drift direction (shell trails canonical,
+except here the shell had a real feature the canonical file never
+received). The shell (`HiveworkApp.jsx` / `hivework-app-v4-3.html`)
+had already moved to a newer structured 4-field composer ("Section
+27" per its own code comments): "What was done" / "Evidence" /
+conditional "Environment" (bug jobs only) / optional "Notes", branched
+via `getSubmissionKind()` (bug/translation/feedback classified from
+the job's `cat` label) and composed into one string via
+`composeSubmission()` before submit — the real
+`/api/jobs/:id/submit-work` endpoint only ever accepts one plain-text
+field, so the structure is UI-only. Attachments are explicitly tagged
+"Coming soon" and disabled, rather than shown as a live-looking
+mockup as the old single-field version did. Ported verbatim into the
+canonical file (helper functions, the `'approved'` case, and the
+component's `subWhat`/`subEvidence`/`subEnvironment`/`subNotes` state
++ derived `canSubmitWork`), diffed clean against the wallet-gate
+version — nothing outside the intended scope moved, brace/paren/
+bracket-balanced. Not yet re-recompiled into either shell (the shells
+already have this composer natively — see below — so no shell change
+is needed for this specific fix).
+
+**Section 31 status: both findings now fully designed and built.**
+The wallet-gate states live in the canonical file and both shells.
+The `LEVEL_MAP` progression badge (Profile + Dashboard) remains the
+one open item from this section — see session-28.md.
+
+**Follow-up, same day:** the standalone canonical *HTML* snapshot,
+`hivework-job-detail-worker.html`, was also found stale on the same
+submission-composer issue — it hadn't been included in the JSX
+reconciliation above since it wasn't uploaded until later in the
+session. It's a deliberate single-state snapshot (its own comment
+confirms it only ever demonstrates the `'approved'` state — the
+wallet-gate states were never meant to render there, so that scope
+decision still stands), but the `'approved'` panel itself still had
+the old single-field textarea and a live-looking two-item attachment
+list with an upload progress bar. Reconciled to the same structured
+4-field composer as the JSX (What was done / Evidence / optional Notes
+— no Environment field, since this file's demo job is "UI Testing" /
+Usability Testing, which classifies as "feedback" not "bug"; the
+Environment field only shows for bug jobs). Attachments changed to the
+static "Coming soon" disabled treatment matching the JSX. See
+session-28.md.
 

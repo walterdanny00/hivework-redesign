@@ -1077,6 +1077,10 @@ const HW_JDW_STYLES = `
   .hw-jdw .paid-amt span{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:4px;}
   .hw-jdw .paid-sub{font-size:11px;color:var(--ink-soft);text-align:right;font-family:'JetBrains Mono',monospace;}
 
+  .hw-jdw .verified-strip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:12px 14px;margin-top:10px;}
+  .hw-jdw .verified-icon{width:22px;height:22px;border-radius:50%;background:var(--mint);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hw-jdw .verified-text{font-size:12.5px;font-weight:600;color:#1A9E92;}
+
   .hw-jdw .rate-given{text-align:center;padding:4px 0;}
   .hw-jdw .rate-given .stars{color:var(--butter);font-size:20px;letter-spacing:3px;}
   .hw-jdw .rate-given p{font-size:13px;color:var(--ink-soft);margin:8px 0 0;line-height:1.5;}
@@ -1110,6 +1114,7 @@ const HW_JDW_STAGES = [
 const HW_JDW_STATE_META = {
   wallet_off:        { stage: 0 },
   wallet_error:       { stage: 0 },
+  wallet_verified:    { stage: 0 }, // brief confirmation before advancing — see handleVerifyWallet in JobDetailWorker
   profile_off:        { stage: 1 },
   ready:              { stage: 2 },
   form:               { stage: 2 },
@@ -1126,7 +1131,7 @@ function JDWPanel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCa
                   submissionKind, subWhat, onSubWhatChange, subEvidence, onSubEvidenceChange,
                   subEnvironment, onSubEnvironmentChange, subNotes, onSubNotesChange, canSubmitWork, onSubmitWork,
                   rateScore, onRateScore, rateComment, onRateCommentChange, onSubmitRating, ratingSubmitting,
-                  myRating, verifyError }) {
+                  myRating, verifyError, verifying }) {
   switch (state) {
     case 'wallet_off':
     case 'wallet_error':
@@ -1136,10 +1141,26 @@ function JDWPanel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCa
           <div className="entry-note" style={{ marginBottom: 10 }}>
             A 0.01π confirmation payment tells us where to send earnings. One-time only.
           </div>
-          <button className="btn btn-primary" onClick={onVerifyWallet}>Verify wallet · 0.01π</button>
+          <button className="btn btn-primary" disabled={verifying} onClick={onVerifyWallet}>
+            {verifying ? 'Confirm in Pi Wallet...' : 'Verify wallet · 0.01π'}
+          </button>
           {state === 'wallet_error' && verifyError && (
             <div className="error-note">{verifyError} <HiveworkContactSupport label="Contact support" subject="Wallet verification failed" /></div>
           )}
+        </div>
+      );
+
+    // Brief confirmation shown after a successful verification payment,
+    // before the ledger advances to the profile-complete stage. Generic
+    // wording deliberately — Sentinel (separate security project) is kept
+    // out of this design per standing decision.
+    case 'wallet_verified':
+      return (
+        <div className="panel">
+          <div className="verified-strip">
+            <div className="verified-icon">✓</div>
+            <div className="verified-text">Wallet verified</div>
+          </div>
         </div>
       );
 
@@ -1340,6 +1361,23 @@ function JobDetailWorker({
   const [rateScore, setRateScore] = useState(0);
   const [rateComment, setRateComment] = useState('');
   const [currentState, setCurrentState] = useState(state);
+  const [verifying, setVerifying] = useState(false);
+
+  // Mirrors the real handleVerifyWallet flow in JobDetail.tsx: button shows
+  // "Confirm in Pi Wallet..." while awaiting payment confirmation, then a
+  // brief wallet_verified confirmation before advancing. This demo always
+  // advances to profile_off next — the real component would instead branch
+  // on the already-fetched profileComplete value.
+  const handleVerifyWallet = async () => {
+    setVerifying(true);
+    try {
+      await onVerifyWallet?.();
+      setCurrentState('wallet_verified');
+      setTimeout(() => setCurrentState('profile_off'), 1400);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const meta = HW_JDW_STATE_META[currentState] || HW_JDW_STATE_META.ready;
   const isPaid = meta.stage === 4;
@@ -1383,7 +1421,8 @@ function JobDetailWorker({
                     <JDWPanel
                       state={currentState}
                       verifyError={verifyError}
-                      onVerifyWallet={onVerifyWallet}
+                      verifying={verifying}
+                      onVerifyWallet={handleVerifyWallet}
                       onSetupProfile={onSetupProfile}
                       onOpenApplyForm={() => setCurrentState('form')}
                       onCancelApply={() => setCurrentState('ready')}

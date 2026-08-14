@@ -60,6 +60,12 @@ const STYLES = `
   .hw-jdw .field-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:6px;}
   .hw-jdw textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;min-height:100px;background:var(--cream-deep);}
   .hw-jdw textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:#fff;}
+  .hw-jdw .sub-composer-hint{font-size:12px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;}
+  .hw-jdw .sub-field{min-height:70px;}
+  .hw-jdw .sub-field-sm{min-height:52px;}
+  .hw-jdw .sub-soon-tag{text-transform:none;font-weight:600;color:var(--violet-deep);background:#EFEAFB;border-radius:100px;padding:2px 8px;font-size:10px;letter-spacing:0;margin-left:4px;}
+  .hw-jdw .attach-disabled{opacity:.55;}
+  .hw-jdw .attach-add-wide:disabled{cursor:not-allowed;opacity:.6;}
   .hw-jdw .counter-row{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
 
   .hw-jdw .btn{border:none;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;font-size:13.5px;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:12px;}
@@ -77,6 +83,10 @@ const STYLES = `
   .hw-jdw .paid-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:#1A9E92;}
   .hw-jdw .paid-amt span{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:4px;}
   .hw-jdw .paid-sub{font-size:11px;color:var(--ink-soft);text-align:right;font-family:'JetBrains Mono',monospace;}
+
+  .hw-jdw .verified-strip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:12px 14px;margin-top:10px;}
+  .hw-jdw .verified-icon{width:22px;height:22px;border-radius:50%;background:var(--mint);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hw-jdw .verified-text{font-size:12.5px;font-weight:600;color:#1A9E92;}
 
   .hw-jdw .rate-given{text-align:center;padding:4px 0;}
   .hw-jdw .rate-given .stars{color:var(--butter);font-size:20px;letter-spacing:3px;}
@@ -110,12 +120,44 @@ const STAGES = [
   { key: 'paid',    label: 'Payment settled',      note: 'Funds released to your balance' },
 ]
 
+// Submission composer (Section 27 — standard proof-of-work structure).
+// The real API (/api/jobs/:id/submit-work) only ever accepts one field,
+// `submission` (plain string) — there is no structured-report endpoint.
+// This composer stays inside that real constraint: it presents 3-4
+// labeled mini-fields in the UI, then concatenates them into one
+// ###-headed string on submit, so the client-side view of the report
+// (`s.submission` in the owner's ledger) still reads as one clean report.
+// "Evidence" placeholder differs by job type since what counts as valid
+// proof genuinely differs; classified from the job's free-text `cat` label.
+function getSubmissionKind(catLabel) {
+  const c = (catLabel || "").toLowerCase()
+  if (c.includes("bug")) return "bug"
+  if (c.includes("translat") || c.includes("localiz")) return "translation"
+  return "feedback" // UI feedback, usability testing, content review, etc.
+}
+
+const SUBMISSION_EVIDENCE_HINT = {
+  bug: "Exact repro steps, and what happened vs. what you expected.",
+  translation: "Paste the original text alongside your translation.",
+  feedback: "What you reviewed, and your specific verdict or findings.",
+}
+
+function composeSubmission({ what, evidence, environment, notes, kind }) {
+  const parts = []
+  if (what.trim()) parts.push(`### What was done\n${what.trim()}`)
+  if (evidence.trim()) parts.push(`### Evidence\n${evidence.trim()}`)
+  if (kind === "bug" && environment.trim()) parts.push(`### Environment\n${environment.trim()}`)
+  if (notes.trim()) parts.push(`### Notes\n${notes.trim()}`)
+  return parts.join("\n\n")
+}
+
 // state -> which stage index is "current", and whether that stage should
 // render as the rejected (coral) treatment instead of violet.
 // See session-08.md for the JobDetail.tsx condition each maps to.
 const STATE_META = {
   wallet_off:         { stage: 0 },
   wallet_error:        { stage: 0 },
+  wallet_verified:     { stage: 0 }, // brief confirmation before advancing — see handleVerifyWallet below
   profile_off:         { stage: 1 },
   ready:               { stage: 2 },
   form:                { stage: 2 },
@@ -129,9 +171,10 @@ const STATE_META = {
 
 function Panel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCancelApply, onSubmitApply,
                   coverNote, onCoverNoteChange, submitting, applying,
-                  submission, onSubmissionChange, onSubmitWork,
+                  submissionKind, subWhat, onSubWhatChange, subEvidence, onSubEvidenceChange,
+                  subEnvironment, onSubEnvironmentChange, subNotes, onSubNotesChange, canSubmitWork, onSubmitWork,
                   rateScore, onRateScore, rateComment, onRateCommentChange, onSubmitRating, ratingSubmitting,
-                  myRating, verifyError }) {
+                  myRating, verifyError, verifying }) {
   switch (state) {
     case 'wallet_off':
     case 'wallet_error':
@@ -141,10 +184,26 @@ function Panel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCance
           <div className="entry-note" style={{ marginBottom: 10 }}>
             A 0.01π confirmation payment tells us where to send earnings. One-time only.
           </div>
-          <button className="btn btn-primary" onClick={onVerifyWallet}>Verify wallet · 0.01π</button>
+          <button className="btn btn-primary" disabled={verifying} onClick={onVerifyWallet}>
+            {verifying ? 'Confirm in Pi Wallet...' : 'Verify wallet · 0.01π'}
+          </button>
           {state === 'wallet_error' && verifyError && (
             <div className="error-note">{verifyError} <a>Contact support</a></div>
           )}
+        </div>
+      )
+
+    // Brief confirmation shown after a successful verification payment,
+    // before the ledger advances to the profile-complete stage. Generic
+    // wording deliberately — Sentinel (separate security project) is kept
+    // out of this design per standing decision.
+    case 'wallet_verified':
+      return (
+        <div className="panel">
+          <div className="verified-strip">
+            <div className="verified-icon">✓</div>
+            <div className="verified-text">Wallet verified</div>
+          </div>
         </div>
       )
 
@@ -215,33 +274,62 @@ function Panel({ state, onVerifyWallet, onSetupProfile, onOpenApplyForm, onCance
       return (
         <div className="panel">
           <div className="panel-title">Submit your work</div>
-          <label className="field-label">Report / findings</label>
-          <textarea
-            placeholder="Describe what you did, bugs found, translations completed, feedback given..."
-            value={submission}
-            onChange={e => onSubmissionChange(e.target.value)}
-          />
-          <div className="counter-row"><span>&nbsp;</span><span>{(submission || '').length} characters</span></div>
+          <div className="sub-composer-hint">A good submission has two parts — what you did, and the proof of it.</div>
 
-          {/* Proposed addition — real submit-work only sends plain text
-              (`submission`), no file upload exists. See session-08.md. */}
-          <label className="field-label" style={{ marginTop: 16 }}>
-            Attachments <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--ink-soft)' }}>(optional)</span>
+          <label className="field-label">What was done</label>
+          <textarea
+            className="sub-field"
+            placeholder="One or two lines tying your work back to what the job asked for."
+            value={subWhat}
+            onChange={e => onSubWhatChange(e.target.value)}
+          />
+
+          <label className="field-label" style={{ marginTop: 14 }}>Evidence</label>
+          <textarea
+            className="sub-field"
+            placeholder={SUBMISSION_EVIDENCE_HINT[submissionKind]}
+            value={subEvidence}
+            onChange={e => onSubEvidenceChange(e.target.value)}
+          />
+
+          {submissionKind === 'bug' && (
+            <>
+              <label className="field-label" style={{ marginTop: 14 }}>Environment</label>
+              <textarea
+                className="sub-field sub-field-sm"
+                placeholder="Device, OS, browser/app version — whatever made the bug reproducible."
+                value={subEnvironment}
+                onChange={e => onSubEnvironmentChange(e.target.value)}
+              />
+            </>
+          )}
+
+          <label className="field-label" style={{ marginTop: 14 }}>
+            Notes <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--ink-soft)' }}>(optional)</span>
           </label>
-          <div className="attach-list">
+          <textarea
+            className="sub-field sub-field-sm"
+            placeholder="Anything incomplete, or that needs the client's attention."
+            value={subNotes}
+            onChange={e => onSubNotesChange(e.target.value)}
+          />
+
+          <label className="field-label" style={{ marginTop: 16 }}>
+            Attachments <span className="sub-soon-tag">Coming soon</span>
+          </label>
+          <div className="attach-list attach-disabled">
             <div className="attach-row2">
               <div className="attach-icon">🖼️</div>
               <div className="attach-info">
                 <div className="attach-name">checkout-error.png</div>
-                <div className="attach-meta">2.1 MB · uploaded</div>
+                <div className="attach-meta">Preview only — not yet wired to a real upload</div>
               </div>
-              <button className="attach-x" aria-label="Remove attachment">×</button>
             </div>
           </div>
-          <button className="attach-add-wide">+ Add photo or video</button>
-          <div className="attach-hint">Up to 5 files, 25MB each.</div>
+          <button className="attach-add-wide" disabled>+ Add photo or video</button>
+          <div className="attach-hint">File attachments aren't live yet — for now, describe evidence in the fields above.</div>
 
-          <button className="btn btn-primary" disabled={submitting || !submission?.trim()} onClick={onSubmitWork}>
+          <button className="btn btn-primary" disabled={submitting || !canSubmitWork} onClick={onSubmitWork}>
             {submitting ? 'Submitting...' : 'Submit Work'}
           </button>
         </div>
@@ -297,6 +385,7 @@ export default function HiveworkJobDetailWorker({
     eyebrow: 'UI Testing · Job #4471',
     title: 'Test checkout flow on iOS — 5 workers needed',
     client: '@client_mara',
+    cat: 'Usability Testing',
     slotsFilled: 3,
     slotsTotal: 5,
     perSlot: 3.7000,
@@ -311,13 +400,38 @@ export default function HiveworkJobDetailWorker({
   verifyError,
 }) {
   const [coverNote, setCoverNote] = useState('')
-  const [submission, setSubmission] = useState('')
+  // Structured submission composer (Section 27) — 4 mini-fields, concatenated
+  // into one string on submit; the real API only ever accepts one field.
+  const [subWhat, setSubWhat] = useState('')
+  const [subEvidence, setSubEvidence] = useState('')
+  const [subEnvironment, setSubEnvironment] = useState('')
+  const [subNotes, setSubNotes] = useState('')
+  const submissionKind = getSubmissionKind(job.cat)
+  const submission = composeSubmission({ what: subWhat, evidence: subEvidence, environment: subEnvironment, notes: subNotes, kind: submissionKind })
+  const canSubmitWork = subWhat.trim().length > 0 && subEvidence.trim().length > 0
   const [applying, setApplying] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [ratingSubmitting, setRatingSubmitting] = useState(false)
   const [rateScore, setRateScore] = useState(0)
   const [rateComment, setRateComment] = useState('')
   const [currentState, setCurrentState] = useState(state)
+  const [verifying, setVerifying] = useState(false)
+
+  // Mirrors the real handleVerifyWallet flow in JobDetail.tsx: button shows
+  // "Confirm in Pi Wallet..." while awaiting payment confirmation, then a
+  // brief wallet_verified confirmation before advancing. In the demo file
+  // this always advances to profile_off next — the real component would
+  // instead branch on the already-fetched profileComplete value.
+  const handleVerifyWallet = async () => {
+    setVerifying(true)
+    try {
+      await onVerifyWallet?.()
+      setCurrentState('wallet_verified')
+      setTimeout(() => setCurrentState('profile_off'), 1400)
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   const meta = STATE_META[currentState] || STATE_META.approved
   const isPaid = meta.stage === 4
@@ -368,7 +482,8 @@ export default function HiveworkJobDetailWorker({
                     <Panel
                       state={currentState}
                       verifyError={verifyError}
-                      onVerifyWallet={onVerifyWallet}
+                      verifying={verifying}
+                      onVerifyWallet={handleVerifyWallet}
                       onSetupProfile={onSetupProfile}
                       onOpenApplyForm={() => setCurrentState('form')}
                       onCancelApply={() => setCurrentState('ready')}
@@ -379,8 +494,12 @@ export default function HiveworkJobDetailWorker({
                       coverNote={coverNote}
                       onCoverNoteChange={setCoverNote}
                       applying={applying}
-                      submission={submission}
-                      onSubmissionChange={setSubmission}
+                      submissionKind={submissionKind}
+                      subWhat={subWhat} onSubWhatChange={setSubWhat}
+                      subEvidence={subEvidence} onSubEvidenceChange={setSubEvidence}
+                      subEnvironment={subEnvironment} onSubEnvironmentChange={setSubEnvironment}
+                      subNotes={subNotes} onSubNotesChange={setSubNotes}
+                      canSubmitWork={canSubmitWork}
                       submitting={submitting}
                       onSubmitWork={async () => {
                         setSubmitting(true)

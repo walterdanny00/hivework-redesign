@@ -50,6 +50,12 @@
   label.field-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:6px;}
   textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;min-height:100px;background:var(--cream-deep);}
   textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:#fff;}
+  .sub-composer-hint{font-size:12px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;}
+  .sub-field{min-height:70px;}
+  .sub-field-sm{min-height:52px;}
+  .sub-soon-tag{text-transform:none;font-weight:600;color:var(--violet-deep);background:#EFEAFB;border-radius:100px;padding:2px 8px;font-size:10px;letter-spacing:0;margin-left:4px;}
+  .attach-disabled{opacity:.55;}
+  .attach-add-wide:disabled{cursor:not-allowed;opacity:.6;}
   .counter-row{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
 
   .btn{border:none;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;font-size:13.5px;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:12px;}
@@ -114,10 +120,15 @@
     same panel/entry pattern — see session-08.md for the full state map and
     the corresponding JobDetail.tsx logic each maps to.
 
-    Note: attachments below are a proposed addition, not present in the
-    real submit-work endpoint (plain-text `submission` field only) — kept
-    as a deliberate UX improvement, not a redesign of an existing feature.
-    See session-08.md.
+    Note: submission is the structured 4-field composer (Section 27) —
+    What was done / Evidence / conditional Environment (bug jobs only) /
+    optional Notes — matching the canonical HiveworkJobDetailWorker.jsx.
+    The real submit-work endpoint only accepts one plain-text field; the
+    four fields are concatenated client-side before submit. Attachments
+    are explicitly marked "Coming soon" and disabled — not a live upload
+    mockup, since no upload endpoint exists. Reconciled 2026-08-14
+    (session 28) against a prior stale single-field version — see
+    session-28.md.
   -->
   <div class="ledger">
     <div class="entry done">
@@ -146,33 +157,35 @@
 
       <div class="panel">
         <div class="panel-title">Submit your work</div>
-        <label class="field-label">Report / findings</label>
-        <textarea placeholder="Describe what you tested, bugs found, and any notes you'd attach..."></textarea>
-        <div class="counter-row"><span>&nbsp;</span><span>0 characters</span></div>
+        <div class="sub-composer-hint">A good submission has two parts — what you did, and the proof of it.</div>
 
-        <label class="field-label" style="margin-top:16px">Attachments <span style="text-transform:none;font-weight:500;color:var(--ink-soft)">(optional)</span></label>
-        <div class="attach-list">
+        <label class="field-label">What was done</label>
+        <textarea class="sub-field" placeholder="One or two lines tying your work back to what the job asked for."></textarea>
+
+        <label class="field-label" style="margin-top:14px">Evidence</label>
+        <textarea class="sub-field" placeholder="What you reviewed, and your specific verdict or findings."></textarea>
+
+        <!-- No Environment field here — this demo job classifies as "feedback"
+             (getSubmissionKind on "Usability Testing"), not "bug". See the
+             canonical HiveworkJobDetailWorker.jsx for the bug-job variant
+             that shows this field. -->
+
+        <label class="field-label" style="margin-top:14px">Notes <span style="text-transform:none;font-weight:500;color:var(--ink-soft)">(optional)</span></label>
+        <textarea class="sub-field sub-field-sm" placeholder="Anything incomplete, or that needs the client's attention."></textarea>
+
+        <label class="field-label" style="margin-top:16px">Attachments <span class="sub-soon-tag">Coming soon</span></label>
+        <div class="attach-list attach-disabled">
           <div class="attach-row2">
             <div class="attach-icon">🖼️</div>
             <div class="attach-info">
               <div class="attach-name">checkout-error.png</div>
-              <div class="attach-meta">2.1 MB · uploaded</div>
+              <div class="attach-meta">Preview only — not yet wired to a real upload</div>
             </div>
-            <button class="attach-x" aria-label="Remove attachment">×</button>
-          </div>
-          <div class="attach-row2 uploading">
-            <div class="attach-icon">🎥</div>
-            <div class="attach-info">
-              <div class="attach-name">screen-recording.mov</div>
-              <div class="attach-progress-track"><div class="attach-progress-fill"></div></div>
-              <div class="attach-meta">Uploading · 64%</div>
-            </div>
-            <button class="attach-x" aria-label="Cancel upload">×</button>
           </div>
         </div>
-        <button class="attach-add-wide">+ Add photo or video</button>
-        <div class="attach-hint">Up to 5 files, 25MB each.</div>
-        <button class="btn btn-primary" disabled>Submit work</button>
+        <button class="attach-add-wide" disabled>+ Add photo or video</button>
+        <div class="attach-hint">File attachments aren't live yet — for now, describe evidence in the fields above.</div>
+        <button class="btn btn-primary" disabled>Submit Work</button>
       </div>
     </div>
     <div class="entry upcoming">
