@@ -2039,6 +2039,139 @@ app code doesn't belong there. `hivework-redesign` keeps getting the
 roadmap/session-brief/shell-file pushes exactly as before; it's only
 real-app patches that are Piwork-only from here on.
 
-**Status:** not started. Pre-flight KYC/auth-gap sweep planned for a
-new chat before the first patch.
+**Status:** Pre-flight KYC/auth-gap sweep started 2026-08-14 (this
+session) — see Section 31 for the finding. Sweep not yet complete;
+resume before the first patch.
+
+## 31. Account verification gate — newly discovered, undesigned (2026-08-14)
+
+*(Originally logged as "Wallet Verification" — see terminology
+correction below; the wallet itself is not what's being gated.)*
+
+Found during Section 30's pre-flight sweep, via full read of the real
+`JobDetail.tsx` (not grep-only, per the sweep checklist). This is a real
+gate in the live apply flow that has never appeared anywhere in this
+project — not the screen inventory, not any session brief, not the
+existing Job Detail canonical files.
+
+**What it is:** before a worker can apply to a job, `JobDetail.tsx`
+checks two account-level flags, in this order:
+1. `hasWallet` — fetched from `/api/users/me/wallet-status` (account-
+   wide, not job-specific, despite firing on every Job Detail mount for
+   a non-owner)
+2. `profileComplete` — the already-known gate, Section 3/Dashboard nudge
+
+If `hasWallet === false`, a **"Verify Your Wallet"** card renders
+*before* the profile-complete gate: a real 0.01π payment through the Pi
+Wallet SDK (`handleVerifyWallet`), with its own loading state
+("Confirm in Pi Wallet...") and an error state wired to
+`ContactSupport` (`subject="Wallet verification issue (job ${id})"` —
+a 6th real `ContactSupport` usage, not previously counted in Section
+29's list of five). On success, a separate confirmed-state banner reads
+"🛡️ Client wallet verified by Sentinel" earlier in the same file.
+
+Both `hasWallet` and `profileComplete` start `null` (loading) and the
+Apply button itself stays disabled until both resolve — so there's also
+an undesigned loading state on top of the two gate states.
+
+**Why this matters for Section 30:** Job Detail (worker view) was
+named a low-risk *reconciled* pilot — skeleton/logic already matches,
+only visuals differ. That assumption held for the profile-complete gate
+already covered in Section 3. This finding means it does not fully
+hold: the wallet-verify gate, its loading state, and its error state
+are real logic this project has never designed a matching screen state
+for. Job Detail is not disqualified as a pilot, but it can no longer be
+treated as "just restyle a fully-known structure" — the wallet-verify
+panel needs a design decision before that screen is patched, not
+during.
+
+**Not yet designed/decided:**
+- Visual treatment for the Verify Your Wallet card (currently unstyled
+  inline JSX in the real component, same as the rest of the file
+  pre-redesign)
+- Whether it's a state variant of the existing Job Detail canonical
+  file/screen, or warrants its own screen file — leaning toward state
+  variant, same file, since it's the same route and same component,
+  just an earlier branch in the same conditional chain as the
+  profile-complete gate already handled there
+- The `verifying` "Confirm in Pi Wallet..." loading state
+- The null/null double-loading state ahead of both gates
+
+**Second finding, same sweep — `LEVEL_MAP` is a distinct, undesigned
+element, not the same thing as the already-covered trust badge:**
+confirmed by direct read of `Profile.tsx`. Two genuinely separate
+fields render in two separate JSX blocks:
+- `LEVEL_MAP[profile.level]` — pioneer/verified/expert/validator
+  progression badge (gold text, directly under the username)
+- `profile.trust_badge` + `TRUST_COLOR[profile.trust_tier]` — a
+  separate element, explicitly commented `/* TrustScore badge */` in
+  the real code — Gold/Silver/Bronze/Unverified
+
+The roadmap's existing "trust badges" coverage (Job Detail owner view,
+inventory table, ✅ Done) is the `TRUST_COLOR`/`trust_tier` system only.
+`LEVEL_MAP` was mentioned exactly once, in Section 8 (2026-08-10), as a
+throwaway phrase — "level/trust badge" — while sweeping `Profile.tsx`
+for an unrelated question (whether a menu exists behind the avatar). It
+was never revisited as its own design item. `LEVEL_MAP` also appears on
+`Dashboard.tsx` (next to `@username`, same four values) — a second
+real location, also undesigned. **Not yet built or decided anywhere in
+this project**, distinct from Section 31's wallet-verify finding above.
+
+**Also checked, confirmed clean:** `WithdrawPanel.tsx` read in full —
+matches the roadmap's existing refund-kind design (Section 19/20) with
+no gaps; `hasWallet`/wallet-verification confirmed scoped to
+`JobDetail.tsx` only, doesn't touch Dashboard or Withdraw.
+
+**Terminology correction (2026-08-14, same sweep):** confirmed via
+`usePi.ts` that "wallet verification" was an imprecise label. A wallet
+is already attached automatically during normal Pi login —
+`usePiConnection()` fetches `walletAddress` straight from
+`Pi.Wallet.getUserMigratedWalletAddresses()`, no gate, no payment. The
+`hasWallet` flag checked in `JobDetail.tsx` comes from a wholly separate
+backend call (`/api/users/me/wallet-status`) and means something
+stricter — has this account completed the 0.01π verification payment.
+More accurate framing: this is an **account-level anti-fraud/spam
+gate**, not "wallet verification" in the SDK sense. The wallet is
+already there; the payment is what's being gated.
+
+**Also swept and confirmed clean, no further findings:** `api.ts`
+(simple `sessionToken` from `localStorage`, sent as `x-session-token`
+header — the pattern any Section 30 patch will need to replicate),
+`support.ts` (already-known BUG-106 mailto→in-app story, fully
+reflected elsewhere in this roadmap), `usePaginatedList.ts` (generic
+cursor pagination, matches existing History-page understanding),
+`ApplicationCard.tsx`/`JobCard.tsx` (full reads confirm existing
+roadmap notes, no surprises).
+
+**`RoutePersistence.tsx` — real navigation logic, not a screen, but
+must survive Section 30 patching:** a Pi-Browser-specific workaround.
+Pi Browser's webview does a genuine fresh reload on refresh and always
+re-lands on `/`, losing in-app location. This hooks every navigation to
+save the current path to `localStorage`, and restores it once on boot —
+gated strictly to Pi Browser (`window.Pi` check), never fires in a
+normal browser, and deliberately skips restoring `/onboarding` (a
+transient, `returnTo`-keyed flow). Never appeared anywhere in this
+roadmap before. No visual/design decision needed — it has no UI — but
+it's real behavior Section 30 needs to know about and preserve, since
+nothing about it is visible in any screen file.
+
+**`incompletePayment` handling — checked, confirmed clean, not a
+gap:** if Pi finds an unresolved payment from a previous session during
+`Pi.authenticate()`, `Layout.tsx` fires a silent, best-effort cleanup
+call (`/api/payments/incomplete`) once a session token exists —
+explicitly commented as fire-and-forget, "not something the user should
+be blocked on." No screen state is missing here; it's correctly
+invisible by design.
+
+**Sweep status: file-level pre-flight sweep complete for this
+session.** Every file under `frontend/src` has now been read in full
+(pages, all 6 non-page components, all 5 lib files) or confirmed
+covered by an earlier full read. Two real, undesigned findings stand:
+the anti-fraud wallet-verification gate (above) and the `LEVEL_MAP`
+progression badge (above). Everything else checked is either already
+reflected correctly in this roadmap or has no design surface (invisible
+by design, or purely internal plumbing). Recommend treating this as the
+completed pre-flight sweep referenced at the top of Section 30, pending
+a final decision on how the two findings get designed before the first
+patch.
 
