@@ -2508,12 +2508,41 @@ reference in this project's docs.
 `roadmap.md`, `sessions/session-29.md`.
 
 **Still open, unresolved:**
-1. Section 33's `total_earned` payload-shape flag (worker/client tabs
-   both use it) — same open question, still unconfirmed.
+1. ~~Section 33's `total_earned` payload-shape flag~~ — **resolved, see
+   below.**
 2. Option 2 above (client-tab rating equivalent) — deferred, needs a
    product decision before it's buildable.
 3. Whether `budget_tracker`'s backend computation treats "active
    escrow" as intentionally broad, or has its own naming looseness
    worth flagging upstream — out of scope for this project, noted for
    awareness only.
+
+### `total_earned` payload-shape flag — resolved (2026-08-15)
+
+Open since Session 33: whether real `Dashboard.tsx`'s `total_earned` shares
+a payload with `level`/`trust_tier` or comes from a separate call.
+Confirmed via Termux grep of the real component:
+
+```
+grep -n -B 5 -A 5 "total_earned" pages/Dashboard.tsx
+grep -n "apiFetch\|useEffect\|useState" pages/Dashboard.tsx
+```
+
+**Confirmed: single payload.** `total_earned` and `level` both come off the
+same `data` state object, populated by one `apiFetch('/api/dashboard?tab=
+${tab}')` call. `profileComplete` is the separate one, its own `useState` +
+its own `apiFetch('/api/users/me/profile')` call — unrelated to this flag.
+
+Two incidental facts surfaced by the same grep, logged for completeness,
+neither changing anything already built:
+- Real code renders `total_earned` twice (identity header + 3-pill stat
+  row) — matches what Section 33 already found and intentionally dropped
+  to one instance in the redesign (hero-block), reasoning stands.
+- Real code colors both instances with `var(--pi-gold)`, the same token
+  used on `LEVEL_MAP` text. The redesign's `.hero-block` uses `--violet`
+  for the π unit instead — a real divergence from source styling, but a
+  design call already made in Session 29 Pass 3, not new drift. Flagged
+  here only so it isn't mistaken for an unnoticed gap later.
+
+No code change required — this closes the flag, doesn't reopen the design.
 
