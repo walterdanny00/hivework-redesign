@@ -197,6 +197,26 @@ const JOBS_HISTORY = [
 // just never rendered in either shell (roadmap Section 15 Correction #2).
 const DASH_CLOSED_JOB = { title: "Beta test iOS build", amt: "8π", refunded: true, refundedAmt: 4 };
 
+// Demoes real Dashboard.tsx's ClientView budget_tracker card (myjobs tab
+// only) — total_posted/total_refunded are the real field names. The third
+// figure (real code's "active escrow", computed as total_posted -
+// total_refunded) is relabeled "Net committed" here — real code's math is
+// unchanged, but the label was misleading: it bundles pi still locked on
+// open jobs together with pi already paid out on finished jobs, so it's
+// not literally "still in escrow." "Net committed" covers both honestly.
+// Figures match what's already on screen: 10π + 6π (open) + 8π (closed,
+// DASH_CLOSED_JOB) = 24π posted; 4π refunded matches DASH_CLOSED_JOB's
+// refundedAmt. Distinct from `refundBalance` (2.4π) below, which is the
+// currently-withdrawable refund pot, not this lifetime total — real code
+// keeps these as two separate fields, not one.
+const DASH_BUDGET_TRACKER = { totalPosted: 24, totalRefunded: 4 };
+// Real code has no jobs-posted count field anywhere (confirmed via sweep
+// of budget_tracker's only consumer) — this is a genuine addition, not a
+// ported fact. Derived from the two static open rows + the closed-job
+// conditional below, rather than a separate hardcoded number, so it can't
+// drift out of sync with what's actually rendered.
+const DASH_JOBS_POSTED_COUNT = 2 + (DASH_CLOSED_JOB.refunded ? 1 : 0);
+
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
 // requested_amount/fee/net_amount/status/to_address. Flat fee=0.01π across
 // every row is a demo simplification — the real API sources `fee` and
@@ -3334,6 +3354,13 @@ export default function HiveworkApp() {
         .hw-app .dash-id-name{font-weight:700;font-size:14px;font-family:'Sora';color:var(--ink);}
         .hw-app .dash-id-chip{margin-top:3px;}
         .hw-app .dash-stat-row{display:flex;gap:10px;margin:0 0 26px;}
+        .hw-app .dash-escrow-ticker{background:var(--ink);border-radius:var(--radius);padding:16px 14px;margin-bottom:18px;display:flex;}
+        .hw-app .det-col{flex:1;text-align:center;}
+        .hw-app .det-col+.det-col{border-left:1px solid rgba(247,245,241,.14);}
+        .hw-app .det-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;color:var(--cream);}
+        .hw-app .det-col.active .det-num{color:#B3A6FF;}
+        .hw-app .det-lbl{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:rgba(247,245,241,.5);margin-top:4px;}
+        .hw-app .det-col.active .det-lbl{color:rgba(247,245,241,.75);}
         .hw-app .hero-block{margin-bottom:26px;}
         .hw-app .dash-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;}
         .hw-app .hero-label{color:var(--ink-soft);font-size:13px;margin-bottom:2px;}
@@ -3938,7 +3965,10 @@ export default function HiveworkApp() {
                 </div>
 
                 <div className="dash-stat-row">
-                  <div className="stat-pill"><div className="n">17</div><div className="l">Jobs done</div></div>
+                  <div className="stat-pill">
+                    <div className="n">{workView === "myjobs" ? DASH_JOBS_POSTED_COUNT : 17}</div>
+                    <div className="l">{workView === "myjobs" ? "Jobs posted" : "Jobs done"}</div>
+                  </div>
                   <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
                 </div>
 
@@ -3997,8 +4027,25 @@ export default function HiveworkApp() {
                       </>
                     )}
 
-                    <div className="section-title-row" style={{ marginTop: refundBalance > 0 ? 22 : 0 }}>
-                      <div className="section-title" style={{ margin: 0 }}>Jobs you've posted</div>
+                    {(DASH_BUDGET_TRACKER.totalPosted > 0 || DASH_BUDGET_TRACKER.totalRefunded > 0) && (
+                      <div className="dash-escrow-ticker" style={{ marginTop: refundBalance > 0 ? 22 : 0 }}>
+                        <div className="det-col">
+                          <div className="det-num">{DASH_BUDGET_TRACKER.totalPosted}π</div>
+                          <div className="det-lbl">Posted</div>
+                        </div>
+                        <div className="det-col">
+                          <div className="det-num">{DASH_BUDGET_TRACKER.totalRefunded}π</div>
+                          <div className="det-lbl">Refunded</div>
+                        </div>
+                        <div className="det-col active">
+                          <div className="det-num">{Math.max(0, DASH_BUDGET_TRACKER.totalPosted - DASH_BUDGET_TRACKER.totalRefunded)}π</div>
+                          <div className="det-lbl">Net committed</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="section-title-row">
+                      <div className="section-title" style={{ margin: 0 }}>Jobs you've posted · {DASH_JOBS_POSTED_COUNT}</div>
                       <button className="see-all" onClick={goToHistJobs}>See all →</button>
                     </div>
 

@@ -217,3 +217,140 @@ LEVEL_MAP wired + Dashboard identity block complete), `roadmap.md`
    it's on the same payload as `level`/`trust_tier`, or a separate
    call) before Dashboard specifically becomes a Section 30 patch
    target — still unverified, doesn't block anything currently.
+
+## Continued, new day — Dashboard client-tab budget tracker (Section 34)
+
+Prompted by a direct user question: does the real Dashboard show
+posted/refunded/active-escrow stats on the client side? It does — this
+was never in scope for Sections 32/33, which only swept the identity
+card and the worker-side 3-pill row.
+
+**Sweep, real `Dashboard.tsx`'s `ClientView`:**
+```
+cd ~/Piwork/frontend/src
+cat pages/Dashboard.tsx
+grep -n -i "posted\|refund\|escrow" pages/Dashboard.tsx
+grep -rn "budget_tracker\|BudgetTracker\|total_posted\|total_refunded" .
+```
+Confirmed: `data.budget_tracker` (`total_posted`, `total_refunded`) feeds
+a client-tab-only card, gated on `total_posted > 0 || total_refunded >
+0`, showing three figures — posted, refunded, and a third computed as
+`total_posted - total_refunded`, labeled "active escrow" in real code.
+The wider grep confirmed `budget_tracker` has no other consumer or
+definition anywhere in `frontend/src` — its actual computation lives in
+the backend, out of reach of this sweep.
+
+**Neither the shell nor the HTML had any of this.** Confirmed via
+review of both canonical files — no `total_posted`/`total_refunded`
+demo data, no card, in either file.
+
+**Label correction — "Active escrow" → "Net committed":** user asked
+what "active escrow" means literally, then whether it means "still
+locked" or "already spent on finished jobs." Math check: `total_posted
+- total_refunded` doesn't distinguish pi still locked on open jobs from
+pi already paid out on completed ones — both count as "not refunded."
+So the real-code label overstates precision it doesn't have. Kept the
+math (it's a technical fact, real code's own computation), relabeled
+the UI text to "Net committed," which is accurate for both cases
+without implying everything's still pending. This is the label/UX
+layer, which the roadmap's standing rule leaves to the redesign, not
+real code.
+
+**Built — escrow ticker card:**
+- Dark `.dash-escrow-ticker` (ink background, JetBrains Mono figures),
+  reusing the existing `.job-head`/`.amt`/`chip-validator` "money
+  moment" idiom rather than the real card's plain generic `.card`.
+- Active/"Net committed" figure given a violet accent (`#B3A6FF`,
+  lightened for contrast on dark ink) — violet already means
+  "current/in-progress" elsewhere (`.ledger-dot.progress`); posted/
+  refunded stay muted as historical totals.
+- Considered gold (matching `chip-validator`/`.job-figures .amt`) first,
+  but confirmed via token check that `#F4D584` isn't an actual defined
+  CSS variable — just a hardcoded repeat in two spots, not part of the
+  documented cream/ink/violet palette. Went with `--violet` (a real
+  token, already carrying the right meaning) instead of extending an
+  undocumented color a third time.
+- Demo figures: 24π posted / 4π refunded / 20π net committed — derived
+  from data already on screen (10π + 6π open job-post-rows + 8π
+  `DASH_CLOSED_JOB`/`HW_DASH_CLOSED_JOB` = 24; 4π matches
+  `refundedAmt`), not invented from nothing.
+- Kept distinct from `refundBalance`/`REFUND_BALANCE` (2.4π) — the
+  currently-withdrawable refund pot — vs. the tracker's `totalRefunded`
+  (4π) — the lifetime total. Documented in code comments so the two
+  numbers don't read as contradicting each other on the same tab.
+- Placement matches real code: myjobs tab only, above "Jobs you've
+  posted," below the refund panel/history when present.
+
+**Gap found — no jobs-posted count anywhere in real code.** Worker side
+has `jobs_completed` as an actual field (3-pill row above the tab
+toggle); client side has nothing equivalent — real code just renders
+the job cards and expects you to count them. Confirmed via the same
+`budget_tracker` grep above (its only consumer, no count field in it).
+User asked for one anyway — logged as a genuine addition, not a ported
+fact, same category as Section 11's "Not selected" state.
+
+**Built:**
+- `"Jobs you've posted · 3"` in the section title, matching the
+  `Open now · ${category}` pattern already used on Browse — not a new
+  UI convention.
+- Count derived as `2 + (closedJob.refunded ? 1 : 0)` off the same two
+  static open rows + conditional closed row already rendered, rather
+  than a separate hardcoded number that could drift out of sync.
+
+**User feedback — count wasn't visible enough:** flagged they couldn't
+find the new count. Root cause: it landed in the "Jobs you've posted"
+section title, well below the fold from what's actually the first
+thing visible on both tabs — the top `.dash-stat-row` (currently
+hardcoded "17 / Jobs done" + "4.3★ / Rating," shown unconditionally
+regardless of `workView`/tab).
+
+**User's suggestion, adopted (option 1 of 3 discussed):** swap the
+first stat-pill's value+label based on the active tab — "Jobs done" on
+My Work, "Jobs posted" on My Jobs (reusing the count above). Two
+alternatives were discussed and explicitly deferred rather than folded
+in silently:
+- **Option 2 (not built) — also swap the Rating pill on the My Jobs
+  tab.** Rating is a worker-reputation stat with no obvious client-tab
+  equivalent; real code has nothing resembling a client-side rating
+  anywhere in its data model. Building this later wouldn't just be a
+  UI branch — it'd mean inventing a new backend field/metric that
+  doesn't exist today. Flagged as a real product decision, bigger than
+  a restyle, left open.
+- **Option 3 (not built, rejected) — hide the stat row entirely on the
+  My Jobs tab.** Considered, not taken; noted for the record.
+
+**Built (option 1):**
+- JSX: pill's value/label now read
+  `workView === "myjobs" ? DASH_JOBS_POSTED_COUNT : 17` /
+  `"Jobs posted" : "Jobs done"`, using existing `workView` state — no
+  new state introduced.
+- HTML: pill given `id="dash-stat1-n"`/`id="dash-stat1-l"`; `toggleWork()`
+  now updates both text nodes on every tab switch, same
+  `HW_DASH_JOBS_POSTED_COUNT` constant as the section-title count.
+
+**Verification:** `HiveworkApp.jsx` braces 1890/1890, parens
+1933/1933, brackets 217/217. `hivework-app-v4-3.html` 687/687 div
+open/close, parses clean via `lxml`, confirmed after every edit pass
+(ticker card, label rename, count, pill swap).
+
+**Filename note:** working copy was uploaded as
+`hivework-app-v4-3-1.html` (stray `-1` suffix, likely a re-download
+artifact) — discarded on push; canonical name stays
+`hivework-app-v4-3.html`, matching every other reference in this
+project's docs.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md` (new Section 34), this session brief.
+
+**Still open, unresolved:**
+1. Section 33's `total_earned` payload-shape flag (worker/client tabs
+   both use it — same open question, still unconfirmed).
+2. Option 2 above (client-tab rating equivalent) — deferred, not
+   designed, needs a product decision before it's buildable at all.
+3. Whether `budget_tracker`'s computation (backend-side) treats
+   "active escrow" as intentionally broad or whether the real app has
+   its own naming problem worth flagging upstream — out of scope for
+   this project either way, noted for awareness only.
+4. This session's four files (this brief, `roadmap.md`, both shells)
+   are queued for the standard two-repo push — see roadmap for the
+   routine.

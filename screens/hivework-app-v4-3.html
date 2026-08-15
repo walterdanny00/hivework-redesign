@@ -95,6 +95,28 @@
      home since Section 28 moved it off the Home hero. */
 
 
+  /* ===== DASHBOARD: identity row + stat row (Section 33) ===== */
+  .dash-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .dash-id{display:flex;align-items:center;gap:10px;}
+  .dash-id-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:#fff;font-weight:700;font-family:'Sora';font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .dash-id-name{font-weight:700;font-size:14px;font-family:'Sora';color:var(--ink);}
+  .dash-id-chip{margin-top:3px;}
+  .dash-stat-row{display:flex;gap:10px;margin:0 0 26px;}
+
+  /* ===== DASHBOARD: myjobs escrow ticker (Section 34) — dark ink card,
+     JetBrains Mono figures, mirrors the .job-head/.amt money-moment idiom
+     already used on Job Detail/chip-validator. Active escrow gets the
+     violet accent (this system's "current/in-progress" color elsewhere,
+     e.g. .ledger-dot.progress) since it's the one live figure of the
+     three; posted/refunded are muted historical totals. ===== */
+  .dash-escrow-ticker{background:var(--ink);border-radius:var(--radius);padding:16px 14px;margin-bottom:18px;display:flex;}
+  .det-col{flex:1;text-align:center;}
+  .det-col+.det-col{border-left:1px solid rgba(247,245,241,.14);}
+  .det-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;color:var(--cream);}
+  .det-col.active .det-num{color:#B3A6FF;}
+  .det-lbl{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:rgba(247,245,241,.5);margin-top:4px;}
+  .det-col.active .det-lbl{color:rgba(247,245,241,.75);}
+
   /* ===== HOME: hero number + light ticket ===== */
   .hero-block{margin-bottom:26px;}
   .hero-label{color:var(--ink-soft);font-size:13px;margin-bottom:2px;}
@@ -1146,10 +1168,23 @@
         <div class="kicker">Wallet & jobs</div><h1>Dashboard.</h1>
       </div>
 
-      <div class="hero-block">
-        <div class="hero-label">Total earned</div>
-        <div class="hero-num" id="dash-earned-num"></div>
-        <div class="hero-sub" id="dash-level-chip"></div>
+      <div class="hero-block dash-hero">
+        <div>
+          <div class="hero-label">Total earned</div>
+          <div class="hero-num" id="dash-earned-num"></div>
+        </div>
+        <div class="dash-id">
+          <div class="dash-id-avatar">O</div>
+          <div>
+            <div class="dash-id-name">@Olawalt</div>
+            <div class="dash-id-chip" id="dash-level-chip"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-stat-row">
+        <div class="stat-pill"><div class="n" id="dash-stat1-n">17</div><div class="l" id="dash-stat1-l">Jobs done</div></div>
+        <div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div>
       </div>
 
       <div class="nudge-banner" id="nudge-banner">
@@ -1196,8 +1231,10 @@
           <div id="dash-refund-history"></div>
         </div>
 
+        <div id="dash-escrow-ticker-wrap"></div>
+
         <div class="section-title-row" id="myjobs-title-row">
-          <div class="section-title" style="margin:0;">Jobs you've posted</div>
+          <div class="section-title" style="margin:0;" id="myjobs-title-text">Jobs you've posted</div>
           <span class="see-all" onclick="goToHistJobs()">See all →</span>
         </div>
         <div class="job-post-row">
@@ -1342,7 +1379,7 @@ function showScreen(id, el){
   document.getElementById('segnav').style.display = mainScreens.includes(id) ? 'flex' : 'none';
   document.querySelectorAll('.segnav a').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
 
-  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); renderRefundPanel(); renderDashRefundHistory(); renderDashClosedJob(); }
+  if(id==='dashboard'){ renderWithdrawPanel(); renderDashWdHistory(); renderRefundPanel(); renderDashRefundHistory(); renderDashClosedJob(); renderDashEscrowTicker(); }
   if(id==='browse'){ renderBrowseOpenNow(); }
 
   closeMenus();
@@ -2716,6 +2753,26 @@ const HW_JOBS_HISTORY = [
 // Dashboard myjobs list — the real component already has this check, it was
 // just never rendered in either shell (roadmap Section 15 Correction #2).
 const HW_DASH_CLOSED_JOB = {title:'Beta test iOS build', amt:'8π', refunded:true, refundedAmt:4};
+
+// Demoes real Dashboard.tsx's ClientView budget_tracker card (myjobs tab
+// only) — total_posted/total_refunded are the real field names. The third
+// figure (real code's "active escrow", computed as total_posted -
+// total_refunded) is relabeled "Net committed" here — real code's math is
+// unchanged, but the label was misleading: it bundles pi still locked on
+// open jobs together with pi already paid out on finished jobs, so it's
+// not literally "still in escrow." "Net committed" covers both honestly.
+// Figures match what's already on screen: 10π + 6π (open) + 8π (closed,
+// HW_DASH_CLOSED_JOB) = 24π posted; 4π refunded matches HW_DASH_CLOSED_JOB's
+// refundedAmt. Distinct from REFUND_BALANCE (2.4π) above, which is the
+// currently-withdrawable refund pot, not this lifetime total — real code
+// keeps these as two separate fields, not one.
+const HW_DASH_BUDGET_TRACKER = {totalPosted:24, totalRefunded:4};
+// Real code has no jobs-posted count field anywhere (confirmed via sweep
+// of budget_tracker's only consumer) — this is a genuine addition, not a
+// ported fact. Derived from the two static open rows + the closed-job
+// conditional below, rather than a separate hardcoded number, so it can't
+// drift out of sync with what's actually rendered.
+const HW_DASH_JOBS_POSTED_COUNT = 2 + (HW_DASH_CLOSED_JOB.refunded ? 1 : 0);
 // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
 // are a filtering-demo assumption, not real-code-derived (same note as JSX).
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
@@ -2919,6 +2976,22 @@ function renderDashClosedJob(){
   document.getElementById('dash-closed-job-amt').textContent = HW_DASH_CLOSED_JOB.amt;
   document.getElementById('dash-closed-job-badge').textContent = '↩ ' + HW_DASH_CLOSED_JOB.refundedAmt + 'π refunded';
 }
+// Gated the same way as real code: hidden entirely unless there's ever
+// been posted or refunded activity.
+function renderDashEscrowTicker(){
+  const wrapEl = document.getElementById('dash-escrow-ticker-wrap');
+  const titleEl = document.getElementById('myjobs-title-text');
+  if(titleEl) titleEl.textContent = "Jobs you've posted · " + HW_DASH_JOBS_POSTED_COUNT;
+  if(!wrapEl) return;
+  const t = HW_DASH_BUDGET_TRACKER;
+  if(!(t.totalPosted > 0 || t.totalRefunded > 0)){ wrapEl.innerHTML = ''; return; }
+  const active = Math.max(0, t.totalPosted - t.totalRefunded);
+  wrapEl.innerHTML = '<div class="dash-escrow-ticker">'
+    + '<div class="det-col"><div class="det-num">'+t.totalPosted+'π</div><div class="det-lbl">Posted</div></div>'
+    + '<div class="det-col"><div class="det-num">'+t.totalRefunded+'π</div><div class="det-lbl">Refunded</div></div>'
+    + '<div class="det-col active"><div class="det-num">'+active+'π</div><div class="det-lbl">Net committed</div></div>'
+    + '</div>';
+}
 function updateRefundAmount(v){
   refundWithdrawState.amount = v; refundWithdrawState.errorMsg=''; refundWithdrawState.message='';
   const amt = parseFloat(v), validAmt = !isNaN(amt);
@@ -3033,6 +3106,15 @@ function toggleWork(view, el){
   el.classList.add('active');
   document.getElementById('mywork-panel').style.display = view==='mywork' ? 'block' : 'none';
   document.getElementById('myjobs-panel').style.display = view==='myjobs' ? 'block' : 'none';
+  // First dash-stat-row pill swaps per tab — "Jobs done" (worker identity)
+  // doesn't belong on the My Jobs (client) view, same reasoning as the
+  // myjobs-title-text count added alongside HW_DASH_BUDGET_TRACKER.
+  const stat1N = document.getElementById('dash-stat1-n');
+  const stat1L = document.getElementById('dash-stat1-l');
+  if(stat1N && stat1L){
+    if(view==='myjobs'){ stat1N.textContent = HW_DASH_JOBS_POSTED_COUNT; stat1L.textContent = 'Jobs posted'; }
+    else { stat1N.textContent = '17'; stat1L.textContent = 'Jobs done'; }
+  }
 }
 
 // Home hero-slot activity ticker (Section 22 item 2 follow-up, 2026-08-13):

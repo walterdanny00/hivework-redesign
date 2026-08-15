@@ -84,7 +84,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
-| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). |
+| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen. Rows with a matching demo job click through to Job Detail (Section 23) — real `ApplicationCard.tsx` is always clickable, but only 1 of 6 demo rows has a matching demo job today. |
 | History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard. Rows with a matching demo job click through to Job Detail (Section 23) — real `JobCard.tsx` is always clickable, 2 of 5 demo rows currently have a matching demo job. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
@@ -2391,4 +2391,129 @@ pill). Trust-tier badge confirmed correctly absent from Dashboard —
 stays Profile-only. Nothing else changed on Dashboard; the page-head,
 nudge banner, toggle row, `WithdrawPanel`, and history rows remain
 untouched throughout this and Section 32.
+
+## 34. Dashboard client-tab budget tracker — posted/refunded/net committed, jobs-posted count, tab-aware stat pill (2026-08-15, session 29 cont'd)
+
+Prompted by a direct question: does the real Dashboard show posted/
+refunded/active-escrow stats on the client (My Jobs) tab? It does —
+never in scope for Sections 32/33, which only swept the identity card
+and worker-side 3-pill row.
+
+**Sweep, real `Dashboard.tsx`'s `ClientView`:**
+```
+cd ~/Piwork/frontend/src
+cat pages/Dashboard.tsx
+grep -n -i "posted\|refund\|escrow" pages/Dashboard.tsx
+grep -rn "budget_tracker\|BudgetTracker\|total_posted\|total_refunded" .
+```
+Confirmed: `data.budget_tracker` (`total_posted`, `total_refunded`)
+feeds a client-tab-only card, gated on `total_posted > 0 ||
+total_refunded > 0`, with a third figure computed as `total_posted -
+total_refunded`, labeled "active escrow" in real code. The wider grep
+across `frontend/src` found no other consumer or definition of
+`budget_tracker` — its computation lives in the backend, out of reach
+of this sweep. Neither shell had any of this before this session.
+
+**Label correction — "Active escrow" → "Net committed":** the real
+math doesn't distinguish pi still locked on open jobs from pi already
+paid out on finished ones — both just count as "not refunded," so
+"active escrow" overstates precision the number doesn't have. Math
+(`total_posted - total_refunded`) kept as-is — real code's own
+computation, a technical fact. Label changed to "Net committed,"
+accurate for both cases without implying everything's still pending.
+Per the roadmap's standing rule, copy/labels are the redesign's call;
+real code's own imprecise naming doesn't bind it.
+
+**Built — escrow ticker card (`.dash-escrow-ticker`):**
+- Dark ink card, JetBrains Mono figures — reuses the existing
+  `.job-head`/`.amt`/`chip-validator` "money moment" idiom (the
+  roadmap's own "escrow ticker" signature element) rather than the
+  real card's plain generic `.card`.
+- Net-committed figure gets a violet accent (`#B3A6FF`, lightened for
+  contrast on ink) — violet already means "current/in-progress"
+  elsewhere (`.ledger-dot.progress`); posted/refunded stay muted as
+  historical totals.
+- **Color check performed before building:** confirmed via a token
+  grep that `#F4D584` (used in `.job-figures .amt`/`chip-validator`)
+  isn't an actual defined CSS variable — a hardcoded repeat in exactly
+  two spots, not part of the documented cream/ink/violet palette
+  (`--cream`/`--ink`/`--violet`/`--mint`/`--coral`/`--butter`/`--line`/
+  `--card`). Used `--violet` (a real token, already carrying the right
+  semantic meaning) instead of extending an undocumented color a third
+  time.
+- Demo figures: 24π posted / 4π refunded / 20π net committed — derived
+  from data already on screen (10π + 6π open job-post-rows + 8π
+  `DASH_CLOSED_JOB`/`HW_DASH_CLOSED_JOB` = 24; 4π matches
+  `refundedAmt`), not invented.
+- Kept distinct from `refundBalance`/`REFUND_BALANCE` (2.4π,
+  currently-withdrawable) vs. the tracker's `totalRefunded` (4π,
+  lifetime) — real code keeps these as two separate fields; documented
+  in code comments so they don't read as contradicting each other on
+  the same tab.
+- Placement matches real code: myjobs tab only, above "Jobs you've
+  posted," below the refund panel/history when present.
+
+**Gap found — no jobs-posted count anywhere in real code.** Worker
+side has `jobs_completed` as an actual field (3-pill row above the tab
+toggle); client side has nothing equivalent — real code renders the
+job cards and expects manual counting. Confirmed via the same
+`budget_tracker` grep (its only consumer, no count field in it). User
+requested one anyway — a genuine addition, not a ported fact, same
+category as Section 11's "Not selected" state.
+
+**Built:** `"Jobs you've posted · 3"` in the section title, matching
+the `Open now · ${category}` pattern already used on Browse — not a
+new UI convention. Count derived as `2 + (closedJob.refunded ? 1 : 0)`
+off the two static open rows + conditional closed row already
+rendered, rather than a separate hardcoded number that could drift.
+
+**User feedback — count wasn't visible enough.** It landed in the
+section title, well below the fold from what's actually the first
+thing visible on both tabs — the top `.dash-stat-row`, hardcoded to
+always show "17 / Jobs done" + "4.3★ / Rating" regardless of
+`workView`/tab.
+
+**User's suggestion, adopted — tab-aware first stat-pill.** Three
+options were discussed; only one built, the other two logged rather
+than folded in silently:
+1. **Built.** Swap the first pill's value+label by tab: "Jobs done" on
+   My Work, "Jobs posted" (reusing the count above) on My Jobs.
+2. **Deferred, not built.** Also swap the Rating pill on My Jobs.
+   Rating is a worker-reputation stat with no client-tab equivalent
+   anywhere in real code's data model — building this later would mean
+   inventing a new backend field/metric, not just a UI branch. Flagged
+   as a real product decision, out of scope for a restyle pass.
+3. **Considered, rejected.** Hide the stat row entirely on My Jobs.
+   Noted for the record, not taken.
+
+**Built (option 1):**
+- JSX: pill reads `workView === "myjobs" ? DASH_JOBS_POSTED_COUNT : 17`
+  / `"Jobs posted" : "Jobs done"` — reuses existing `workView` state,
+  no new state added.
+- HTML: pill given `id="dash-stat1-n"`/`id="dash-stat1-l"`;
+  `toggleWork()` updates both text nodes on every tab switch, same
+  `HW_DASH_JOBS_POSTED_COUNT` constant driving the section-title count.
+
+**Verification:** `HiveworkApp.jsx` braces 1890/1890, parens
+1933/1933, brackets 217/217. `hivework-app-v4-3.html` 687/687 div
+open/close, parses clean via `lxml` — confirmed after every edit pass
+(ticker card, label rename, count, pill swap).
+
+**Filename note:** working copy was uploaded as
+`hivework-app-v4-3-1.html` (stray `-1` suffix). Discarded on push —
+canonical name stays `hivework-app-v4-3.html`, matching every other
+reference in this project's docs.
+
+**Files touched:** `HiveworkApp.jsx`, `hivework-app-v4-3.html`,
+`roadmap.md`, `sessions/session-29.md`.
+
+**Still open, unresolved:**
+1. Section 33's `total_earned` payload-shape flag (worker/client tabs
+   both use it) — same open question, still unconfirmed.
+2. Option 2 above (client-tab rating equivalent) — deferred, needs a
+   product decision before it's buildable.
+3. Whether `budget_tracker`'s backend computation treats "active
+   escrow" as intentionally broad, or has its own naming looseness
+   worth flagging upstream — out of scope for this project, noted for
+   awareness only.
 
