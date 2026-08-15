@@ -81,7 +81,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done | |
-| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
@@ -2724,4 +2724,101 @@ neither changing anything already built:
   here only so it isn't mistaken for an unnoticed gap later.
 
 No code change required — this closes the flag, doesn't reopen the design.
+
+
+## 37. Job Detail (owner view) — patch + live verification (2026-08-15, session 31)
+
+Owner branch of real `JobDetail.tsx`, previously untouched (comparison
+closed 2026-08-07, reconciled with the canonical `.jdo` design). Picked
+as the next patch target per session 30's own open item — the natural
+choice since it shares a file with the worker branch just shipped.
+
+**Pre-patch decisions:**
+
+- **Overview/Applicants/Slots tab split is a restyle, not new logic.**
+  Real code has always been one flat applicant list; canonical `.jdo`
+  splits pending applicants (Applicants tab) from everyone already
+  assigned — approved/submitted/completed (Slots tab ledger). Same
+  data, reorganized, no new fetches.
+- **Decline button — confirmed no real endpoint exists** (grep for
+  reject/decline matched only worker-side `rejected`-status display
+  logic, nothing else — consistent with Section 16's "proposed pattern,
+  never built" finding). **User decision: ship it visibly but fully
+  inert** — greyed out, `disabled`, no click handler, labeled "soon."
+  Reasoning: app isn't Pi-ecosystem-listed yet, small internal test
+  group only. Flagged that this calculus should be revisited before
+  wider release.
+- **Sentinel banner genericized for the owner branch**, per the
+  standing session-28 decision — session 30 explicitly deferred this
+  to "this patch's own later pass." This is that pass.
+
+**Header status** ported from the shell's Section 25 3-state split
+(`completed`/`closed`/`in progress`), driven by real `job.status` /
+`job.slots_closed` — no new fields, since `slots_closed` was already
+tracked for the close-unfilled-slots feature.
+
+**Scope discipline**, same standard as Section 36: `handleApprove`,
+`handleComplete`, `handleCloseSlots`, `handleRateWorker`, `handleRate`
+untouched. Only render changed, plus the items above. Single-worker
+rating block moved from its own standalone section into the Slots tab
+visually — same state (`rateScore`/`rateComment`/`myRating`), no logic
+change.
+
+**Verification so far (pre-deploy):** brace/paren/bracket balance
+checked (673/673, 661/661, 90/90).
+
+**Live verification — two regressions caught and fixed post-deploy:**
+
+Same Termux download-lag trap as session 30 hit again first try
+(`cp` silently no-opped on an unfinished download, so the first
+commit/push/merge cycle was empty against an unchanged `main`) —
+caught via `md5sum` before trusting `git diff`, re-downloaded, real
+diff landed (392 insertions, 203 deletions), `npm run build` clean
+(267.26 kB, up from 256.90 kB). Deployed to `main`/Vercel production,
+same route as Section 36 (no preview-deployment path available for Pi
+auth). User process note, logged not fixed: the commit was made while
+on `main` rather than the `patch/job-detail-owner-redesign` branch cut
+for this work, so the later branch merge was a correct no-op — not
+harmful, `main` is where it needed to land, but the feature branch is
+now a stale empty record of the patch.
+
+Live-tested by the user in Pi Browser, two real bugs found:
+
+1. **Slots tab lost the profile-link.** Old flat list linked every
+   applicant's name to their profile regardless of status; patch only
+   kept the link in the Applicants tab (pending-only). **Fixed:**
+   restored the same `navigate('/profile/${username}')` button pattern
+   in the Slots tab ledger.
+2. **Rating stars and comment textarea rendered near-black,
+   unstyled.** `.jdo` was missing a `textarea` rule entirely, and
+   `.rate-stars button` had no explicit color, inheriting default
+   near-black text instead of the intended gold/butter accent.
+   **Fixed:** added `.jdo textarea` (cream background, violet focus
+   ring, matching `.hw-jdw`'s existing pattern) and
+   `color:var(--butter)` on the star buttons. **Note: the worker
+   view's `.hw-jdw` has the same missing-textarea/star-color gap,
+   not yet fixed** — that screen's already merged and live-verified
+   separately; flagged for a later standalone pass rather than
+   reopening Section 36.
+
+Both fixes verified via hash-matched re-download → rebuild (267.73 kB)
+→ commit (`955254a`) → push → redeploy → re-tested live, confirmed
+working by the user.
+
+**Open, unresolved:** user described a "worker or client can click the
+profile of either" behavior from real code that doesn't appear
+anywhere in this file, in either branch, before or after any patching
+(checked worker view too — "Posted by @username" has always been
+plain text there as well, same in the canonical shell mockup). Not
+investigated further — needs the user to point at where they're
+actually seeing this before it can be traced.
+
+**Status:** owner-view patch shipped, both regressions fixed,
+committed and merged to `main` (`afebc33` → `955254a`), Vercel
+production deploy clean, **verified live in Pi Browser — confirmed
+working.** This closes out Job Detail as a whole — both branches now
+match the design system. Standing candidate for next patch, agreed
+with the user: **`Layout.tsx`** (dark top nav + bottom tab bar),
+untouched by the redesign, visible on every screen including both Job
+Detail branches just shipped.
 
