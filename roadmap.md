@@ -2045,9 +2045,12 @@ verification gate is fully designed and built (canonical + both
 shells). As of session 29, `LEVEL_MAP` is also fully wired (Section
 32) — Section 31 is closed and the first-patch pilot decision is
 unblocked. Job Detail (worker view) is the standing pilot candidate.
-As of session 30, the full per-screen sweep checklist (items 1-6) has
-been run against real `JobDetail.tsx` for this pilot — see Section 35.
-No patch has been written into the real app yet.
+As of session 30, the pilot is **done end to end**: sweep (Section 35)
+→ patch built (Section 36) → `npm run build` clean → merged to `main`
+→ verified live in Pi Browser against real auth and real data. The
+patching-into-main-app workflow this section describes is now proven,
+not just planned. Next screen to patch is an open decision, not yet
+made.
 
 ## 31. Account verification gate — newly discovered, undesigned (2026-08-14)
 
@@ -2595,6 +2598,103 @@ redesign fixes. **Decision: skip for this pilot patch, revisit later**
 
 **Status:** sweep complete, pilot not yet patched into the real app.
 Design/patch work for Job Detail (worker view) can proceed from here.
+
+## 36. Job Detail (worker view) — first real patch, built (2026-08-15, session 30 cont'd)
+
+First real edit to `~/Piwork/frontend/src/pages/JobDetail.tsx`. Built
+locally as a full replacement file, not yet applied/committed on a
+feature branch or run through `npm run build` — that's the next step
+(see below). Scope: worker (non-owner) branch only. Owner branch's
+hooks, handlers, and JSX are untouched byte-for-byte; the worker
+branch's hooks/handlers (state, `apiFetch` calls, `handleVerifyWallet`,
+`handleApply`, `handleSubmitWork`, `handleRate`) are also untouched —
+only what renders changed, plus the specific additions below.
+
+**Header split (user decision):** worker branch now renders the design
+system's dark `.job-head` card (eyebrow/title/π-figures); owner branch
+keeps today's header exactly as-is, deferred to its own future patch.
+
+**Design decisions made while building, all logged:**
+
+1. **Description/Requirements added.** The canonical worker-view design
+   (`HiveworkJobDetailWorker.jsx`, session 8) never included these
+   sections at all — a real content gap, not a style choice, since
+   workers need this to decide whether to apply. Added as `.panel`
+   cards matching the ledger's visual system, placed after `job-head`,
+   before the ledger.
+2. **Rating flow consolidated.** The old shared "Rate the worker/
+   client" card at the bottom of the file split into two: the worker's
+   half is now the ledger's existing `completed_unrated`/
+   `completed_rated` stage-5 panel (already fully designed for exactly
+   this, just never wired to real data before); the owner's half stays
+   the old shared block, now gated `isOwner && !isMultiWorker &&
+   job.status === 'completed'` (multi-worker owner rating already
+   happens per-applicant inline elsewhere in the owner branch — this
+   block was never meant to double up with that, and didn't in the
+   original code either).
+3. **`rejected` state wired in.** `JDWPanel`'s "Not selected this time"
+   panel was already fully built (session 8) but flagged as "proposed,
+   not shipped as if it exists," since real code had no render branch
+   for `myApp?.status === 'rejected'` at all. Real code already *sets*
+   this status server-side (single-worker jobs, `handleApprove`) — the
+   data was always there, just unrendered. Wiring it in now is purely
+   additive (no new fields, no new endpoint), so it's included in this
+   patch rather than left dark. "Browse more jobs" now actually
+   navigates to `/jobs`.
+4. **Submission composer ported.** `getSubmissionKind`/
+   `SUBMISSION_EVIDENCE_HINT`/`composeSubmission` copied from the shell
+   into real code, replacing the old single-field `submission` state
+   with the 4-field structured composer (`subWhat`/`subEvidence`/
+   `subEnvironment`/`subNotes`). Concatenates to the same one string
+   `/api/jobs/:id/submit-work` already expects — no API change.
+   Attachments stay the disabled "Coming soon" treatment, not a live
+   mockup — see logged task below for why.
+5. **`wallet_verified` transitional state wired in.** Canonical design
+   (session 28) already specified this brief mint-checkmark confirmation
+   between a successful wallet-verify payment and the profile-complete
+   stage. Real code previously just flipped `hasWallet` straight to
+   `true` with no transitional UI. Added a local `showWalletVerified`
+   boolean, set true in `handleVerifyWallet`'s success callback and
+   auto-cleared after 1.4s — UI-only, no new data dependency.
+6. **Sentinel banner genericized, worker branch only.** Replaced with a
+   `.verified-strip` reading "Client wallet verified," no Sentinel
+   mention — per the standing decision (session 28). Owner branch keeps
+   the original "🛡️ Client wallet verified by Sentinel" text untouched,
+   out of scope for this patch.
+
+**Logged, backend-blocked task: real file-upload attachments.** The
+canonical shell (`HiveworkApp.jsx`) already has a fully-built,
+interactive-looking attachments UI (file list, upload progress, add
+button) for the work-submission composer — no further design work
+needed there. It stays disabled ("Coming soon") in the real patch
+because the real `/api/jobs/:id/submit-work` endpoint has zero
+file-upload support (confirmed in the Section 35 sweep — one
+plain-text `submission` field, nothing else). Shipping the interactive
+version against a real worker submitting real evidence for a real
+payout would look functional while silently dropping their files.
+**Not blocked on this patch or any other screen** — blocked on backend
+work (a real upload endpoint + storage) that's out of this redesign
+project's scope. Once that exists, swap the "Coming soon" placeholder
+for the already-built interactive version and wire it in.
+
+**Not included, per prior decision (Section 35):** the multi-worker
+"slots still open after first approval" gap — logged, not designed
+for, in this patch.
+
+**Verification so far:** brace/paren/bracket balance checked on the
+built file (621/621, 586/586, 84/84) — no real toolchain check yet,
+since the file hasn't been placed into the actual repo/branch. That's
+the next step, per Section 30's rule that `npm run build` (not
+balance-checking) is the real gate once a patch lands in the repo.
+
+**Status:** patch built, `npm run build` verified clean (tsc + vite,
+243.91 kB → 256.90 kB bundle growth consistent with the new code),
+committed and merged to `main` on `~/Piwork` (commit `d100ef5`),
+Vercel production deploy clean. **Verified live in Pi Browser against
+real auth and real data — confirmed working.** Section 30's pilot is
+done: the patch-into-main-app workflow is proven end to end (sweep →
+patch → build → merge → live verification) on a real screen for the
+first time.
 
 ### `total_earned` payload-shape flag — resolved (2026-08-15)
 

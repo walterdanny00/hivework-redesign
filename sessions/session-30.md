@@ -84,19 +84,104 @@ rather than design around it now. Same bucket as session-08's own
 a real product/backend gap, not something a visual-redesign patch
 should absorb into scope.
 
+## Patch — real `JobDetail.tsx`, worker branch (Section 36)
+
+With the sweep done and the header-split question answered by the
+user (split it: worker branch gets the new dark `.job-head`, owner
+branch keeps today's header for its own later patch), built the full
+patched file locally.
+
+**Scope discipline:** owner branch's hooks, handlers, and JSX untouched
+byte-for-byte. Worker branch's own hooks/handlers (state, `apiFetch`
+calls, `handleVerifyWallet`, `handleApply`, `handleSubmitWork`,
+`handleRate`) also untouched — only what renders changed, plus six
+specific, individually-logged additions (full detail in roadmap
+Section 36): Description/Requirements panels added (real content gap
+in the canonical design, not a style choice), the worker's rating flow
+folded into the ledger's existing paid-stage panel, the `rejected`
+state wired in (data already existed server-side, panel already built,
+just never connected), the submission composer ported from the shell
+(still concatenates to the one string field the real endpoint expects),
+the `wallet_verified` transitional confirmation wired in per the
+session-28 canonical spec, and the Sentinel banner genericized for the
+worker branch only.
+
+Caught and fixed one mistake before finalizing: the bottom rating
+block's condition needed `!isMultiWorker` added, or it would have
+double-rendered a generic "Rate the worker" card on top of the owner's
+already-existing per-applicant rating UI for multi-worker jobs.
+
+**Verification so far:** brace/paren/bracket balance checked
+(621/621, 586/586, 84/84) on the built file. No real toolchain check
+yet — that requires placing the file into the actual repo/branch and
+running `npm run build`, which hasn't happened yet.
+
 ## Files touched
 
-`roadmap.md` (new Section 35, updated Section 30 status), this session
-brief. No screen files touched — no patch written yet, this was sweep-
-only.
+`roadmap.md` (Section 35 sweep findings, Section 36 patch log,
+updated Section 30 status), this session brief, and the patched
+`JobDetail.tsx` itself (built locally, not yet applied to the real
+repo).
+
+## Live verification (session 30, cont'd)
+
+Getting from a clean local build to a real Pi-authenticated look at
+the patch took a few real detours, worth keeping on record:
+
+- **`npm run build` succeeded on the first try but against the wrong
+  file.** The initial `cp ~/storage/downloads/JobDetail.tsx ...`
+  silently failed (file hadn't actually been downloaded to the device
+  yet), so the build that "passed" was really just the unpatched
+  original. Caught by checking the bundle size didn't change. Fixed by
+  downloading the file properly, then a real clean build (256.90 kB,
+  up from 243.91 kB — consistent with the new code actually landing).
+- **`npm run dev` crashed on a `browserslist`/`caniuse-lite` module
+  resolution error**, unrelated to the patch — a broken/incomplete
+  `node_modules` install. First run of the fix (`npm install
+  caniuse-lite@latest browserslist@latest`) was run from the wrong
+  directory (`~/Piwork` root instead of `~/Piwork/frontend`), which
+  also surfaced a `node 24.x` vs. installed `v26.4.0` engine mismatch
+  warning (noted, not chased — unrelated to the crash). Re-run from
+  the correct directory fixed the dev server.
+- **Pi Browser wouldn't authenticate against `localhost`**, expected —
+  Pi auth needs a registered HTTPS domain. Tried the Vercel preview-
+  deployment route, but two things ruled that out: Vercel didn't
+  generate a preview build for this branch, and the Pi developer
+  portal only has the production domain registered anyway. A brief
+  false alarm along the way: production itself briefly wouldn't
+  authenticate either, turned out to be a stale Pi Browser cache,
+  unrelated to any of this.
+- **Decision: merge to `main` for real verification**, since the app
+  isn't listed in the Pi ecosystem yet (no live public users, just a
+  small internal test group) — user's call, made with that risk
+  understood. Merged commit `d100ef5`, Vercel production deploy came
+  back clean (256.93 kB, matching the local build).
+
+Merged `patch/job-detail-worker-redesign` to `main`, verified live in
+Pi Browser against real auth and real data — **confirmed working** by
+the user.
+
+This closes Section 30's pilot end to end for the first time: sweep →
+patch → build → merge → live verification, all done on one real
+screen. The workflow itself is proven now, not just documented as a
+plan.
+
+## Files touched
+
+`roadmap.md` (Section 35 sweep findings, Section 36 patch log +
+live-verified status, updated Section 30 status), this session brief,
+and `JobDetail.tsx` (patched, built, merged to `main` in the real
+repo — this session's real deliverable, not just a file in this chat).
 
 ## Next session
 
-1. Push this file + updated `roadmap.md` — standard `hivework-redesign`
-   two-repo routine (content-only, patch phase hasn't started).
-2. Design/patch work for Job Detail (worker view) can now proceed —
-   sweep is complete, facts-to-preserve vs. free-to-restyle are sorted
-   (see Section 35).
-3. Logged, not scheduled: the multi-worker "slots still open after
-   first approval" gap (Section 35) — revisit when there's appetite for
-   it, out of scope for the pilot.
+1. Push `roadmap.md` + this session brief — standard two-repo routine.
+2. **Open decision, not yet made:** which screen to patch next. The
+   pilot proved the workflow; there's no standing candidate queued up
+   the way Job Detail (worker view) was going into this session.
+3. Still logged, not scheduled: the multi-worker "slots still open
+   after first approval" gap (Section 35/36) — revisit later.
+4. Also logged, backend-blocked: real file-upload attachments for
+   the submission composer — waiting on a real upload endpoint,
+   swap in the already-built interactive UI once that exists.
+
