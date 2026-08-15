@@ -2045,6 +2045,9 @@ verification gate is fully designed and built (canonical + both
 shells). As of session 29, `LEVEL_MAP` is also fully wired (Section
 32) — Section 31 is closed and the first-patch pilot decision is
 unblocked. Job Detail (worker view) is the standing pilot candidate.
+As of session 30, the full per-screen sweep checklist (items 1-6) has
+been run against real `JobDetail.tsx` for this pilot — see Section 35.
+No patch has been written into the real app yet.
 
 ## 31. Account verification gate — newly discovered, undesigned (2026-08-14)
 
@@ -2516,6 +2519,82 @@ reference in this project's docs.
    escrow" as intentionally broad, or has its own naming looseness
    worth flagging upstream — out of scope for this project, noted for
    awareness only.
+
+## 35. Job Detail (worker view) — Section 30 pilot sweep, pre-patch (2026-08-15, session 30)
+
+Full per-screen sweep (Section 30's checklist, items 1-6 — full reads,
+not grep-only) run against real `JobDetail.tsx` before any patch is
+written, since this is the standing pilot candidate for the first
+real-app patch.
+
+**Structural fact:** real `JobDetail.tsx` is one 720-line component,
+owner and worker view branching internally (`isOwner ? ... : ...`).
+The redesign's two-file split (`HiveworkJobDetail.jsx` /
+`HiveworkJobDetailWorker.jsx`) stays — a maintainability call, not a
+UX one — but the patch itself has to land inside one real file,
+sharing the top-level `job`/`applications` fetches across both
+branches rather than duplicating them.
+
+**Worker-view gating order, confirmed from live code** (checked in
+this literal sequence): `mySlotState` (approved/submitted/completed)
+→ `applied || myApp?.status === 'pending'` → `hasWallet === false` →
+`profileComplete === false` → `showApplyForm` → default Apply button.
+**Correction to session-08's state map:** that doc describes the "real
+code" order as wallet → profile → apply → work → paid — inverted from
+what's actually in the live file. Doesn't change the ledger/timeline
+design (verify→profile→apply→work→paid is the right *journey*
+narrative for the UI, still stands), but the patch needs to replicate
+the literal branch order above, not session-08's description of it.
+
+**Facts to preserve on patch:** `Job`/`Application` field names and
+types; multi-worker derived values (`workerSlots`, `isMultiWorker`,
+`perSlotBudget`, `approvedCount`, `unfilledSlots`, `slotsAvailable`);
+`mySlotState`'s dual derivation (multi-worker reads `slot_status`,
+single-worker reads `status`); the exact API endpoints (`wallet-status`,
+`me/profile`, `my-application`, `submit-work`, `apply`, `rate`);
+`handleVerifyWallet`'s Pi SDK payment shape (0.01π, memo, the four
+named callbacks) verbatim.
+
+**Free to restyle, confirmed:** no dedicated CSS file exists for this
+screen — real code is 100% inline `style={{}}` plus bare global
+utility classNames (`card`, `btn btn-primary`, `badge badge-purple`,
+etc.), so there's no real stylesheet to fight; inline styles get
+replaced wholesale. The 🛡️ Sentinel banner is still literally present,
+unconditional, above both branches — confirms session 28's decision
+stands (generic "Wallet verified" wording only, no Sentinel mention).
+All emoji (🛡️✅📬🎉⭐👥) replaced per the existing SVG-icon convention.
+
+**Toolchain:** no test script, no lint script — `package.json` only
+has `dev`/`build`/`preview` (Vite + `tsc`). `npm run build` is the real
+post-patch verification gate, replacing the brace/paren-balance checks
+used on standalone files. No existing tests for `JobDetail.tsx` to
+break.
+
+**New real gap found — logged, not designed for yet (user decision:
+skip for this pilot, revisit later):** session-08's 11-state map
+predates the multi-worker fields entirely (no mention of `worker_slots`
+anywhere in it). Tracing the live logic now: the moment any one slot on
+a multi-worker job is approved, `handleApprove` flips `job.status` to
+`'in_progress'`. The worker-view Apply button disables unconditionally
+on `job.status !== 'open'` — it never checks `unfilledSlots`/
+`slotsAvailable`. So once a multi-worker job has its first approval, no
+new worker can ever apply again, even with slots still open — the
+button just reads "Job is in_progress," indistinguishable from a fully
+staffed job. This undercuts the owner-side "Close unfilled slots"
+feature's own premise (Section 9/11, already ✅ Done on the owner view),
+which only makes sense if workers could otherwise keep applying to
+remaining slots. Related, smaller instance of the same gap: a `pending`
+applicant whose slot gets closed via that owner feature never has their
+own application status touched (`handleCloseSlots` only increments
+`slots_closed`) — they'd sit in the "Application submitted, client will
+review" state indefinitely with no signal the opportunity has closed.
+Same bucket as session-08's "rejected has no UI state" gap and the
+BUG-10x log entries — a real product/backend gap, not something this
+redesign fixes. **Decision: skip for this pilot patch, revisit later**
+(logged here rather than folded into the pilot's scope).
+
+**Status:** sweep complete, pilot not yet patched into the real app.
+Design/patch work for Job Detail (worker view) can proceed from here.
 
 ### `total_earned` payload-shape flag — resolved (2026-08-15)
 
