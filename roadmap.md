@@ -2795,11 +2795,13 @@ Live-tested by the user in Pi Browser, two real bugs found:
    near-black text instead of the intended gold/butter accent.
    **Fixed:** added `.jdo textarea` (cream background, violet focus
    ring, matching `.hw-jdw`'s existing pattern) and
-   `color:var(--butter)` on the star buttons. **Note: the worker
-   view's `.hw-jdw` has the same missing-textarea/star-color gap,
-   not yet fixed** — that screen's already merged and live-verified
-   separately; flagged for a later standalone pass rather than
-   reopening Section 36.
+   `color:var(--butter)` on the star buttons. **Correction
+   (2026-08-16): the note originally here claimed `.hw-jdw` (worker
+   view) had the same missing-textarea/star-color gap, not yet
+   fixed. User checked the live worker view directly — it renders
+   fine, no gap exists there.** No patch needed; this was a
+   misread at write-time, not a real bug. Removed from the open-items
+   list (was Section 37/session-31 "Next session" item 3).
 
 Both fixes verified via hash-matched re-download → rebuild (267.73 kB)
 → commit (`955254a`) → push → redeploy → re-tested live, confirmed
@@ -2821,4 +2823,72 @@ match the design system. Standing candidate for next patch, agreed
 with the user: **`Layout.tsx`** (dark top nav + bottom tab bar),
 untouched by the redesign, visible on every screen including both Job
 Detail branches just shipped.
+
+## 38. Layout.tsx — pre-patch sweep (2026-08-16)
+
+Per Section 30's standing rule, full read of `Layout.tsx` done before
+any design work, via Termux:
+
+```
+cd ~/Piwork/frontend/src
+cat components/Layout.tsx
+grep -n "className\|style={{" components/Layout.tsx
+grep -n "^import" components/Layout.tsx
+find . -iname "*Layout*test*" -o -iname "*Layout*spec*"
+```
+
+**Note:** the `find` command as first run had a stray trailing `/`
+after `*spec*`, which triggered a shell warning
+(`-iname` pattern contains a path separator) and silently evaluated
+to false throughout — so it did not actually search anything. Needs
+a clean re-run (`find . -iname "*Layout*test*" -o -iname
+"*Layout*spec*"`) before we can say whether tests exist for this
+file. Not yet re-run.
+
+**Structural facts confirmed from the full read:**
+
+- `usePiConnection()` supplies `connected`, `user`,
+  `incompletePayment`. On mount/dependency-change: `POST
+  /api/auth/verify` with `accessToken`/`walletAddress`; on success,
+  stores `sessionToken` in `localStorage`, then (if
+  `incompletePayment` exists) fires a best-effort, fire-and-forget
+  `POST /api/payments/incomplete` cleanup call. All untouched —
+  logic to preserve as-is.
+- **Top nav gating:** Browse always renders regardless of
+  `connected`. Post Job, Dashboard, and `<NotificationBell/>` only
+  render when `connected`. The avatar link (→
+  `/profile/${user?.username}`) vs. a plain "Open in Pi Browser" text
+  node also swaps on `connected`.
+- **Bottom tab bar does NOT gate on `connected` at all** — Home,
+  Jobs, Post, Earnings all render unconditionally, logged in or out.
+  This is a real asymmetry against the top nav's gating and needs a
+  deliberate design decision (keep the asymmetry, or flag it as a
+  product question) — not something to silently paper over while
+  restyling.
+- `ContactSupport` (BUG-106 footer strip, `subject="General support
+  request"`) and `NotificationBell` are both imported and used
+  as-is — both already have canonical redesigned components from
+  earlier sections (Section 6/17/29 and Section 7 respectively).
+  This patch reuses them; does not rebuild them.
+- Styling mechanism: 100% inline `style={{}}` plus bare utility
+  classNames (`container`, `btn btn-ghost`) — same pattern as
+  `JobDetail.tsx`, no dedicated stylesheet to fight on patch.
+- **Old-theme CSS variable names in use here** (`--bg-card`,
+  `--border`, `--pi-purple-light`, `--pi-purple`, `--text-muted`) —
+  distinct from the redesign's token names (`--cream`, `--ink`,
+  `--violet`, `--violet-deep`, `--mint`, `--coral`, `--butter`,
+  `--line`, `--card`). Needs an explicit mapping decision on patch,
+  not a find-and-replace assumption.
+- Bottom tab icons are plain emoji (🏠🔍➕📊), not SVG — same
+  emoji-vs-SVG gap the roadmap already called out and fixed
+  elsewhere (Post Job categories, Section 9).
+
+**Still open before design work starts:** whether the shell's
+`segnav` pattern (Section 17) already represents a considered
+replacement for this real top-header-plus-bottom-tab-bar structure,
+or whether that decision needs revisiting now that this is a real
+patch rather than a standalone shell screen. Not resolved this
+session — flagged for whoever picks this up next.
+
+**Status:** sweep done, no patch written yet.
 
