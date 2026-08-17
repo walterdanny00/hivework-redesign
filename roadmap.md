@@ -2892,3 +2892,119 @@ session — flagged for whoever picks this up next.
 
 **Status:** sweep done, no patch written yet.
 
+
+## 39. Layout.tsx — patch built, shipped, live-verified (2026-08-16)
+
+Following Section 38's sweep, three real decisions were made before
+writing any code:
+
+- **Bottom-tab-bar/top-nav gating asymmetry:** resolved by adopting
+  the shell's binary connected model wholesale rather than
+  reconciling the two navs' gating logic separately. Confirmed:
+  the shell's `segnav` (Section 17) has no internal gating at all —
+  disconnected users see the full-page Landing screen and never
+  reach a `segnav` screen in the first place, per a standing decision
+  already recorded in a code comment above `hwLogout()`. This
+  resolves the asymmetry by removing the disconnected case from this
+  component's nav entirely, rather than making the tab bar match the
+  header's gating.
+- **Segnav vs. real header+tab-bar structure:** decided to replace
+  the real structure with the shell's `segnav` pattern outright,
+  not just restyle the existing two-nav layout.
+- **Enforcing the binary model at the route level:** swept `App.tsx`
+  and found no dedicated Landing route — `/` is a single `index`
+  route to `Home`, and `Home.tsx` has zero `connected` branching.
+  Building a real route guard across every route was scoped out as
+  its own future item (not part of this patch) — logged, not built.
+  `Layout.tsx` itself only assumes a connected user for its own nav
+  rendering; it doesn't block disconnected access to other routes.
+
+**Build:** `Layout.tsx` patched — header/bottom-tab-bar replaced
+with the `segnav` pattern; old CSS variables (`--bg-card`,
+`--border`, `--pi-purple`, `--pi-purple-light`, `--text-muted`)
+mapped to redesign tokens; emoji tab icons dropped for `segnav`'s
+text-label pattern; `useEffect` verify/cleanup logic, `ContactSupport`
+footer strip, and `NotificationBell` all preserved untouched.
+
+**Bug caught and fixed same session:** first build placed `segnav`
+`position: sticky; bottom: 16px` (floating at the bottom, closer to
+where the old tab bar sat) — wrong. User caught it from a live
+screenshot. Canonical shell CSS is `position: sticky; top: 0`,
+directly under the header, and the header itself is `position:
+relative` (not sticky) in the canonical pattern — both fixed,
+rebuilt, redeployed, and confirmed correct live.
+
+**Logout — investigated and closed as infeasible, not deferred:**
+question raised (disconnected state can't be live-tested without a
+way to log out). Swept `usePi.ts` — `usePiConnection` exposes no
+disconnect setter; state lives entirely inside the hook, set once on
+mount. Web research against the official Pi SDK reference confirmed
+the SDK's entire client method surface (`Pi.init`, `Pi.authenticate`,
+`Pi.createPayment`, `Pi.nativeFeaturesList`, `Pi.openShareDialog`,
+`Pi.openUrlInSystemBrowser`, `Pi.Ads`) has no logout/disconnect/
+deauthorize method at all — apps can request Pi auth but never
+revoke it. A local-only state reset was considered and rejected:
+it wouldn't survive a page refresh (`Pi.authenticate()` re-runs on
+mount and likely re-succeeds silently), so it would look like logout
+without being one. **No "Log out" menu item will be built.** The
+disconnected UI already shipped (header-only, "Open in Pi Browser")
+is not a stub waiting on logout — it's the real, permanent UI for
+"auth hasn't succeeded yet," which can recur for any user on any
+visit (outside Pi Browser, declined consent, `Pi.authenticate()`
+throwing) — not a first-timer-only state.
+
+**Status:** shipped (`8d13488` → `525d484` after the placement fix),
+build verified both times, **live-verified in Pi Browser — connected
+state confirmed working.** Disconnected state reviewed via code
+(same proven `connected ? ... : ...` conditional as before, just
+restyled) but not live-tested, since there's no logout path to
+reach it with an already-authenticated session — accepted as
+reviewed-not-live-verified given logout is now confirmed permanently
+unbuildable.
+
+## 40. Home.tsx + new Help.tsx — patch built, shipped (2026-08-16)
+
+Pre-patch sweep found real `Home.tsx` far short of the finished
+shell design — 3 of 5 shell Home features had no real backing at
+all (reputation stat, activity ticker, Help screen), discovered and
+resolved as separate decisions before building:
+
+- **Reputation stat:** feasible as real data. `Profile.tsx` already
+  calls `/api/users/${username}` live and returns `rating` +
+  `jobs_completed` for any username — Home reuses the same endpoint
+  for the connected user's own username. Only renders when
+  `connected`; this is Home's first-ever auth branch.
+- **7-category expansion:** real category system is only 3 values
+  everywhere (`PostJob.tsx`'s dropdown, `Jobs.tsx`'s filter chips) —
+  the shell's 7-category system is a redesign-only invention. Also
+  caught: shell's 3rd category value is `ui-ux-feedback`, which does
+  **not** match real code's `ui-feedback` — kept the real value to
+  avoid breaking the one category that already works. Decision:
+  ship all 7 on Home now, accept the 4 non-real categories as
+  correct-empty-state dead ends in Browse (not errors) until
+  `PostJob.tsx`/`Jobs.tsx` get a follow-up patch adding real support
+  for them — flagged as shared scope for whichever gets picked next.
+- **Activity ticker:** no real "recent platform activity" endpoint
+  exists. Shipped as clearly-flagged demo content (code comments),
+  same convention as the shell's own placeholder data.
+- **"Recommended for you":** also no real backing. Considered
+  showing the most recent real open job under that heading, but
+  ruled out — real personalization needs to be based on the user's
+  profile (skills, devices, application history), not recency. Left
+  as flagged demo content pending that future recommendation logic
+  (mechanics not yet designed).
+- **Help screen:** fully feasible, net-new. Home's inline "How it
+  works" block removed and moved into a new `/help` route
+  (`Help.tsx`) behind a ghost-row link, alongside a submission-guide
+  section and FAQ (FAQ flagged placeholder — no real support-content
+  source exists yet). `App.tsx` updated with the new route.
+
+**Build:** all three files (`Home.tsx`, new `Help.tsx`, `App.tsx`)
+hash-verified, `tsc && vite build` clean (57 modules, up from 56;
+283.14 kB, up from 268.21 kB — consistent with the added scope).
+
+**Status:** committed and pushed (`2f8dfc9`), build-verified,
+**live-verified in Pi Browser — confirmed working by the user.**
+Real screens still not patched: `Jobs.tsx` (Browse), `PostJob.tsx`,
+`Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`, `HistoryWork.tsx`,
+`HistoryJobs.tsx`, `HistoryWithdrawals.tsx`.
