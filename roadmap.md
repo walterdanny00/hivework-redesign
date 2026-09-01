@@ -3008,3 +3008,61 @@ hash-verified, `tsc && vite build` clean (57 modules, up from 56;
 Real screens still not patched: `Jobs.tsx` (Browse), `PostJob.tsx`,
 `Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`, `HistoryWork.tsx`,
 `HistoryJobs.tsx`, `HistoryWithdrawals.tsx`.
+
+## 41. Home.tsx greeting — live-verified; Render infrastructure split (2026-08-17)
+
+**Greeting confirmed live.** The personalized greeting added on top of
+the Home.tsx/Help.tsx patch (`8606e7d` — time-of-day kicker + real
+username, connected only, above the existing marketing hero text) was
+pushed but couldn't be tested right away — the backend was down for
+unrelated reasons (see below). Confirmed working correctly once the
+backend was back. This closes out Home.tsx/Help.tsx as fully
+live-verified, no open pieces remaining.
+
+**Render infrastructure — root cause found, fixed.** Testing the
+greeting surfaced the backend and signing service both appearing
+down (Dashboard/Browse failing to load, reputation stat silently
+missing). Traced to Render's free-tier 750-hour pool being exhausted
+mid-month — not a code issue. Root cause: the 750 hours are shared
+across every free service in one Render account, and are only
+consumed while a service is actually awake (auto-sleep after 15 min
+idle otherwise). Both `hivework backend` and the `signing service`
+were being kept continuously awake via an existing cron job (to
+avoid cold-start delays breaking Pi payment transactions — a real,
+serious failure mode, not just UX), which alone burns close to the
+full 750-hour budget per always-on service. With two services
+sharing one pool, combined consumption exhausted the budget in
+roughly half a month even with light two-tester traffic.
+
+Considered and ruled out: paying for Render's always-on tier (real
+cost to the user, ~$25+/mo, not available right now); dropping the
+keep-alive cron entirely (rejected — reintroduces the payment-failure
+risk this was solving); backend idempotency fix for the payment
+endpoints (real fix, correct long-term, but out of scope for now —
+user isn't ready to touch payment-critical code).
+
+**Decision:** split `backend` and `signing service` across two
+separate Render accounts, each getting its own 750-hour pool, both
+kept warm via their existing (now separately-targeted) cron jobs.
+Noted and accepted: Render's Acceptable Use Policy language on
+avoiding payment/usage restrictions via multiple accounts is a real,
+if low-probability, risk for this approach — user's call given no
+funds are currently available for the paid alternative.
+
+**Migration executed:** signing service redeployed to a new Render
+account (new URL: `https://piwork.onrender.com`, replacing
+`https://hivework-signing.onrender.com`); all env vars copied over.
+Backend's `SIGNING_SERVICE_URL` (referenced in
+`backend/src/lib/piPayments.ts:87`, used to call the signing
+service's `/payout` endpoint) updated to the new URL and redeployed.
+Confirmed via grep that the signing service's own copy of
+`SIGNING_SERVICE_URL` is dead/unused in its code — carried over
+from copying all env vars, doesn't affect behavior either way.
+Cron job for signing repointed to the new URL; backend's separate
+cron job unaffected (URL unchanged).
+
+**Tested end-to-end:** full payment cycle (post job → apply → submit
+→ approve → Pi released) run live in Pi Browser against the new
+split setup — confirmed working cleanly, no cold-start-related
+failure. Old signing service on the original account to be suspended
+(rollback safety window) then deleted once confirmed stable.

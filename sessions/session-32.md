@@ -69,3 +69,43 @@ last session) and `Home.tsx` + new `Help.tsx`.
   History screens all remain unpatched. `Jobs.tsx`/`PostJob.tsx`
   now also carry the deferred 3→7 category-system expansion as
   shared scope.
+
+## Addendum: greeting confirmed, Render infra split (2026-08-17)
+
+- Greeting (`8606e7d`) confirmed live and correct after initially
+  appearing broken — the real cause was the backend being suspended
+  (Render free-tier exhaustion), not a code issue. Home.tsx/Help.tsx
+  is now fully live-verified with no open pieces.
+- Root cause of the Render suspension: 750 free hours shared across
+  all services in one account, both `backend` and `signing service`
+  kept continuously awake by an existing cron job (needed to avoid
+  cold-start payment failures), which alone eats most of the budget
+  per service — with two sharing one pool, exhausted mid-month even
+  under light test traffic.
+- Considered paid always-on tier (not affordable right now) and
+  dropping the keep-alive cron (rejected — reintroduces real payment
+  failures). Decided to split `backend` and `signing service` across
+  two separate Render accounts instead, each with its own 750-hour
+  pool. Flagged Render's Acceptable Use Policy risk around multiple
+  accounts explicitly before proceeding — user's informed call given
+  no funds for the paid alternative.
+- Migration executed: signing service moved to a new account
+  (`https://piwork.onrender.com`), env vars copied, backend's
+  `SIGNING_SERVICE_URL` updated and redeployed, cron repointed.
+  Confirmed the signing service's own copy of that same env var is
+  unused in its code (grep came back empty) — harmless either way.
+- Full payment cycle tested end-to-end live in Pi Browser against
+  the new split setup — confirmed working. Old signing service to
+  be suspended then deleted once stability is confirmed over the
+  next few days.
+
+## Next session
+
+- Pick next real screen to patch: `Jobs.tsx`, `PostJob.tsx`,
+  `Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`, or the three
+  History screens all remain unpatched. `Jobs.tsx`/`PostJob.tsx`
+  still carry the deferred 3→7 category-system expansion as shared
+  scope.
+- Backend idempotency fix for payment approve/complete endpoints
+  remains a logged, not-yet-started item — would remove the need
+  for the cold-start keep-alive workaround entirely.
