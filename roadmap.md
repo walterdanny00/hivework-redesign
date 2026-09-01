@@ -80,9 +80,9 @@ Section 6/7/8's findings surfaced in the first place.
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). |
 | Home | `/` | ✅ Done | |
-| Browse | `jobs` | ✅ Done | |
+| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. |
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
-| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) | 4-step wizard (Basics/Details/Workers & Deadline/Review). Categories expanded 3→7, SVG icons (not emoji). Device/Language redesigned as searchable multi-select comboboxes. See Section 9. |
+| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen. Rows with a matching demo job click through to Job Detail (Section 23) — real `ApplicationCard.tsx` is always clickable, but only 1 of 6 demo rows has a matching demo job today. |
@@ -3005,9 +3005,10 @@ hash-verified, `tsc && vite build` clean (57 modules, up from 56;
 
 **Status:** committed and pushed (`2f8dfc9`), build-verified,
 **live-verified in Pi Browser — confirmed working by the user.**
-Real screens still not patched: `Jobs.tsx` (Browse), `PostJob.tsx`,
-`Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`, `HistoryWork.tsx`,
-`HistoryJobs.tsx`, `HistoryWithdrawals.tsx`.
+Real screens still not patched at this point: `Jobs.tsx` (Browse),
+`PostJob.tsx` (patched next session, see Section 42), `Dashboard.tsx`,
+`Profile.tsx`, `Onboarding.tsx`, `HistoryWork.tsx`, `HistoryJobs.tsx`,
+`HistoryWithdrawals.tsx`.
 
 ## 41. Home.tsx greeting — live-verified; Render infrastructure split (2026-08-17)
 
@@ -3066,3 +3067,104 @@ cron job unaffected (URL unchanged).
 split setup — confirmed working cleanly, no cold-start-related
 failure. Old signing service on the original account to be suspended
 (rollback safety window) then deleted once confirmed stable.
+
+## 42. Jobs.tsx (Browse) + PostJob.tsx — patch built, shipped, live-verified (2026-09-01)
+
+Picked up the shared scope logged at the end of session 32: the deferred
+3→7 category-system expansion, plus the two remaining screens carrying it.
+
+**Sweep found a real backend fact not previously logged:** grepped
+`backend/src/routes/jobs.ts` and found a real `GET /api/jobs/stats`
+endpoint already exists, returning live per-category open-job counts —
+but hardcoded to exactly 3 keys (`bug-testing`/`translation`/`ui-feedback`),
+silently skipping anything else (`if (counts[j.category] !== undefined)`).
+Also confirmed `POST /draft` has **no server-side category whitelist at
+all** — any string saves fine — but that doesn't make the shell's other 4
+categories real: `/stats`, the real Browse filter buttons, and the real
+`ICONS` map are all hardcoded to the same 3 values, so a job posted under
+one of the 4 shell-only categories would exist in the DB but be invisible
+to every real counting/filtering/display mechanism. This also reconfirmed
+`ui-feedback` (not `ui-ux-feedback`) as the real 3rd category value,
+already flagged as a naming mismatch back in session 32.
+
+**Decision (user-confirmed):** categories stay data-driven with a `real:
+true/false` flag per entry, not hardcoded per-value JSX — so flipping one
+of the 4 "coming soon" categories on later, once the backend catches up,
+is a one-line flag change, not a restructure. Post Job ships only the 3
+real categories as functional/selectable; the other 4 render as visible
+but disabled "Coming soon" tiles, same inert-but-visible convention as
+the owner-view Decline button (session 31). Browse wires its 3 real tiles
+to live counts from `/api/jobs/stats`; the 4 extra tiles stay flagged
+demo/zero, consistent with the Section 40 convention already established
+for Home's category teaser.
+
+### Jobs.tsx (Browse)
+
+Every real hook untouched — `load()`, the `category`-driven `useEffect`,
+`searchParams`/`navigate`, all byte-identical. One additive `useEffect`
+added for the live `/stats` fetch (independent of the job-list fetch,
+fails silently). Render-only changes: shell's tile-grid-with-icons
+pattern (SVG, not real code's emoji `ICONS`) replaces the pill filter
+row; cards moved to the shell's `rec-item` style but with the
+description snippet and applicant count added back in — real fields the
+shell's card design had dropped, restored since this is now a real-data
+patch, not a demo shell. Loading skeleton, error-retry, and empty states
+restyled to tokens, same states real code always had.
+
+**Build:** hash-verified, `tsc && vite build` clean (57 modules, 289.30
+kB, up from 268.21 kB). Diff: 206 insertions / 39 deletions.
+
+### PostJob.tsx
+
+Real logic kept fully intact: the `connected` gate and its "Pi Browser
+required" lock screen, all three other full-screen states (paying/done/
+error), `handlePayAndPost` and every one of its `window.Pi.createPayment`
+callbacks (`onReadyForServerApproval`/`onReadyForServerCompletion`/
+`onCancel`/`onError`), the exact `/api/jobs/draft` POST body shape,
+`PLATFORM_FEE_RATE`/`MIN_BUDGET`/`DESC_MAX`/`REQ_MAX` — byte-identical.
+
+Two real reconciliation decisions, both user-confirmed before building:
+
+- **Device/Language shape.** Real backend fields are single strings
+  (`device_required`/`language_required`). Shell's `PostJobCombobox` is a
+  multi-select array. Kept the multi-select UI; every selection change
+  now joins the array into one comma string and writes it straight into
+  `form.device_required`/`form.language_required` — same pattern
+  precedent as the submission composer's `composeSubmission` (structured
+  UI concatenated into one field for a real single-field constraint).
+  Everything downstream (validation, the draft POST, the review card)
+  still only ever sees a plain string, same as real code always sent.
+- **Step validation.** Real code validates everything once, at the old
+  flat form's single "Continue to Review" click. Patch validates
+  per-step instead (1: title/budget/min-budget, 2: description/
+  requirements, 3: multi-worker deadline rules) — stricter than real
+  code, but running the exact same checks real `handleReview` ran, just
+  distributed to the step where each field lives. Confirmed with the
+  user as the deliberate choice over exact-behavior-only mirroring.
+
+Flat form restructured into the shell's 4-step wizard (Basics/Details/
+Workers/Review) — pure UI reorg of the same fields, same restyle-not-new-
+logic standard as prior patches. Category grid uses the same data-driven
+3-real/4-disabled pattern as Jobs.tsx.
+
+**Build:** hash-verified, `tsc && vite build` clean (57 modules, 299.38
+kB, up from 289.30 kB after Jobs.tsx — consistent with the wizard's added
+scope). Diff (both files together): 648 insertions / 169 deletions.
+
+**Status:** both committed and pushed together (real-code phase — Piwork
+repo only, no `hivework-redesign` two-repo routine needed for this pair),
+build-verified, **live-verified in Pi Browser — confirmed working by the
+user** (Browse's 3 real tiles + counts, 4 disabled tiles, per-step
+validation blocking correctly, device/language chips surviving into
+Review, full pay-and-post cycle through to "Job posted!").
+
+Real screens still not patched: `Dashboard.tsx`, `Profile.tsx`,
+`Onboarding.tsx`, `HistoryWork.tsx`, `HistoryJobs.tsx`,
+`HistoryWithdrawals.tsx`.
+
+## Next session
+
+Pick next real screen: `Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`,
+or the three History screens. No more shared/deferred scope carried over
+from this pair — the 3→7 category question is now fully resolved and
+documented (Section 42), not just deferred.
