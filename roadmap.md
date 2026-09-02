@@ -3168,3 +3168,86 @@ Pick next real screen: `Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`,
 or the three History screens. No more shared/deferred scope carried over
 from this pair — the 3→7 category question is now fully resolved and
 documented (Section 42), not just deferred.
+## Section 43 — Dashboard.tsx patched into real code (2026-09-02)
+
+**Screen inventory update:** `Dashboard.tsx` moves from "not yet patched" to
+✅ shipped, live-verified. Shared components `WithdrawPanel.tsx`,
+`ApplicationCard.tsx`, `JobCard.tsx` restyled to redesign tokens in the same
+pass, since Dashboard renders all three directly.
+
+### Real gaps found in sweep, resolved this session
+- `earnings_pending` — real backend field (worker tab, sum of `approved`-status
+  application budgets), previously computed but never surfaced in the old UI.
+  **Decision: surfaced as a third stat pill ("Pending"), worker tab only.**
+- No real jobs-posted total existed anywhere in the backend — the `jobs` array
+  on the client tab is capped at `SUMMARY_LIMIT` (5) for the "See all" cutoff,
+  with no separate count field. **Decision: added a lightweight backend count
+  query** (`supabase.from('jobs').select('id', { count: 'exact', head: true
+  }).eq('client_id', user_id)`) rather than approximate or drop the number —
+  correctness over a shortcut. New response field: `jobs_posted_count`.
+- Shared components were still fully old-style (Pi-purple/gold theme,
+  `.badge-*` classes) despite rendering inside the newly-patched page.
+  **Decision: restyled all three now**, since leaving them old-style would
+  ship a visually split page, and it front-loads work the History screens
+  (`HistoryWork.tsx`, `HistoryJobs.tsx`) will need later — both reuse
+  `ApplicationCard`/`JobCard`.
+
+### Bug found + root cause (worth remembering for every future patch)
+First build/deploy shipped completely unstyled — plain stacked text, no card
+layout, no colors. Root cause: there is no shared stylesheet across pages.
+`index.css` (96 lines) is leftover old dark-theme scaffolding
+(`--pi-purple`/`--pi-gold`/`.badge-*`) and is not where the redesign lives.
+**Every real file patched into the new design embeds its own scoped
+`<style>{...}</style>` block**, copied in from the shell prototype, prefixed
+uniquely per file (`Layout.tsx` → `.hw-layout`, `JobDetail.tsx` → `.jdo`,
+`PostJob.tsx` → `.hw-post-job`). Dashboard.tsx's JSX referenced shell class
+names correctly but never got its own `<style>` block added — the classes
+existed in the design source, just not embedded in the file being patched.
+Fixed by adding a `.hw-dash`-prefixed scoped style block (full `:root` token
+redeclaration + all component rules) directly in `Dashboard.tsx`, matching
+the established per-file pattern exactly.
+
+**Standing rule going forward:** any newly-patched page needs its own
+embedded `<style>` block if it introduces classes not already used by a file
+still mounted on the page (e.g. `Layout.tsx`'s tokens are global once
+mounted, but page-specific classes are not). Check for this explicitly as a
+build step, not just a TS compile check — `tsc`/`vite build` will not catch
+missing CSS, only a live visual check will.
+
+### Also corrected
+Job status pill mapping was initially guessed as `open`/`escrow`/`closed`
+(borrowed from shell demo data) — real enum confirmed via `jobs.ts` sweep is
+`open` / `in_progress` / `completed`. Fixed before shipping; pill copy
+changed accordingly ("In progress" instead of "In escrow" — more accurate to
+what the status actually represents, since escrow custody spans the whole
+job lifecycle, not just the in-progress state).
+
+### Build
+Backend: `tsc` clean. Frontend: `tsc && vite build` clean, 303.88 kB
+(up from 298.00 kB baseline pre-Dashboard, consistent with the added
+per-file `<style>` block size).
+
+### Live-verified (Pi Browser, piwork-frontend.vercel.app/dashboard)
+Hero (total earned + identity), stat pills (Jobs done/posted, Rating,
+Pending), profile nudge, toggle, worker tab (withdraw panel + applications
+list + "See all"), client tab (jobs-posted count, escrow ticker gating,
+job cards with correct status pill + refund badge, refund withdraw panel
+gating). All confirmed working via screenshots.
+
+### Screen inventory status (post-Section 43)
+| Screen | Status |
+|---|---|
+| Layout.tsx | ✅ shipped, live-verified |
+| Home.tsx + Help.tsx | ✅ shipped, live-verified |
+| Job Detail (worker + owner) | ✅ shipped, live-verified |
+| Jobs.tsx (Browse) | ✅ shipped, live-verified |
+| PostJob.tsx | ✅ shipped, live-verified |
+| Dashboard.tsx | ✅ shipped, live-verified |
+| WithdrawPanel / ApplicationCard / JobCard (shared) | ✅ shipped, live-verified |
+| Profile.tsx | Not yet patched |
+| Onboarding.tsx | Not yet patched |
+| HistoryWork.tsx / HistoryJobs.tsx / HistoryWithdrawals.tsx | Not yet patched — but `ApplicationCard`/`JobCard`/`WithdrawPanel`'s own internal history list are now already restyled, so these three screens are lower-effort than before Section 43. |
+
+Next session: pick from Profile.tsx, Onboarding.tsx, or the three History
+screens — no shared scope forcing an order, though History screens are now
+the cheapest of the remaining set given the shared-component work already done.
