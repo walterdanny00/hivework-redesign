@@ -3653,12 +3653,58 @@ Every real screen now patched into `main` — this closes out the full
 redesign patching pass started in Section 30. See Section 1 for the
 updated table.
 
+## Section 48 — Full visual re-verification pass, in progress: legacy `index.css` theme found still live (2026-09-03, session 37)
+
+Started the re-verification pass session 36 left as an open decision.
+`Layout.tsx` and `Home.tsx` came back clean (see session-37.md for full
+detail; shell's profile-menu dropdown flagged as the stale side this
+time — real code is correct). Surfaced a real, unresolved, systemic bug
+in the process: **findings only, no fix applied this session.**
+
+### Loose ends from Section 47 closed out
+- `feature/side-menu` confirmed merged to `main` via `git branch
+  --merged main`.
+- `strokeWidth`-without-paired-`stroke` sweep (flagged session 35)
+  closed: `Jobs.tsx`/`PostJob.tsx` already fixed, `JobDetail.tsx`/
+  `Layout.tsx` never at risk, `Home.tsx` checked and clean.
+
+### Bug found: `index.css` never migrated off the pre-redesign dark theme
+`index.css`'s `:root` still holds the full old dark-theme token set
+(`--bg`, `--bg-card`, `--text-primary`, `--text-secondary`, `--border`,
+`--pi-purple` family) — none of which exist in the new system's tokens
+(`Layout.tsx`'s `:root`). Global classes still built on them: `.btn`,
+`.btn-primary`, `.btn-ghost`, `.card`, `.badge-*`, `.label`,
+`.form-group`, bare `input/textarea/select`. No double-background risk —
+`.hw-layout` paints `var(--cream)` over the body everywhere.
+
+Confirmed blast radius: `Home.tsx`'s `Post a Job` button (pale text on
+cream — real contrast bug), `JobDetail.tsx`'s Back button (falls outside
+its own `.hw-jdw` scoped override) and its bare open-slot `.label`, and
+`Profile.tsx`'s three bare `.card` divs (would render as dark boxes on
+the cream page — a background-color bug, not just contrast, and one that
+survived Section 47's "full restyle" of this exact file). `Jobs.tsx`,
+`PostJob.tsx`, `Dashboard.tsx`, `ContactSupport.tsx` confirmed as
+consumers too but not yet checked for their own scoped overrides.
+
+Fix direction (not yet built): retarget `index.css`'s tokens to the new
+system's values at the source, rather than scoping six per-file
+overrides — `index.css` is a genuine single global stylesheet, unlike
+the shell files or the rest of the page-scoped codebase. New-system
+token values pulled from `Layout.tsx` and on hand for next session.
+
+Full detail: see session-37.md.
+
 ## Next session
 
-No screens left in the original patch queue. Options for next time: a
-full visual re-verification pass across all patched screens against the
-shell (session 35's pattern already caught a few shell/real-code drifts
-even on "shipped" screens — worth doing once more now that everything's
-patched), or move on to net-new features/gaps flagged along the way
-(real logout, profile-menu settings items, anything else still marked
-open in Section 8/17). No due date set — open decision for the user.
+1. Fix the `index.css` legacy-token bug (Section 48) and re-check every
+   confirmed consumer renders correctly; finish checking `Jobs.tsx`,
+   `PostJob.tsx`, `Dashboard.tsx`, `ContactSupport.tsx` for scoped
+   overrides.
+2. Resume the re-verification pass at `Jobs.tsx` (Browse) next, per the
+   oldest-first order (`JobDetail.tsx` worker+owner, `Dashboard.tsx`,
+   History screens + `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`
+   still to go).
+3. Documentation-only: shell's stale profile-menu dropdown should
+   eventually reflect the hamburger pattern — not urgent.
+
+No due date set on any of the above — open decision for the user.
