@@ -3694,17 +3694,42 @@ token values pulled from `Layout.tsx` and on hand for next session.
 
 Full detail: see session-37.md.
 
+## Section 49 — `index.css` legacy-token bug fixed (2026-09-03, session 38)
+
+Retargeted `index.css`'s `:root` off the pre-redesign dark theme onto the
+new cream/ink/violet tokens (`--violet`/`--violet-deep` for primary +
+hover — matching the shell's own `.btn-primary:hover` convention exactly;
+`--cream`/`--card` for backgrounds; `--line`/`--ink`/`--ink-soft` for
+border/text). Pure value swap, no structural changes.
+
+Confirmed via scoped-`<style>`-block grep that `Jobs.tsx`, `PostJob.tsx`,
+`Dashboard.tsx`, and `ContactSupport.tsx` (left unconfirmed in Section 48)
+have no per-file override for these classes — all four were fully exposed
+and are now fixed by the source-level retarget alone, no per-file patch
+needed anywhere.
+
+One fix made beyond Section 48's explicit findings: `.badge-*` background
+tints were still opaque near-black values built for the old dark card
+background — replaced with light pastel tints of the corresponding new
+tokens so badges stay legible on cream.
+
+Build clean (`npx tsc && npx vite build`), bundle unchanged at 320.56 kB
+— pure CSS, no JS touched. Pushed to `main`. Live-verified in Pi Browser:
+`Home.tsx` Post-a-Job button, `JobDetail.tsx` Back button + open-slot
+label, `Profile.tsx`'s three cards, `Jobs.tsx`/`PostJob.tsx`/
+`Dashboard.tsx`/`ContactSupport.tsx` buttons, and `.badge-*` instances —
+all clean. Closes out the Section 48 bug entirely.
+
+Full detail: see session-38.md.
+
 ## Next session
 
-1. Fix the `index.css` legacy-token bug (Section 48) and re-check every
-   confirmed consumer renders correctly; finish checking `Jobs.tsx`,
-   `PostJob.tsx`, `Dashboard.tsx`, `ContactSupport.tsx` for scoped
-   overrides.
-2. Resume the re-verification pass at `Jobs.tsx` (Browse) next, per the
-   oldest-first order (`JobDetail.tsx` worker+owner, `Dashboard.tsx`,
-   History screens + `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`
-   still to go).
-3. Documentation-only: shell's stale profile-menu dropdown should
+1. Resume the visual re-verification pass at `Jobs.tsx` (Browse) next,
+   per the original oldest-first order (`Layout.tsx`/`Home.tsx` already
+   re-verified clean in session 37). Still to go after `Jobs.tsx`:
+   `PostJob.tsx`, `JobDetail.tsx` (worker+owner), `Dashboard.tsx`,
+   History screens + `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`.
+2. Documentation-only: shell's stale profile-menu dropdown should
    eventually reflect the hamburger pattern — not urgent.
 
 No due date set on any of the above — open decision for the user.
