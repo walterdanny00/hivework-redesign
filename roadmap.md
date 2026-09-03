@@ -85,9 +85,9 @@ Section 6/7/8's findings surfaced in the first place.
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
 | Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
-| History → Work | `history/work` | ✅ Done | Drill-in from Dashboard ("See all →"), not a nav-level screen. Rows with a matching demo job click through to Job Detail (Section 23) — real `ApplicationCard.tsx` is always clickable, but only 1 of 6 demo rows has a matching demo job today. |
-| History → Jobs | `history/jobs` | ✅ Done | Same — drill-in from Dashboard. Rows with a matching demo job click through to Job Detail (Section 23) — real `JobCard.tsx` is always clickable, 2 of 5 demo rows currently have a matching demo job. |
-| History → Withdrawals | `history/withdrawals` | ✅ Done | Same — drill-in from Dashboard |
+| History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. |
+| History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. |
+| History → Withdrawals | `history/withdrawals` | ✅ Done · ✅ **Patched into real `HistoryWithdrawals.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Previously duplicated `WithdrawPanel`'s row markup; now shares the new `WithdrawalRow.tsx` component with it instead. |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6, 17, and 29. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Two access points now live in both shells, both routing to the same centered modal (session 17/18): the Profile menu entry (shell invention — real app has no dropdown behind the avatar at all, Section 8) and the `.help-strip` footer (Section 29, BUG-106 parity — real `Layout.tsx`'s actual footer link, present on all 10 in-app screens). **Acknowledged functionally redundant, kept as-is (2026-08-14):** within the shell's binary connected model (no partial logged-out browsing state, Section 17 Part A), the profile menu is always reachable whenever the footer is, so the footer isn't covering a state the menu misses — they point at the same modal in the same situations. Section 29's original reasoning ("not duplicating one real thing twice") explained why this wasn't copying real code twice, but doesn't by itself establish the two serve different users; that's a separate, still-open question. Decided to leave both rather than drop either — not resolved on discoverability grounds, just not forced by this fact. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
@@ -3162,12 +3162,6 @@ Real screens still not patched: `Dashboard.tsx`, `Profile.tsx`,
 `Onboarding.tsx`, `HistoryWork.tsx`, `HistoryJobs.tsx`,
 `HistoryWithdrawals.tsx`.
 
-## Next session
-
-Pick next real screen: `Dashboard.tsx`, `Profile.tsx`, `Onboarding.tsx`,
-or the three History screens. No more shared/deferred scope carried over
-from this pair — the 3→7 category question is now fully resolved and
-documented (Section 42), not just deferred.
 ## Section 43 — Dashboard.tsx patched into real code (2026-09-02)
 
 **Screen inventory update:** `Dashboard.tsx` moves from "not yet patched" to
@@ -3248,6 +3242,252 @@ gating). All confirmed working via screenshots.
 | Onboarding.tsx | Not yet patched |
 | HistoryWork.tsx / HistoryJobs.tsx / HistoryWithdrawals.tsx | Not yet patched — but `ApplicationCard`/`JobCard`/`WithdrawPanel`'s own internal history list are now already restyled, so these three screens are lower-effort than before Section 43. |
 
-Next session: pick from Profile.tsx, Onboarding.tsx, or the three History
-screens — no shared scope forcing an order, though History screens are now
-the cheapest of the remaining set given the shared-component work already done.
+## Section 44 — History screens patched into real code (2026-09-02)
+
+Picked the three remaining History screens over Profile.tsx/Onboarding.tsx,
+since no shared scope forced an order and these were the cheapest of the
+remaining set — `ApplicationCard`/`JobCard`/`WithdrawPanel` were already
+restyled in Section 43, so `HistoryWork.tsx` and `HistoryJobs.tsx` only
+needed page chrome.
+
+### Real gaps found in sweep, resolved this session
+- **`HistoryWithdrawals.tsx` duplicated `WithdrawPanel`'s list logic**
+  instead of sharing it — its own inline `STATUS_STYLE` map, own
+  `shortAddr()`, still fully old-theme markup, while `WithdrawPanel`
+  (restyled Section 43) already had its own internal withdrawal-history
+  list on the same `/api/withdrawals` data. Same shape of issue as Section
+  43's `ApplicationCard`/`JobCard` duplication risk, just not yet fixed for
+  withdrawals specifically. **Decision: extracted a shared `WithdrawalRow.tsx`
+  component** (same precedent as `ApplicationCard`/`JobCard`), used by both
+  `WithdrawPanel.tsx` and `HistoryWithdrawals.tsx`.
+- **`JobCard`'s refund badge could never render on History → Jobs** —
+  `/api/history/jobs` didn't select a `refunded` field, while Dashboard's
+  client tab (same `JobCard` component) does show it. Same component,
+  silently different capability depending on which screen mounted it.
+  **Decision: fixed at the backend**, not the frontend — added real
+  `refunded` data to the route rather than hiding the badge conditionally
+  per-screen, so `JobCard` behaves identically everywhere it's mounted.
+
+### Bug caught before shipping — `refunded` is not a column
+First backend draft added `refunded` directly to `/api/history/jobs`'s
+`select()`, assuming it was a real column on `jobs` since Dashboard's
+client tab already displayed it. **It is not a column at all.** A
+user-run `grep -n "refunded" backend/src/routes/dashboard.ts` sweep showed
+it's computed in `dashboard.ts` by querying `balance_transactions`
+(`kind = 'refund'`, `worker_id = <client's own user id>` — the table is a
+generic ledger keyed by whoever gets credited, not literally "worker"),
+grouped by `job_id`, merged onto each job in JS. A direct column `select()`
+would have thrown a query error in production.
+
+Corrected `history.ts`'s `/jobs` route to replicate the same computation:
+pull the current page's `job_id`s, query `balance_transactions` scoped to
+those ids (`.in('job_id', jobIds)`), sum by `job_id`, merge onto each item.
+Scoped to just the current page rather than the client's full refund
+history (unlike `dashboard.ts`, which needs an all-jobs total for its
+budget tracker) — no such aggregate is needed here.
+
+**Verified against Supabase directly**, not just code inspection:
+- Confirmed `jobs` table genuinely has no `refunded` column.
+- Confirmed every `balance_transactions` refund row's `worker_id` matches
+  the corresponding job's `client_id` (10/10 sample rows) — the
+  `.eq('worker_id', user_id)` filter is filtering on the right identity.
+- Confirmed refunds land as **multiple rows per job**, not one row per job
+  (two test jobs had 4 refund transactions each, summing to 8π) — this is
+  why the fix `reduce`/accumulates rather than assumes a 1:1
+  job-to-refund-row relationship. A naive "take the first match"
+  implementation would have silently undercounted these exact jobs.
+
+### Also fixed — RangeFilter.tsx
+Shared by all three History pages. Old theme: `var(--pi-purple)` filled
+active state, `var(--radius-sm)` (6px), `var(--text-muted)`. Restyled to
+match Dashboard's `toggle-row`/`toggle-btn` pattern exactly — same track
+color (`#EFECE5`), same active treatment (white pill + soft shadow, not a
+solid violet fill; violet stays reserved for primary actions/amounts), same
+100px pill radius used everywhere else in the system.
+
+### Build
+Frontend: `tsc && vite build` clean, 58 modules, 307.92 kB (up from
+303.88 kB post-Dashboard baseline). Backend: `tsc` clean.
+
+(First build attempt reported `tsc: command not installed` — a Termux PATH
+issue, not a real problem; `npx tsc` resolved it correctly through the
+project's own `node_modules`. Commit/push had already happened before this
+was caught and re-verified after the fact — build gate held, but out of
+its usual order this session.)
+
+### Live-verified (Pi Browser, piwork-frontend.vercel.app)
+Refund panel + refund history list render correctly through the new shared
+`WithdrawalRow`. History → Jobs multi-refund badges confirmed showing the
+correctly summed total (8π across 4 transactions), not a single
+transaction's amount. History → Withdrawals confirmed visually matching
+`WithdrawPanel`'s own list. Filter pills, empty states, and page chrome
+confirmed working across all three screens.
+
+---
+
+## Section 45 — Missing font load fixed app-wide (2026-09-02)
+
+**Not a per-screen issue — root cause affected every already-shipped
+screen simultaneously.** Flagged by the user: bold text across the real
+app looked like faux/synthetic bold (thin, slightly slanted) rather than a
+true drawn bold weight — visible on Dashboard, History screens, anywhere
+`fontWeight:700+`/Sora headings appear. The shell (`hivework-app-v4-3.html`)
+never showed this, since it's a standalone file with its own `<head>`.
+
+**Root cause:** `frontend/index.html` — confirmed via
+`cat frontend/index.html` — had **no font loading at all**. No Google
+Fonts `<link>`, nothing. Every real-code page's
+`font-family:'Sora'/'Inter'/'JetBrains Mono'` was silently falling back to
+the device's system sans-serif, which synthesizes bold instead of using an
+actually-drawn bold weight — exactly the reported symptom.
+
+**Fix — one file, not a per-screen patch:** added the missing
+`<link rel="preconnect">` + Google Fonts `<link>` tags to
+`frontend/index.html`. Also widened the requested weight list beyond what
+the shell itself requests (`Inter:wght@400;500;600`) — real patched files
+use `fontWeight: 700` on Inter in several places (Withdraw button,
+`.hw-loadmore`, etc.) that would still have faux-bolded even after adding
+the link tag if left uncovered. Final weight list:
+`Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700`.
+
+### Build
+`tsc && vite build` clean; `dist/index.html` grew 0.69 kB → 1.01 kB
+(new `<link>` tags only), JS/CSS bundle sizes unchanged.
+
+### Live-verified
+Confirmed on Dashboard (known screen, direct before/after comparison
+available via prior screenshots) — headings and bold UI text now render
+as genuine heavy weights, not synthetic/slanted fallback bold.
+
+---
+
+## Section 46 — Browse screen visual fixes: icons, tile design, withdraw card (2026-09-02)
+
+Three related but separate real bugs surfaced from user screenshots of the
+actual real app (not the shell) — each traced to its exact root cause
+before fixing, not guessed at.
+
+### Fix 1 — Browse category icons weren't rendering at all
+`Jobs.tsx`'s `CATEGORIES` icon SVGs (`fill="none"`, `strokeWidth`,
+`strokeLinecap`/`strokeLinejoin` all set) never had an actual `stroke`
+*color* set anywhere — not inline, not in `BROWSE_STYLES`. With no stroke
+color, `strokeWidth` has nothing to apply to and every path is invisible.
+The `.t-icon` badge box itself rendered fine (correct size/background),
+which is why it looked like an empty gray/cream placeholder square rather
+than a missing element. **Fix:** one CSS rule added,
+`.hw-browse .t-icon svg{display:block;stroke:currentColor;}` — no JSX/icon
+markup changes needed, the icons were already correctly built.
+
+### Fix 2 — WithdrawPanel never used the shell's actual dark balance-card design
+Confirmed via shell sweep: `.balance-card` is `background:var(--ink)`,
+white text, with a radial violet glow overlay
+(`radial-gradient(circle,rgba(108,92,231,.4),transparent 70%)`) — this is
+the actual design source for both the earnings and refund withdraw panel
+variants. What shipped in Section 43 used a plain white
+`background:'var(--card)'` card instead — a different, lighter treatment
+that was never the intended design, not a later regression. **Fix:**
+rebuilt `WithdrawPanel.tsx`'s card against the shell's exact spec — dark
+ink background, radial glow, full text-color hierarchy
+(`#fff`/`#B4B1BC`/`#8B889A`), `rgba(255,255,255,.12)` input field. Same
+component serves both variants, so this fixed both places it mounts
+(Dashboard worker tab "Available balance" and client tab "Refunded
+balance") in one change.
+
+### Fix 3 — Browse tile layout/color didn't match the shell at all
+Initial diagnosis (before Fix 1's stroke fix) was mistaken for a
+"missing icon" issue; after icons rendered correctly, the deeper mismatch
+became clear via user screenshot comparison against the shell: Browse
+tiles were built as a horizontal row (icon-left, text-right) with a cream
+icon badge and violet icon color — the shell's actual tile is a **vertical
+card** (icon on top, name/count below, fixed 104px height), with **no
+icon badge at all** (bare icon sitting directly on the tile background,
+dark `var(--ink)` stroke), and a **rotating pastel background per tile
+position** (`nth-child(7n+1)` through `+7`: pink/gold/mint/lavender/blue,
+cycling). Selected state also differs — shell uses an inset violet ring
+(`box-shadow:inset 0 0 0 1.5px var(--violet)`), not a background swap.
+
+Confirmed via a side-by-side preview before touching real code, then user
+approved a full match to the shell. Additionally discovered the shell has
+**no dimming at all** for "coming soon" (disabled) tiles — no
+`.tile.disabled` rule exists in the shell's CSS; every tile renders at
+full color regardless of `real`/`coming soon` status. Original real-code
+`.tile.disabled{opacity:.55}` was dropped to match, flagged as a minor
+trade-off (loses a visual non-interactive hint, though the click-guard
+logic still correctly blocks taps on disabled tiles).
+
+**Fix:** rebuilt `BROWSE_STYLES`' `.tile`/`.t-icon`/`.t-name`/`.t-count`
+rules to the shell's exact spec — pure CSS change, no JSX restructuring
+needed, since the existing two-child JSX structure (icon div, then
+name+count div) naturally restacks vertically once `.tile` switches from
+`flex-direction:row` to `column`.
+
+### Build
+All three fixes: `tsc && vite build` clean across each incremental push
+(308.22 kB after Fixes 1+2, further build confirmed clean after Fix 3).
+
+### Live-verified (Pi Browser, piwork-frontend.vercel.app/jobs)
+User-confirmed via screenshot: real bug/globe/monitor/compass icons now
+render inside tile badges. Dark violet-glow balance card confirmed
+matching shell reference on Dashboard. Browse tiles confirmed rebuilt to
+vertical-card layout with correct rotating pastel colors across all 7
+categories, "coming soon" tiles at full color (not faded), inset ring on
+selected tile.
+
+### Fix 4 — Post Job category icons, same root cause as Fix 1
+Caught by the user in a follow-up screenshot after Fix 1 shipped:
+`PostJob.tsx`'s `CATEGORIES` array uses the near-identical icon-SVG pattern
+as `Jobs.tsx` (`fill="none"`, `strokeWidth` set, no `stroke` color anywhere)
+and `POST_JOB_STYLES` had no `.cat-opt svg{stroke:...}` rule either — exact
+same bug as Fix 1, in a second file that happens to share the same icon
+convention. Confirmed against the shell's own rule for this element
+(`.hivework-post-job .cat-opt svg{stroke:var(--ink-soft);}` /
+`.selected svg{stroke:var(--violet-deep);}`) before fixing, rather than
+reusing Browse's `currentColor` approach — Post Job's unselected/selected
+icon colors are two distinct static colors in the shell, not a single
+`color` property inherited by both states.
+
+**Fix:** two CSS lines added to `POST_JOB_STYLES`, no JSX/layout changes:
+```
+.hw-post-job .cat-opt svg{display:block;flex-shrink:0;stroke:var(--ink-soft);}
+.hw-post-job .cat-opt.selected svg{stroke:var(--violet-deep);}
+```
+
+**Worth remembering:** two files now confirmed to share this exact
+missing-stroke pattern (`Jobs.tsx`, `PostJob.tsx`) because both independently
+copied the same icon-SVG convention from the shell without also copying the
+shell's accompanying stroke rule. If any other file reuses this icon
+pattern, worth a quick `grep strokeWidth` check for a missing paired
+`stroke` rule before assuming it's fine, rather than waiting for another
+screenshot to catch it.
+
+### Build
+`tsc && vite build` clean.
+
+### Live-verified (Pi Browser, piwork-frontend.vercel.app/post-job)
+User-confirmed via screenshot: unselected category icons render in muted
+gray, selected category icon (Bug Testing, default selection) renders in
+violet, matching the shell's intended treatment.
+
+
+| Screen | Status |
+|---|---|
+| Layout.tsx | ✅ shipped, live-verified |
+| Home.tsx + Help.tsx | ✅ shipped, live-verified |
+| Job Detail (worker + owner) | ✅ shipped, live-verified |
+| Jobs.tsx (Browse) | ✅ shipped, live-verified — icon/tile/color fixes this session |
+| PostJob.tsx | ✅ shipped, live-verified — icon-stroke fix this session |
+| Dashboard.tsx | ✅ shipped, live-verified — balance-card fix this session |
+| WithdrawPanel / ApplicationCard / JobCard / WithdrawalRow (shared) | ✅ shipped, live-verified |
+| HistoryWork.tsx / HistoryJobs.tsx / HistoryWithdrawals.tsx | ✅ shipped, live-verified |
+| `frontend/index.html` (font loading, app-wide) | ✅ fixed, live-verified |
+| Profile.tsx | Not yet patched |
+| Onboarding.tsx | Not yet patched |
+
+## Next session
+
+Only two real screens remain: `Profile.tsx` and `Onboarding.tsx`. No
+shared scope between them — either order works. Given this session's
+pattern (screenshot-driven fixes catching shell/real-code mismatches even
+on already-"shipped" screens), worth a quick visual re-check of earlier
+screens against the shell too if time allows, not just building the two
+remaining ones.
