@@ -78,12 +78,12 @@ Section 6/7/8's findings surfaced in the first place.
 |---|---|---|---|
 | Landing | `/` (logged out) | ✅ Done · ✅ Recompiled (JSX) | Nav "Get started" + hero CTAs route into the Wallet Connect flow with intent (`find`/`post`/`none`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). In `HiveworkApp.jsx`, this is now the shell's actual entry screen (`screen="landing"` default), rendered full-page without the persistent header/segnav. |
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
-| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). |
+| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. |
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
-| Profile | `profile/:username` | ✅ Done | Reached via avatar menu, not segnav (intentional) |
+| Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. |
 | History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. |
@@ -614,6 +614,15 @@ later implementation pass.
   errors. JSX only brace/paren/bracket-balance checked (net-zero), same
   limitation noted every session this file has been touched — still no
   JSX build/lint tool available in this sandbox.
+
+**Correction (2026-09-03, Session 36):** this section's title and the
+"wiring pass" above describe the standalone shell demo only — that was
+always shell-only invention, never real code. The real `Layout.tsx`
+avatar (patched Section 39) is and always was a plain `NavLink` straight
+to `/profile/:username`, no dropdown, no menu component anywhere in
+`frontend/src`. Session 36 replaced the avatar's need for a popup menu
+with a hamburger side-menu instead (Section 47) — see that section for
+what's actually live now (Help, Contact Support, Log out).
 
 ---
 
@@ -2027,9 +2036,19 @@ the workflow is proven on a reconciled screen.
    preserve (data shape, routing, business logic) vs. what we're free to
    restyle.
 
-**Branch discipline:** work on a feature branch, never `main` — nothing
-done so far has needed this, since nothing touched the real repo before
-now.
+**Branch discipline (revised 2026-09-03, Session 36):** the original
+blanket rule here was "work on a feature branch, never `main`." In
+practice, every patch session since 34 pushed straight to `main` and
+that's what deployed each time — the written rule and actual practice
+had diverged. Corrected policy: **branch only for genuinely new/risky
+patterns** (a new UI pattern, something that touches every page,
+payment/auth flow, or anything worth previewing before it's live);
+**low-risk restyles of already-reconciled screens go straight to
+`main`**, matching what's actually been happening. Also factored in: no
+Vercel CLI access on this Termux setup (`npx vercel ls` → invalid
+token), so branched work has no preview URL anyway — verification
+always means merging to `main` first, so branching only pays off when
+there's something to gain by delaying the merge.
 
 **Push workflow change, from this phase on:** real patches to
 `~/Piwork/frontend/src/` push to the Piwork repo only. The
@@ -3480,14 +3499,166 @@ violet, matching the shell's intended treatment.
 | WithdrawPanel / ApplicationCard / JobCard / WithdrawalRow (shared) | ✅ shipped, live-verified |
 | HistoryWork.tsx / HistoryJobs.tsx / HistoryWithdrawals.tsx | ✅ shipped, live-verified |
 | `frontend/index.html` (font loading, app-wide) | ✅ fixed, live-verified |
-| Profile.tsx | Not yet patched |
-| Onboarding.tsx | Not yet patched |
+| Profile.tsx | ✅ shipped, live-verified — canonical form patch + full restyle, Section 47 |
+| Onboarding.tsx | ✅ shipped, live-verified — canonical form patch + page chrome, Section 47 |
+| Combobox.tsx (shared, new) | ✅ shipped, live-verified — extracted from `PostJob.tsx`'s local `PJCombobox`, Section 47 |
+| formOptions.ts (shared, new) | ✅ shipped — `DEVICE_OPTIONS`/`LANGUAGE_OPTIONS` single source of truth, Section 47 |
+| Layout.tsx hamburger side-menu | ✅ shipped, live-verified — Help/Contact Support/Log out, Section 47 |
+
+---
+
+## Section 47 — Profile.tsx + Onboarding.tsx patched into real code; hamburger side-menu added (2026-09-03, session 36)
+
+Picked up the last two real screens in the original patch queue,
+`Profile.tsx` and `Onboarding.tsx`. A new hamburger side-menu in
+`Layout.tsx` was also built mid-session, at the user's request, after
+live-verification of the Profile patch showed the avatar no longer
+needed to carry a popup menu.
+
+### Correction to the roadmap going in
+Session 35's "Next session" note (previously at the end of this file)
+said "no shared scope between them — either order works." That was
+wrong. A full sweep of the real `Profile.tsx` showed it imports
+`ProfileForm` directly from `./Onboarding` — the form isn't a separate
+file, it's defined inside `Onboarding.tsx` and exported. Patching either
+screen's form necessarily touches the other's source file. (Reflected
+in the `onboarding` row of the Screen Inventory table, Section 1.)
+
+### Real gap found in sweep: two inconsistent shell designs for the same form
+The compiled shell (`hivework-app-v4-3.html`) has two different,
+disagreeing implementations of the profile form:
+- **Canonical**, `hivework-profile-complete.html` (Section 3/10,
+  already reconciled) — required skills as a type-to-add chip input,
+  devices/languages as a searchable combobox, bio with a 200-char
+  counter.
+- **v4-3's inline Profile-edit mode** (`renderProfileScreen()`) — a
+  simpler fixed toggle-chip list of preset skills, bio only, no devices
+  or languages fields at all.
+
+Since the real `ProfileForm` is one component serving both `Profile.tsx`
+edit mode and the real `Onboarding.tsx`, decision was to patch the
+shared form once to the canonical design rather than build the
+incomplete v4-3 version and redo it later. This also meant finishing
+`Onboarding.tsx`'s own page chrome in the same pass — leaving it
+half-styled would have reproduced the exact "referenced classes, no
+`<style>` block" bug from Section 43.
+
+### Built
+- **`frontend/src/components/Combobox.tsx`** (new) — extracted from
+  `PostJob.tsx`'s local `PJCombobox` (Section 42) so the devices/
+  languages picker isn't duplicated a second time. Class names kept
+  unchanged (`pj-combo`/`chip-row`/`chip-outline`/`pj-combo-list`/
+  `pj-combo-opt`) — every host page still declares its own matching
+  CSS, same no-shared-stylesheet convention as the rest of the codebase
+  (Section 43).
+- **`frontend/src/lib/formOptions.ts`** (new) — `DEVICE_OPTIONS` and
+  `LANGUAGE_OPTIONS`, single source of truth now shared by `PostJob.tsx`
+  and `ProfileForm`, instead of the ~40-language list living in two
+  places.
+- **`frontend/src/pages/PostJob.tsx`** — swapped its local `PJCombobox`
+  function and local option arrays for imports from the two files
+  above. No visual or behavioral change; pure dedup.
+- **`frontend/src/pages/Onboarding.tsx`** — `ProfileForm` rebuilt to
+  the canonical design (chip-input skills, shared `Combobox` for
+  devices/languages, bio counter). Page wrapper (`Onboarding()`)
+  finished to match — icon header, kicker copy, own scoped
+  `.hw-onboarding` style block.
+- **`frontend/src/pages/Profile.tsx`** — full restyle: violet-gradient
+  cover, big avatar, stat-pills, level/trust chip pills (brought in
+  line with Dashboard's already-shipped chip convention, Section
+  32/33 — previously plain colored text), edit toggle wired to the new
+  `ProfileForm`, skills/devices/languages tag display, reviews wired to
+  real `ratings` fetch data (was already real data, just restyled).
+  Loading skeleton and not-found states restyled to tokens too.
+
+One deliberate design call: the shell's `chip-pioneer` variant
+(transparent + soft border) is built for a light card background. On
+Profile's violet gradient cover it would be unreadable, so it got a
+translucent-white treatment specific to that context — each page can
+define its own variant, consistent with the no-shared-stylesheet
+pattern.
+
+### Bug found post-deploy, fixed same session
+Live-verification (screenshot) showed typed text in the skills
+chip-input and bio textarea was invisible — present, just uncolored.
+Root cause: `Combobox`'s `<input>` had an explicit `color:var(--ink)`
+in its CSS rule, but the skills chip-input and bio `<textarea>` rules
+didn't, so they inherited an unreadable ambient color instead. Fixed in
+both `Profile.tsx` and `Onboarding.tsx`'s scoped style blocks. Pushed
+straight to `main` (low-risk, patches already-live code) — see the
+revised branch-discipline rule, Section 30.
+
+### Branch discipline — policy correction
+See Section 30 (updated 2026-09-03): the old "work on a feature branch,
+never `main`" rule didn't match actual practice since session 34,
+corrected to branch only for genuinely new/risky patterns.
+
+### New: hamburger side-menu in `Layout.tsx`
+Came up mid-session — live-verification of the Profile patch showed the
+avatar no longer needed to double as a popup-menu trigger (its old
+"View profile"/"Edit profile" items are redundant now that Edit lives
+on the profile page itself). Also surfaced a stale roadmap claim:
+Section 8 said the profile-menu is "wired," but that only ever
+described the standalone shell demo — the real `Layout.tsx` avatar
+(patched Section 39) is and always was a plain `NavLink` to
+`/profile/:username`, no dropdown, no menu component anywhere in
+`frontend/src`. Correction added to Section 8 directly.
+
+Built new, branched (`feature/side-menu`) since this is the first
+drawer/overlay nav pattern in the app and touches every page via
+`Layout.tsx`:
+- Hamburger icon (three horizontal lines, not dots — explicit user
+  preference) left of the logo, opens a slide-in panel (backdrop +
+  animated panel, no new dependency).
+- Panel contents: **Help** (existing `/help` route), **Contact
+  Support** (reuses the existing `ContactSupport` component — already
+  globally available via the footer `.hw-support-strip`, so this
+  duplicates an entry point for discoverability rather than filling a
+  new gap), **Log out** (connected-only).
+
+**Logout is a partial fill, documented as such, not a full fix.** Real
+gap per Section 8: no backend session-invalidation endpoint exists, and
+Pi Browser owns the actual Pi-level session — this app only ever stores
+its own `sessionToken` locally via `usePiConnection()`. What "Log out"
+actually does: clears `localStorage.sessionToken`, closes the menu, and
+force-reloads to `/`. It does **not** guarantee Pi Browser itself
+forgets the user — `usePiConnection()`'s `Pi.authenticate()` call may
+silently re-auth on the next mount if Pi Browser still has an active
+session. Same documented compromise the shell's `hwLogout()` already
+used; not a new gap, just now real and live instead of a shell
+placeholder.
+
+### Build
+```
+npx tsc && npx vite build
+```
+Clean both times — no errors. Bundle grew 307.92 kB → 317.82 kB
+(Profile/Onboarding patch) → 320.56 kB (side-menu), 58 → 60 modules
+(two new files: `Combobox.tsx`, `formOptions.ts`).
+
+### Live-verified (Pi Browser, piwork-frontend.vercel.app)
+- `/profile/:username` — cover gradient, level + trust chips readable,
+  stat pills, Edit toggle
+- Edit mode — skills chip-input, devices/languages combobox, bio
+  counter, Save/Cancel — **text color bug caught here, fixed same
+  session**
+- Non-own profile — no Edit button
+- `/onboarding` — page chrome styled correctly, not bare
+- Hamburger menu — opens/closes (backdrop + ✕), Help navigates,
+  Contact Support expands inline, Logout only shown when connected,
+  header/segnav/avatar unaffected
+
+### Screen inventory status (post-Section 47)
+Every real screen now patched into `main` — this closes out the full
+redesign patching pass started in Section 30. See Section 1 for the
+updated table.
 
 ## Next session
 
-Only two real screens remain: `Profile.tsx` and `Onboarding.tsx`. No
-shared scope between them — either order works. Given this session's
-pattern (screenshot-driven fixes catching shell/real-code mismatches even
-on already-"shipped" screens), worth a quick visual re-check of earlier
-screens against the shell too if time allows, not just building the two
-remaining ones.
+No screens left in the original patch queue. Options for next time: a
+full visual re-verification pass across all patched screens against the
+shell (session 35's pattern already caught a few shell/real-code drifts
+even on "shipped" screens — worth doing once more now that everything's
+patched), or move on to net-new features/gaps flagged along the way
+(real logout, profile-menu settings items, anything else still marked
+open in Section 8/17). No due date set — open decision for the user.
