@@ -3722,14 +3722,64 @@ all clean. Closes out the Section 48 bug entirely.
 
 Full detail: see session-38.md.
 
+## Section 50 — Re-verification pass continued: `Jobs.tsx` clean, `PostJob.tsx` step-indicator drift found (2026-09-03, session 39)
+
+Continued the pass from Section 48/49 in oldest-first order.
+
+**`Jobs.tsx` (Browse): clean, no bug.** Bare `.btn-primary`/`.btn-ghost`
+(Post-a-Job, Try-again) confirmed rendering correctly now that
+`index.css`'s retargeted tokens (Section 49) were visually diffed
+against `Layout.tsx`'s `:root` and found byte-identical. `strokeWidth`-
+without-`stroke` pattern on all 7 category-tile SVGs safely covered by
+`.hw-browse .t-icon svg{stroke:var(--ink);}`. Roadmap-described
+features (3 real categories w/ live counts, 4 disabled "Coming soon"
+tiles, restored description snippet + applicant count on cards) all
+confirmed present.
+
+Two documentation-only notes, no fix needed: (1) unlike other screens,
+Browse has no standalone canonical `HiveworkJobs.jsx`/`hivework-jobs.html`
+— it only ever existed inside the compiled shell; (2) shell's demo data
+uses category value `ui-ux-feedback`, real code correctly uses
+`ui-feedback` (matches backend) — same stale-shell pattern as the
+profile-menu dropdown (Section 48).
+
+**`PostJob.tsx`: clean on tokens, one real design-fidelity finding.**
+Same token/stroke checks as `Jobs.tsx` passed clean, and all
+roadmap-described wizard behavior (per-step validation, real 3-of-7
+category gating, combobox-to-string sync, full payment-state flow)
+confirmed present.
+
+New finding — **wizard step-indicator doesn't match canonical**:
+real `PostJob.tsx`'s `.wizard-track`/`.wz-dot` CSS has no connecting
+line between steps at all (canonical has a `:after` pseudo-element
+line that fills violet as steps complete), and its "active"/"done"
+dot fills are inverted from canonical — real code fills the *active*
+dot solid violet and the *done* dot solid **mint**; canonical instead
+leaves the active dot as an outlined ring (violet border, no fill) and
+fills only the done dot, in violet not mint. Not a token bug (both
+sides use only defined system tokens) — a genuine unreconciled visual
+divergence in how progress is communicated, likely built to an earlier
+version of the pattern before canonical settled. No fix applied this
+session — flagged for a decision on which version to standardize on.
+
+Same `ui-ux-feedback`-vs-`ui-feedback` documentation-only mismatch
+noted here too (shell side, not real code).
+
+Full detail: see session-39.md.
+
 ## Next session
 
-1. Resume the visual re-verification pass at `Jobs.tsx` (Browse) next,
-   per the original oldest-first order (`Layout.tsx`/`Home.tsx` already
-   re-verified clean in session 37). Still to go after `Jobs.tsx`:
-   `PostJob.tsx`, `JobDetail.tsx` (worker+owner), `Dashboard.tsx`,
-   History screens + `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`.
-2. Documentation-only: shell's stale profile-menu dropdown should
-   eventually reflect the hamburger pattern — not urgent.
+1. Continue the visual re-verification pass at `JobDetail.tsx`
+   (worker + owner views) next, per the oldest-first order. Still to
+   go after that: `Dashboard.tsx`, History screens + `WithdrawalRow`,
+   `Profile.tsx`/`Onboarding.tsx`.
+2. Decide how to resolve the `PostJob.tsx` wizard step-indicator
+   drift found in Section 50 (adopt canonical's outlined-active/
+   violet-done pattern, or keep real code's filled-active/mint-done
+   and update canonical instead) — no fix applied yet either way.
+3. Documentation-only, still open: shell's stale profile-menu
+   dropdown should eventually reflect the hamburger pattern; shell's
+   `ui-ux-feedback` category value vs real code's `ui-feedback` could
+   be renamed in canonical for consistency. Neither urgent.
 
 No due date set on any of the above — open decision for the user.
