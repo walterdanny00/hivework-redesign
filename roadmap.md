@@ -80,7 +80,7 @@ Section 6/7/8's findings surfaced in the first place.
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | |
-| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. |
+| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged, neither fixed yet (queued).
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background left as an open question — see Section 53, no canonical value exists anywhere (Profile: `--cream`, Onboarding: `--card`, `PostJob.tsx`'s own `.pj-combo` block: no background rule at all). |
@@ -3935,14 +3935,47 @@ Pushed (`fix: correct swapped cream/card tokens on ProfileForm fields in
 Profile.tsx`), deployed, live-verified by the user: profile edit mode now
 matches Onboarding's shade — confirmed good.
 
+## Section 54 — Session 43 (2026-09-04): Browse (`Jobs.tsx`/`JobCard.tsx`) re-verified clean
+
+Continued the oldest-first re-verification sweep to Browse, since Landing
+/ Wallet Connect remain on hold — no way currently exists to actualize a
+real logged-out state to verify against, so those two stay pending rather
+than being force-checked.
+
+Pulled `Jobs.tsx` in full, plus `JobCard.tsx` for coverage per the
+"sweep before designing" standing rule, plus a `grep` on `stats` to
+confirm category/count wiring hadn't drifted. **No missing-class bug**
+(the failure mode from session 41's History screens) — every class the
+JSX renders is declared in `Jobs.tsx`'s own `BROWSE_STYLES` block.
+`JobCard.tsx` turned out not to be rendered by Browse at all (its own
+docstring confirms it's shared by Dashboard/`HistoryJobs.tsx` only) —
+Browse uses its own inline `rec-item` markup, consistent with the
+existing Section 1 note that Browse's cards restored the description
+snippet + applicant count the shell's `rec-item` style had dropped.
+
+Two minor findings, neither fixed this session (deferred to batch
+passes): (1) dead CSS — `.cat-empty` in `BROWSE_STYLES` is unused, the
+real empty state renders under `.empty-state`; (2) tokenization gap —
+tile-row backgrounds (`#FFE8E5`/`#FFF3DC`/`#E4F8F6`/`#F3E8FF`/`#E8F0FF`)
+are hardcoded hex, same pattern already flagged for `HistoryWork.tsx`/
+`HistoryJobs.tsx`/`RangeFilter.tsx` — follow-up tokenization queue is now
+four files. `grep -n "stats" frontend/src/pages/Jobs.tsx` confirmed
+`/api/jobs/stats` is called exactly once, matching the documented
+3-real/4-coming-soon category split — no drift.
+
+**With Landing / Wallet Connect on hold, the oldest-first
+re-verification sweep is now out of remaining candidates** — Dashboard,
+all 3 History screens + shared components, Profile/Onboarding, and now
+Browse have all been reverified.
+
 ## Next session
 
 1. Open design question, no canonical answer exists: should `.pj-combo
    input` have a background at all, and if so `--cream` or `--card`?
    (Section 53). Needs a decision, not a silent fix.
-2. Continue the oldest-first re-verification sweep to the next
-   not-yet-reverified screen (Landing / Wallet Connect / Browse are the
-   remaining candidates — confirm order before starting).
+2. Landing / Wallet Connect re-verification remains blocked — no way
+   found yet to actualize a real logged-out state to test against.
+   Revisit if/when that becomes possible.
 3. Black-rectangle glitch: explained, not fixed — `WithdrawPanel.tsx`'s
    loading skeleton is a plain unstyled bar; worth a design pass
    (shimmer/shape) if picked up, otherwise no functional issue remains.
@@ -3951,9 +3984,13 @@ matches Onboarding's shade — confirmed good.
    worker-view dead-CSS-and-attachments items (Section 51) — none fixed
    yet, no due dates set.
 5. Tokenize hardcoded hex literals to `:root` custom properties:
-   `HistoryWork.tsx`/`HistoryJobs.tsx` (session 41) and now also
-   `RangeFilter.tsx` (session 42) — same follow-up pass, three files.
-6. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+   `HistoryWork.tsx`/`HistoryJobs.tsx` (session 41), `RangeFilter.tsx`
+   (session 42), and now also `Jobs.tsx`'s tile-row backgrounds (session
+   43) — same follow-up pass, four files.
+6. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
+   dead CSS (unused). Safe to remove whenever the tokenization pass
+   touches this file.
+7. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
