@@ -4066,28 +4066,68 @@ field-surface convention`. **Push confirmed clean by the user.**
 
 Full detail: see session-45.md.
 
+## Section 57 — Session 46 (2026-09-04): WithdrawPanel loading-skeleton fixed
+
+Picked up the open item carried from Section 56 (session 45): the
+`WithdrawPanel.tsx` loading-skeleton black-rectangle glitch (explained
+session 41, not fixed).
+
+Per the standing sweep-before-designing rule, pulled `components/
+WithdrawPanel.tsx` directly first. Found two problems, not one: the
+skeleton had **no animation at all** (a single static bar at 12% white
+opacity on a dark card — barely reads as a shape at that opacity with no
+motion), and a **padding mismatch** (`padding:16` vs. the real loaded
+card's `padding:26`), causing a visible layout shift the instant data
+loaded in.
+
+Grepped for an existing shimmer/skeleton convention before designing a
+new one: found `hw-pulse-skel` in `Jobs.tsx` (`.skel-bar`, opacity
+1→0.5, 1.4s ease-in-out infinite) and `hwPulse` in `Home.tsx` (same
+shape, has a `prefers-reduced-motion` guard) — both locally-scoped
+per-file `@keyframes`, no shared global animation file.
+
+**Fix:** matched the real card's `padding:26`; replaced the single bar
+with three bars shaped to echo the real content (label → balance number
+→ pill input/button row); added the `hw-pulse-skel`-style animation
+(same name/timing/easing as `Jobs.tsx`) via a `.wp-skel-bar` class in a
+local `<style>` block; added the `prefers-reduced-motion` guard per
+`Home.tsx`'s precedent.
+
+Patch script, backup + unique-anchor-check convention. Anchor matched
+exactly once; diff reviewed clean — exactly the one intended change.
+`npx tsc` clean; `npm run build` clean: `326.61 kB` JS (up from session
+45's `325.70 kB`, expected — two more skeleton bars plus inline
+`<style>` block) / `2.38 kB` CSS unchanged (inline JS-embedded style, not
+`index.css`).
+
+Pushed to the Piwork repo: `fix: animate WithdrawPanel loading skeleton
+(was static, wrong padding causing layout shift) — matches existing
+hw-pulse-skel convention from Jobs.tsx`. **Push confirmed clean by the
+user. Live spot-check (Withdraw screen while loading) confirmed the
+shimmer looks right.**
+
+Full detail: see session-46.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Black-rectangle glitch: explained, not fixed — `WithdrawPanel.tsx`'s
-   loading skeleton is a plain unstyled bar; worth a design pass
-   (shimmer/shape) if picked up, otherwise no functional issue remains.
-3. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
+2. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
    and the `JobDetail.tsx` owner-view ledger-connector /
    worker-view dead-CSS-and-attachments items (Section 51) — none fixed
    yet, no due dates set.
-4. Open question (Section 55): `--cream`/`--line`/`--mist`/`--sand`
+3. Open question (Section 55): `--cream`/`--line`/`--mist`/`--sand`
    are 4 very close near-white warm-grays — worth a follow-up pass to
    decide if any should merge, or if the layering is intentional.
-5. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
+4. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
    dead CSS (unused). Safe to remove whenever this file is touched next.
-6. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+5. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
-Tokenization (Section 55) and the `.pj-combo input` background question
-(Section 56) are both now **closed**.
+Tokenization (Section 55), the `.pj-combo input` background question
+(Section 56), and the WithdrawPanel loading-skeleton glitch (Section 57)
+are all now **closed**.
 
 No due date set on any of the above — open decision for the user.
