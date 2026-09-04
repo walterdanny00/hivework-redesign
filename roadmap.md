@@ -85,8 +85,8 @@ Section 6/7/8's findings surfaced in the first place.
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
-| History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. |
-| History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. |
+| History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
+| History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals (not yet tokenized to `:root` vars) flagged for a follow-up pass. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done · ✅ **Patched into real `HistoryWithdrawals.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Previously duplicated `WithdrawPanel`'s row markup; now shares the new `WithdrawalRow.tsx` component with it instead. |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6, 17, and 29. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Two access points now live in both shells, both routing to the same centered modal (session 17/18): the Profile menu entry (shell invention — real app has no dropdown behind the avatar at all, Section 8) and the `.help-strip` footer (Section 29, BUG-106 parity — real `Layout.tsx`'s actual footer link, present on all 10 in-app screens). **Acknowledged functionally redundant, kept as-is (2026-08-14):** within the shell's binary connected model (no partial logged-out browsing state, Section 17 Part A), the profile menu is always reachable whenever the footer is, so the footer isn't covering a state the menu misses — they point at the same modal in the same situations. Section 29's original reasoning ("not duplicating one real thing twice") explained why this wasn't copying real code twice, but doesn't by itself establish the two serve different users; that's a separate, still-open question. Decided to leave both rather than drop either — not resolved on discoverability grounds, just not forced by this fact. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
 | Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
@@ -3807,20 +3807,85 @@ to `z-index:30`). Both confirmed clean via live screenshot.
 
 Full detail: see session-40.md.
 
+## Section 52 — `Dashboard.tsx` re-verified (black-rectangle glitch explained), `HistoryWork.tsx`/`HistoryJobs.tsx` unstyled-card bug fixed (2026-09-04, session 41)
+
+Continued the re-verification pass at `Dashboard.tsx` — clean sweep across
+`Dashboard.tsx`, `WithdrawPanel.tsx`, `ApplicationCard.tsx`, `JobCard.tsx`:
+no orphan classes, no unscoped tokens, no dead code. No standalone
+canonical file exists for Dashboard (same pattern as Browse) — it only
+ever lived inside the compiled shell (`HiveworkApp.jsx`'s embedded
+`WithdrawPanel` function / `hivework-app-v4-3.html`'s Earnings screen), so
+the shell itself served as the reference.
+
+**Session 40's black-rectangle glitch explained, not a persistent bug:**
+traced to `WithdrawPanel.tsx`'s own independent fetch/loading state, which
+renders unconditionally at the top of `WorkerView` before the applications
+section — a plain unstyled `background:'var(--ink)'` bar (no shimmer, no
+shape hinting at the real balance-card layout). Confirmed as a real but
+one-time loading flash, consistent with the user's own note that it wasn't
+reliably reproducible. Not fixed (design-polish item, not a functional
+bug). Two other apparent shell-vs-real differences (third "Pending"
+stat-pill, `WithdrawPanel`'s self-contained history list vs. the shell's
+separate "Withdrawals" section) confirmed as documented deliberate
+real-code evolutions past the shell (Sections 43/44) — not gaps.
+
+**New bug found and fixed — `HistoryWork.tsx`/`HistoryJobs.tsx` shipped
+fully unstyled:** continuing the sweep to History screens + `WithdrawalRow`
+per the standing order, neither file's own `<style>` block declares the
+classes their rendered children need — `HistoryWork.tsx` renders
+`<ApplicationCard>` (`.hist-row`/`.hist-sub`/`.hist-sub.pos`/`.hist-amt`),
+`HistoryJobs.tsx` renders `<JobCard>` (`.job-post-row`/`.jp-top`/`.jp-amt`/
+`.jp-status-row`/`.jp-applicants`/`.jp-refund-badge`/`.status-pill` +
+variants). Those classes exist today only inside `Dashboard.tsx`'s
+embedded `<style>` block, which unmounts along with `Dashboard` on
+navigation — same root cause as Section 43's original "shipped fully
+unstyled" incident, but here affecting every "See all →" click, not an
+edge case. `HistoryWithdrawals.tsx` is the control case: it already
+redeclares `.hist-row`/`.status-pill` itself, citing Section 43's standing
+rule in its own comment — whoever patched the other two in the same
+session missed applying that rule to them. Confirmed live before fixing:
+flat text, no cards, no borders, no color coding, no amount styling on
+both routes.
+
+Fixed by copying the missing rules 1:1 from `Dashboard.tsx`'s existing
+declarations into each file's own `<style>` block (reprefixed
+`.hw-histwork`/`.hw-histjobs`), following `HistoryWithdrawals.tsx`'s exact
+precedent. Applied via a Python patch script (backup + anchor-uniqueness
+check, refuses to touch anything ambiguous) rather than manual editing, at
+the user's request to avoid risky manual nano edits. Both patches applied
+cleanly, diffs confirmed clean single-block insertions right after each
+file's `.skel-pill` rule, nothing else touched. Build clean (`npx tsc &&
+npx vite build`, dist bumped to 324.97 kB total). Pushed, deployed, and
+live-verified on both `/history/work` and `/history/jobs`: bordered rows,
+mono-font amounts, status pills, refund badges all render correctly.
+Committed: `frontend/src/pages/HistoryWork.tsx` +
+`frontend/src/pages/HistoryJobs.tsx`.
+
+**Minor, not fixed this session:** both files hardcode hex literals
+(`#1B1A1F`, `#5643D9`, `#E7E3DA`, `#6B6874`, `#FFFFFF`) instead of `:root`
+custom properties — values are correct but breaks from the tokenized
+pattern `HistoryWithdrawals.tsx` (and every other patched file) uses.
+Flagged for a follow-up tokenization pass, same trip.
+
+Full detail: see session-41.md.
+
 ## Next session
 
-1. Continue the visual re-verification pass at `Dashboard.tsx` next, per
-   the oldest-first order. Still to go after that: History screens +
-   `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`.
-2. **Unresolved from this session's live-testing:** a solid black rounded
-   rectangle appeared on Dashboard's "My Work" tab, under the toggle row,
-   above "No applications yet." — not yet confirmed as a persistent bug or
-   a one-time loading flash. Re-check needed.
+1. Finish the History-screens sweep: pull and diff `WithdrawalRow.tsx` and
+   re-confirm `HistoryWithdrawals.tsx` (requested but not completed this
+   session — session ended on doc updates instead). Then continue
+   oldest-first to `Profile.tsx`/`Onboarding.tsx`.
+2. Black-rectangle glitch: explained, not fixed — `WithdrawPanel.tsx`'s
+   loading skeleton is a plain unstyled bar; worth a design pass
+   (shimmer/shape) if picked up, otherwise no functional issue remains.
 3. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
    and the `JobDetail.tsx` owner-view ledger-connector /
    worker-view dead-CSS-and-attachments items (Section 51) — none fixed
    yet, no due dates set.
-4. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+4. Tokenize `HistoryWork.tsx`/`HistoryJobs.tsx`'s hardcoded hex literals to
+   `:root` custom properties, matching the pattern every other patched
+   file uses.
+5. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
