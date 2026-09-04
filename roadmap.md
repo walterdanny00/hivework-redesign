@@ -3767,19 +3767,61 @@ noted here too (shell side, not real code).
 
 Full detail: see session-39.md.
 
+## Section 51 — `JobDetail.tsx` re-verified, `--text-muted`/`--pi-gold` fixed, `NotificationBell.tsx` fully patched (2026-09-04, session 40)
+
+Continued the re-verification pass at `JobDetail.tsx` (worker + owner
+views) — clean on tokens/behavior, per-view design confirmed against
+canonical. New finding: two unscoped inline-style tokens
+(`var(--text-muted)`, `var(--pi-gold)`) resolving to nothing, missed by
+prior sessions' scoped-`<style>`-block grep checks. Two open
+design-fidelity items logged, not fixed: owner-view Slots ledger missing
+canonical's connector line; worker-view `.entry-time` dead CSS + simplified
+attachments vs. canonical.
+
+**`--text-muted`/`--pi-gold` fix:** traced to 3 files / 8 call sites
+(`NotificationBell.tsx`, `JobDetail.tsx`, `Dashboard.tsx`). Both were real
+pre-redesign tokens dropped (not migrated) in session 38's retarget —
+confirmed via `index.css.bak`. Fixed as `:root` aliases
+(`--text-muted: var(--ink-soft)`, `--pi-gold: #B8860B`), same bridge
+convention as `--safe`/`--caution`/`--danger`. Build clean, live-verified.
+Added `frontend/src/index.css.bak` to `.gitignore` (separate commit).
+
+**`NotificationBell.tsx`: discovered never actually patched to canonical
+at all** — still plain emoji icon, full-width fixed-position strip, and
+three more undefined legacy tokens (`--bg-card`, `--border`, `--text`).
+`--bg-card` being undefined was the direct cause of a live bug the user
+found: the panel rendered fully transparent, page scrollable underneath.
+Full patch applied — canonical's `HiveworkNotificationBell.jsx` design
+ported onto real data/hooks (polling, mark-all-read, navigate-on-click
+untouched), with tokens scoped to `.hnb-wrap` (not canonical's bare
+`:root`, avoiding a Bug-Fix-Log-#8/#9-class risk) and `formatTime()`
+rewritten for real `created_at` timestamps instead of canonical's demo
+`minsAgo`.
+
+Live-test after the patch found two more bugs, both fixed same session:
+panel clipped off the left edge of the screen (wrong anchor point — fixed
+via `position:fixed` + viewport-relative width), and panel rendering
+underneath the nav bar (`.hw-header`'s `z-index:5` lost to `.hw-segnav`'s
+`z-index:8` inside its own stacking context — fixed by raising the header
+to `z-index:30`). Both confirmed clean via live screenshot.
+
+Full detail: see session-40.md.
+
 ## Next session
 
-1. Continue the visual re-verification pass at `JobDetail.tsx`
-   (worker + owner views) next, per the oldest-first order. Still to
-   go after that: `Dashboard.tsx`, History screens + `WithdrawalRow`,
-   `Profile.tsx`/`Onboarding.tsx`.
-2. Decide how to resolve the `PostJob.tsx` wizard step-indicator
-   drift found in Section 50 (adopt canonical's outlined-active/
-   violet-done pattern, or keep real code's filled-active/mint-done
-   and update canonical instead) — no fix applied yet either way.
-3. Documentation-only, still open: shell's stale profile-menu
-   dropdown should eventually reflect the hamburger pattern; shell's
-   `ui-ux-feedback` category value vs real code's `ui-feedback` could
-   be renamed in canonical for consistency. Neither urgent.
+1. Continue the visual re-verification pass at `Dashboard.tsx` next, per
+   the oldest-first order. Still to go after that: History screens +
+   `WithdrawalRow`, `Profile.tsx`/`Onboarding.tsx`.
+2. **Unresolved from this session's live-testing:** a solid black rounded
+   rectangle appeared on Dashboard's "My Work" tab, under the toggle row,
+   above "No applications yet." — not yet confirmed as a persistent bug or
+   a one-time loading flash. Re-check needed.
+3. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
+   and the `JobDetail.tsx` owner-view ledger-connector /
+   worker-view dead-CSS-and-attachments items (Section 51) — none fixed
+   yet, no due dates set.
+4. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+   real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
+   category-value naming mismatch. Neither urgent.
 
 No due date set on any of the above — open decision for the user.
