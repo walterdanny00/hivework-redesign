@@ -80,16 +80,16 @@ Section 6/7/8's findings surfaced in the first place.
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | |
-| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged, neither fixed yet (queued).
+| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background left as an open question — see Section 53, no canonical value exists anywhere (Profile: `--cream`, Onboarding: `--card`, `PostJob.tsx`'s own `.pj-combo` block: no background rule at all). |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
-| History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals (not yet tokenized to `:root` vars) flagged for a follow-up pass. |
+| History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals **tokenized to `:root` vars in Section 55**. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done · ✅ **Patched into real `HistoryWithdrawals.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Previously duplicated `WithdrawPanel`'s row markup; now shares the new `WithdrawalRow.tsx` component with it instead. |
 | Contact Support | *(no route — reusable component, not a screen)* | ✅ Done | See Section 6, 17, and 29. `ContactSupport.tsx` — inline expanding widget (link → form), not a modal. Canonical: `HiveworkContactSupport.jsx` — reusable component, used with contextual `subject` props matching Layout, Job Detail (×2), Post Job. Two access points now live in both shells, both routing to the same centered modal (session 17/18): the Profile menu entry (shell invention — real app has no dropdown behind the avatar at all, Section 8) and the `.help-strip` footer (Section 29, BUG-106 parity — real `Layout.tsx`'s actual footer link, present on all 10 in-app screens). **Acknowledged functionally redundant, kept as-is (2026-08-14):** within the shell's binary connected model (no partial logged-out browsing state, Section 17 Part A), the profile menu is always reachable whenever the footer is, so the footer isn't covering a state the menu misses — they point at the same modal in the same situations. Section 29's original reasoning ("not duplicating one real thing twice") explained why this wasn't copying real code twice, but doesn't by itself establish the two serve different users; that's a separate, still-open question. Decided to leave both rather than drop either — not resolved on discoverability grounds, just not forced by this fact. Post Job's payment-error anchor was logged as a gap here; **fixed 2026-08-12 (Section 18 follow-up)** — see below. **Neither `HiveworkRangeFilter.jsx` nor `HiveworkContactSupport.jsx` was actually uploaded to the session that did the step-6 wiring — both were reconstructed from the spec already in memory, not ported from the real canonical files.** Worth diffing the shells' versions against the real canonical files next time either is uploaded. |
-| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. |
+| Range Filter | *(no route — shared component on the 3 History pages)* | ✅ Done · ✅ Recompiled (JSX + HTML) | See Section 7. `HiveworkRangeFilter.jsx` — segmented "This week/This month/All", calendar-based not rolling. Wired into all 3 History screens in both shell files as of the step-6 recompile pass (2026-08-09) — this required making `hivework-app-v4-3.html`'s History screens data-driven, since they'd been static markup before. Now also drives pagination reset — see Section 13. Same reconstructed-not-ported caveat as Contact Support above applies here too. Real `RangeFilter.tsx`'s hardcoded hex (Section 53) **tokenized in Section 55**. |
 | Notification Bell | *(no route — component in Layout, header-level)* | ✅ Done · ✅ Recompiled (JSX) | See Section 7. Corrected: `HiveworkNotificationBell.jsx` — own dropdown panel, decoupled from the avatar/profile menu, real unread badge (caps "9+"), mark-all-read on open, tap-to-navigate. In `HiveworkApp.jsx` this fix (bell/avatar decouple) is live; sample notification data, not the real component file verbatim. |
 
 **Shell recompile status (2026-08-09):** both `HiveworkApp.jsx` and
@@ -3968,6 +3968,63 @@ re-verification sweep is now out of remaining candidates** — Dashboard,
 all 3 History screens + shared components, Profile/Onboarding, and now
 Browse have all been reverified.
 
+## Section 55 — Session 44 (2026-09-04): Tokenization pass — status-pill/pill-track/tile-row colors, 11 files
+
+Picked up the tokenization item carried from Sections 52-53. Started
+scoped to the 4 files already flagged (`HistoryWork.tsx`,
+`HistoryJobs.tsx`, `RangeFilter.tsx`, `Jobs.tsx`), but investigation blew
+the scope open before any patch was written.
+
+None of the 4 files declare their own `:root` block — raw hex throughout.
+`HistoryWithdrawals.tsx`'s existing local `:root` redeclaration led to the
+real global source: `~/Piwork/frontend/src/index.css`. `--pi-gold`
+(`#B8860B`) already existed there but was never referenced via `var()`.
+The real finding: the status-pill/pill-track trio —
+`#FFF3DC`/`#B8860B` (pending), `#E4F8F6`/`#1A9E92` (open/verified),
+`#F1EFEA`/`#6B6874` (closed) — plus `#EFECE5` (pill-track bg) repeats
+untokenized across **11 files**, not 4: `Layout.tsx`, `Home.tsx`,
+`Jobs.tsx`, `JobDetail.tsx` (worker + owner), `Dashboard.tsx`,
+`Profile.tsx`, `HistoryJobs.tsx`, `HistoryWithdrawals.tsx` (hardcoded even
+inside its own `:root`-bearing file), `HistoryWork.tsx`, `RangeFilter.tsx`.
+No existing token matched any of these (`--mint` `#2EC4B6` is close to but
+not `#1A9E92`). **User decision: expand to all 11 files, name new
+tokens.**
+
+8 new tokens added to `index.css`'s `:root`: `--pi-gold-tint` (`#FFF3DC`),
+`--teal` (`#1A9E92`), `--teal-tint` (`#E4F8F6`), `--mist` (`#F1EFEA`),
+`--sand` (`#EFECE5`), `--coral-tint` (`#FFE8E5`), `--violet-tint`
+(`#F3E8FF`), `--sky-tint` (`#E8F0FF`). Flagged, not resolved: `--cream`
+(`#F7F5F1`), `--line` (`#E7E3DA`), `--mist`, and `--sand` are four very
+close near-white warm-grays — could be intentional layering or drift; not
+merged, just named.
+
+Patch applied via the standing backup + unique-anchor-check Python script
+convention. **Bug hit and fixed:** `index.css`'s anchor line
+(`--pi-gold: #B8860B;`) stayed a substring of its own replacement, so a
+second script run still passed the "matches exactly once" check and
+duplicated the 8 new token lines (16 insertions instead of 8). Caught via
+`git diff`, fixed with `sed -i '35,42d' index.css`, re-checked clean.
+Terminal-scrollback truncation also bit the first diff-review attempt
+(hunks missing/duplicated in the paste) — worked around by writing
+patch/diff output straight to files instead of relying on live scrollback.
+
+Full 11-file diff reviewed hunk-by-hunk: every change a clean hex →
+`var(--token)` swap, nothing else touched — `Home.tsx`'s unrelated
+`.hw-status-pill.paid{#EFEAFB}` correctly left alone (out of scope);
+`RangeFilter.tsx`'s swap correctly kept quoted JS string syntax
+(`'var(--sand)'`) for its inline `style={{}}` usage. `npx tsc` clean.
+`npm run build` clean: `325.40 kB` JS / `2.38 kB` CSS (up from session
+41's `324.97 kB`/`2.23 kB` — expected, longer `var()` strings vs. short
+hex, not a red flag).
+
+Pushed to the Piwork repo (real code, `frontend/src/` only):
+`refactor: tokenize status-pill/pill-track/tile-row colors to CSS custom
+properties across 11 files`. **Push confirmed clean by the user.
+Live spot-check (Dashboard status pills, Browse tile colors, Job Detail
+owner status chips) confirmed good.**
+
+Full detail: see session-44.md.
+
 ## Next session
 
 1. Open design question, no canonical answer exists: should `.pj-combo
@@ -3983,15 +4040,18 @@ Browse have all been reverified.
    and the `JobDetail.tsx` owner-view ledger-connector /
    worker-view dead-CSS-and-attachments items (Section 51) — none fixed
    yet, no due dates set.
-5. Tokenize hardcoded hex literals to `:root` custom properties:
-   `HistoryWork.tsx`/`HistoryJobs.tsx` (session 41), `RangeFilter.tsx`
-   (session 42), and now also `Jobs.tsx`'s tile-row backgrounds (session
-   43) — same follow-up pass, four files.
+5. New open question (Section 55): `--cream`/`--line`/`--mist`/`--sand`
+   are 4 very close near-white warm-grays — worth a follow-up pass to
+   decide if any should merge, or if the layering is intentional.
 6. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
-   dead CSS (unused). Safe to remove whenever the tokenization pass
-   touches this file.
+   dead CSS (unused). No longer bundled with the tokenization pass since
+   that's now done (Section 55) — safe to remove whenever this file is
+   touched next.
 7. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
+
+Tokenization (previously item 5 on this list, across 4 files) is now
+**closed** — completed in Section 55 across all 11 files found to need it.
 
 No due date set on any of the above — open decision for the user.
