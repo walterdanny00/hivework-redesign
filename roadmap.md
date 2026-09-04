@@ -83,7 +83,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. |
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
-| Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. |
+| Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background left as an open question — see Section 53, no canonical value exists anywhere (Profile: `--cream`, Onboarding: `--card`, `PostJob.tsx`'s own `.pj-combo` block: no background rule at all). |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
 | History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals (not yet tokenized to `:root` vars) flagged for a follow-up pass. |
@@ -3869,23 +3869,91 @@ Flagged for a follow-up tokenization pass, same trip.
 
 Full detail: see session-41.md.
 
+## Section 53 — History-screens sweep closed out (`WithdrawalRow.tsx`/`RangeFilter.tsx` clean); `Profile.tsx`/`Onboarding.tsx` re-verified, swapped cream/card tokens fixed (2026-09-04, session 42)
+
+Closed out the item carried from session 41: pulled `WithdrawalRow.tsx` —
+clean. Every class it renders (`.hist-row`, `.hist-row h4`, `.hist-sub`,
+`.status-pill` + `.open`/`.closed` variants) is already declared in
+`HistoryWithdrawals.tsx`'s local `<style>` block (which already cites the
+Section 43 standing rule in its own comment), and its inline styles
+(`var(--violet-deep)`, `var(--coral)`) are both defined in that same
+file's local `:root` redeclaration. Also pulled `RangeFilter.tsx` (used by
+`HistoryWithdrawals.tsx`) for full coverage per the "sweep before
+designing" standing rule — logic is clean, but it hardcodes raw hex
+(`#EFECE5`, `#FFFFFF`, `#1B1A1F`, `#6B6874`) instead of `var(--...)`
+tokens, the same tokenization gap already flagged for
+`HistoryWork.tsx`/`HistoryJobs.tsx` — now a third file queued for that
+follow-up pass. **History-screens sweep is fully done.**
+
+Continued oldest-first to `Profile.tsx`/`Onboarding.tsx` (both already
+patched live in Section 47 — this was a regression/token-fidelity
+check). **Bug found:** `Profile.tsx`'s `PROFILE_STYLES` and
+`Onboarding.tsx`'s `ONBOARDING_STYLES` both independently declare CSS for
+the shared `ProfileForm` component (host-supplied-CSS pattern, correctly
+followed on both sides structurally) — but 3 of the shared `.pf-*` rules
+have their background tokens exactly inverted between the two files:
+`.pf-field textarea` and `.pf-skills-box` (`--cream` in Profile vs.
+`--card` in Onboarding), and `.pf-chip` (`--card` in Profile vs. `--cream`
+in Onboarding). Same `ProfileForm`, different shade depending on whether
+you're editing your profile or completing onboarding for the first
+time — not a documented deliberate choice.
+
+Checked the canonical shell's `.hwpc-*` rules (compiled reference for
+this screen, ported from `HiveworkProfileComplete.jsx`) to settle which
+side was right: `textarea`/skills-box on `--card`, chip on `--cream`.
+`Onboarding.tsx` matches canonical exactly; `Profile.tsx` had it
+backwards on all 3.
+
+A 4th candidate divergence — `.pj-combo input` background (`--cream` in
+Profile vs. `--card` in Onboarding) — could **not** be resolved the same
+way: that class doesn't exist in `hivework-app-v4-3.html` at all, so
+`Combobox.tsx` (the shared component, confirmed to carry no styling of
+its own — host page's `<style>` block governs, same convention as the
+rest of the codebase) and `PostJob.tsx`'s own `.pj-combo` CSS block (the
+component's original source, per `Combobox.tsx`'s extraction comment)
+were checked instead. Result: `PostJob.tsx` has **no** background rule
+for `.pj-combo input` at all — the origin file never styled it. So
+neither `Profile.tsx` nor `Onboarding.tsx` is "matching canonical" there;
+both added a background where none existed originally, just in opposite
+directions. Left flagged as an open design question (should the combo
+input have a background, and if so which token) rather than silently
+picking one.
+
+**Fix applied:** patch script (backup + unique-anchor-check convention,
+per the user's standing preference over manual `nano` edits) swapped the
+3 confirmed tokens in `Profile.tsx`'s `PROFILE_STYLES` to match
+`ONBOARDING_STYLES`/canonical. Diff confirmed clean — exactly the 3
+one-word token swaps, nothing else touched.
+
+Build initially failed: `npx tsc` from `~/Piwork` printed its help text
+instead of compiling — no `tsconfig.json` there. Confirmed via
+`ls ~/Piwork/tsconfig.json ~/Piwork/frontend/tsconfig.json` that the
+actual project root is `~/Piwork/frontend`. Rebuilt from the correct
+root: clean, `324.97 kB` JS / `2.23 kB` CSS — identical to session 41's
+numbers, as expected for a pure CSS-value swap with no code/size change.
+Pushed (`fix: correct swapped cream/card tokens on ProfileForm fields in
+Profile.tsx`), deployed, live-verified by the user: profile edit mode now
+matches Onboarding's shade — confirmed good.
+
 ## Next session
 
-1. Finish the History-screens sweep: pull and diff `WithdrawalRow.tsx` and
-   re-confirm `HistoryWithdrawals.tsx` (requested but not completed this
-   session — session ended on doc updates instead). Then continue
-   oldest-first to `Profile.tsx`/`Onboarding.tsx`.
-2. Black-rectangle glitch: explained, not fixed — `WithdrawPanel.tsx`'s
+1. Open design question, no canonical answer exists: should `.pj-combo
+   input` have a background at all, and if so `--cream` or `--card`?
+   (Section 53). Needs a decision, not a silent fix.
+2. Continue the oldest-first re-verification sweep to the next
+   not-yet-reverified screen (Landing / Wallet Connect / Browse are the
+   remaining candidates — confirm order before starting).
+3. Black-rectangle glitch: explained, not fixed — `WithdrawPanel.tsx`'s
    loading skeleton is a plain unstyled bar; worth a design pass
    (shimmer/shape) if picked up, otherwise no functional issue remains.
-3. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
+4. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
    and the `JobDetail.tsx` owner-view ledger-connector /
    worker-view dead-CSS-and-attachments items (Section 51) — none fixed
    yet, no due dates set.
-4. Tokenize `HistoryWork.tsx`/`HistoryJobs.tsx`'s hardcoded hex literals to
-   `:root` custom properties, matching the pattern every other patched
-   file uses.
-5. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+5. Tokenize hardcoded hex literals to `:root` custom properties:
+   `HistoryWork.tsx`/`HistoryJobs.tsx` (session 41) and now also
+   `RangeFilter.tsx` (session 42) — same follow-up pass, three files.
+6. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
