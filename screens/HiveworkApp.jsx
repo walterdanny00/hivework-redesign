@@ -570,9 +570,7 @@ const HW_RANGE_FILTER_STYLES = `
 
 const HW_CONTACT_SUPPORT_STYLES = `
   .hw-app .hw-contact-link{font-size:13px;font-weight:600;color:var(--violet-deep);cursor:pointer;text-decoration:none;}
-  .hw-app .menu-item .hw-contact-link{font-size:13px;font-weight:400;color:var(--ink-soft);}
   .hw-app .hw-contact-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0;}
-  .hw-app .menu-item .hw-contact-form{margin:0;border:none;background:none;padding:0;}
   .hw-app .cs-modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(27,26,31,.45);}
   .hw-app .cs-modal{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(92vw,380px);background:var(--card);border-radius:20px;box-shadow:0 -20px 60px -15px rgba(27,26,31,.35);z-index:61;padding:20px;}
   .hw-app .cs-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
@@ -3350,9 +3348,6 @@ export default function HiveworkApp() {
         .hw-app .chip-silver{background:#F1F1F3;color:#6B7280;}
         .hw-app .chip-bronze{background:#F7E7D9;color:#B45309;}
         .hw-app .chip-unverified{background:#F1EFEA;color:var(--ink-soft);}
-        .hw-app .menu-item{padding:12px 16px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:11px;cursor:pointer;border-bottom:1px solid var(--line);}
-        .hw-app .menu-item:last-child{border-bottom:none;}
-        .hw-app .menu-item:hover{background:var(--cream);color:var(--ink);}
 
         .hw-app .page-head{padding:16px 0 22px;}
         .hw-app .page-head .kicker{color:var(--violet-deep);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
