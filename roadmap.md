@@ -4246,22 +4246,75 @@ pushed.
 
 Full detail: see session-49.md.
 
+## Section 61 — Session 50 (2026-09-05): profile-menu → hamburger side-drawer shell redesign; `ui-ux-feedback`/`ui-feedback` mismatch closed as documentation-only
+
+Picked up open item #4 (documentation-only pair, flagged since session 40):
+stale profile-menu dropdown vs. real hamburger pattern, and the
+`ui-ux-feedback` vs. `ui-feedback` category-value naming mismatch.
+
+**`ui-ux-feedback` vs `ui-feedback`:** swept both `screens/` and
+`~/Piwork/frontend/src/`. Not drift — an already-understood, intentional
+constraint. Canonical value/label is `ui-ux-feedback` / "UI/UX Feedback";
+real backend's category enum is fixed as `ui-feedback`, and `Home.tsx`
+already carries its own code comment flagging this. Nothing to change on
+either side — closed as documentation-only.
+
+**Profile-menu vs. hamburger:** swept `Layout.tsx` directly. Finding: not
+a naming difference — the real app no longer has a small avatar-anchored
+dropdown at all. It's been a hamburger button opening a full-height
+side-drawer (Help / Contact support / Log out) since Section 47; the
+avatar is now a direct link straight to `/profile/:username`, no dropdown
+trigger. The canonical shell still designed the old small `.profile-menu`
+dropdown (identity block + View profile/Edit profile/Notification
+settings/Contact support/Log out) — a different UI pattern outright. Per
+the roadmap's own rule (old app matches the new design system, not the
+reverse), the shell was the stale side here.
+
+**Decision:** update the canonical shell to the hamburger + side-drawer
+pattern, making it the new source of truth (user's choice, over reverting
+real code to a small dropdown). Notification settings item dropped
+entirely to match real structure exactly (user's call — real code doesn't
+have it, likely superseded by the separate Notification Bell).
+
+**Patch, applied:** Python patch script, backup + unique-anchor-check
+convention, targeting `hivework-app-v4-3.html` (canonical). 5 anchors: CSS
+block swap (`.profile-menu` → `.side-drawer-overlay`/`.side-panel`/
+`.menu-btn`/`.header-left`), header markup (new `.header-left` wrapper
+with hamburger button, avatar `onclick` changed to direct
+`goToProfile(false)`), drawer markup (`.profile-menu` replaced with the
+side-drawer containing Help/Contact support/Log out), JS
+(`toggleMenu()` → `toggleSideDrawer()`/`closeSideDrawer()`, `closeMenus()`
+updated to drop its dead `#menu` reference). All 5 matched exactly once;
+diff reviewed clean. `menu-overlay`/`#menuOverlay` (shared with the notif
+panel) correctly left untouched.
+
+Pushed to both `hivework-redesign` repos (canonical shell content only, no
+real-code touched): "Shell: replace profile-menu dropdown with hamburger
+side-drawer, match real Layout.tsx". **Live-tested and confirmed good by
+user — clean test, clean push.**
+
+Full detail: see session-50.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
+2. Mirror the profile-menu → hamburger-drawer redesign into
+   `HiveworkApp.jsx` (same `.profile-menu` shape, roughly lines
+   3319-3323 CSS / 3674 mount) — the HTML shell is now ahead of the JSX
+   shell on this pattern.
+3. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
    the canonical shell matches what's actually live in `index.css`.
    Documentation-only, no visual change.
-3. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
+4. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
    dead CSS (unused). Safe to remove whenever this file is touched next.
-4. Documentation-only, still open: shell's stale profile-menu dropdown vs.
-   real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
-   category-value naming mismatch. Neither urgent.
 
-The `--cream`/`--line`/`--mist`/`--sand` near-white-grays decision
-(Section 60) is now **closed** — resolved this session, kept as 4 distinct
-tokens.
+Item #4 from session 48/49's carried list (profile-menu vs. hamburger,
+`ui-ux-feedback` vs `ui-feedback`) is now **closed** — both resolved in
+session 50; the profile-menu item additionally produced a real shell
+patch, not just documentation. The `--cream`/`--line`/`--mist`/`--sand`
+near-white-grays decision (Section 60) is also **closed** — kept as 4
+distinct tokens.
 
 No due date set on any of the above — open decision for the user.
