@@ -3279,6 +3279,7 @@ export default function HiveworkApp() {
           --violet:#6C5CE7; --violet-deep:#5643D9;
           --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
           --line:#E7E3DA; --card:#FFFFFF;
+          --mist:#F1EFEA; --sand:#EFECE5;
         }
         .hw-app *{box-sizing:border-box;}
         html,body{height:100%;}
