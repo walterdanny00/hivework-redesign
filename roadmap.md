@@ -4344,6 +4344,35 @@ user.
 
 Full detail: see session-51.md.
 
+## Section 63 — Session 52 (2026-09-05): dead CSS cleanup — `.menu-item` (both shells) and `.cat-empty` (real `Jobs.tsx`)
+
+Picked up both carried "dead CSS" items: `.menu-item` in both shells
+(flagged session 51, post-drawer-redesign) and `Jobs.tsx`'s `.cat-empty`
+(flagged session 50, pre-dating the drawer work entirely).
+
+**Confirmed dead before removing, in both cases:** grepped markup
+(`class="...menu-item`/`className.*menu-item` for the shells,
+`className.*cat-empty` for `Jobs.tsx`) — zero matches in every case,
+confirming no live reference remained.
+
+**`.menu-item` removed from both shells** (base rule + `:last-child`/
+`:hover`, plus nested `.hw-contact-link`/`.hw-contact-form` variants —
+5 rules each): `hivework-app-v4-3.html` 3177→3172 lines, verified via
+`node --check` on the inline `<script>` (CSS-only change); `HiveworkApp.jsx`
+4225→4219 lines, verified via `tsc --noEmit --jsx react --allowJs`
+filtered to `TS1xxx` (zero errors). Pushed to both `hivework-redesign`
+repos: "Remove dead `.menu-item` CSS from both shells." **Confirmed
+clean push by user.**
+
+**`.cat-empty` removed from real `Jobs.tsx`** (`BROWSE_STYLES`,
+single-line rule) via `sed -i '128d' pages/Jobs.tsx`. Verified: grep
+empty, `tsc --noEmit` zero `TS1xxx` errors. Per Section 30, pushed to
+the Piwork repo alone (not the two-repo routine, since this is real
+app code, not `hivework-redesign` content): commit `6b72f70` on
+`walterdanny00/Piwork.git`.
+
+Full detail: see session-52.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
@@ -4352,15 +4381,9 @@ Full detail: see session-51.md.
 2. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
    the canonical shell matches what's actually live in `index.css`.
    Documentation-only, no visual change.
-3. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
-   dead CSS (unused). Safe to remove whenever this file is touched next.
-4. **New, minor:** `.menu-item` CSS (base + 2 nested rules) is dead in
-   both shells post-drawer-redesign (session 51) — safe to remove
-   whenever either file is next touched.
 
-Item #2 from session 50's carried list (mirror the hamburger-drawer into
-`HiveworkApp.jsx`) is now **closed** — done and pushed in session 51,
-along with an unrelated live-breaking bug caught and fixed in the HTML
-shell along the way.
+Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
+shells, `.cat-empty` in `Jobs.tsx`) are now **closed** — removed,
+verified, and pushed in session 52.
 
-No due date set on any of the above — open decision for the user.
+No due date set on either remaining item — open decision for the user.
