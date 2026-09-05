@@ -4295,26 +4295,72 @@ user — clean test, clean push.**
 
 Full detail: see session-50.md.
 
+## Section 62 — Session 51 (2026-09-05): hamburger side-drawer mirrored into `HiveworkApp.jsx`; live-breaking notif bug found and fixed in `hivework-app-v4-3.html`
+
+Picked up open item #2 carried from session 50: mirror the profile-menu
+→ hamburger-drawer redesign into `HiveworkApp.jsx`, which had been left
+behind on the old small `.profile-menu` dropdown while the HTML shell
+moved to the drawer pattern in session 50.
+
+**JSX mirror patch, applied:** same 5-anchor shape as session 50's HTML
+patch, adapted to React state instead of DOM class toggling — CSS
+(`.profile-menu` → `.header-left`/`.menu-btn`/`.side-drawer-overlay`/
+`.side-panel`/`.side-head`/`.side-close`/`.side-nav`/`.side-item`/
+`.side-logout`), state (`menuOpen` → `sideDrawerOpen`), `hwLogout`/`goTo`
+updated, `toggleProfileMenu` → `toggleSideDrawer`/`closeSideDrawer` (avatar
+now a direct `onClick={() => goToProfile(false)}`, no dropdown), `closeMenus`
+now only clears the notif overlay since the drawer closes itself, header +
+drawer markup replaced (Notification settings item dropped, matching real
+`Layout.tsx`). Stale top-of-file doc comment ("avatar opens the profile
+menu") also corrected.
+
+**Verification note:** the project's standard brace-balance script false-
+positived on this file — confirmed it does the same on the unmodified
+original, so it's a pre-existing checker limitation, not a real
+imbalance. Used `tsc --noEmit --jsx react --allowJs`, filtered to true
+syntax-error codes, instead — zero errors, matching baseline. Worth
+switching to this method for future JSX verification passes.
+
+**Bug found and fixed — `hivework-app-v4-3.html`:** while sweeping the
+HTML shell as the mirroring reference, found `toggleNotif()` still
+referenced a `#menu` element that hasn't existed since session 50's
+profile-menu → drawer swap — the line threw immediately, meaning **the
+notifications panel could not open at all** in the canonical shell since
+session 50's push. Session 50's patch fixed the identical dead reference
+in `closeMenus()` but missed this one (not one of its 5 anchors). Fixed:
+one dead line removed, verified via `node --check` on the extracted
+inline `<script>` plus a full-file grep confirming no remaining `#menu`
+references.
+
+**New minor finding, not fixed:** `.menu-item` CSS (base rule + two
+nested `.hw-contact-link`/`.hw-contact-form` variants) is now dead in
+*both* shells — no markup uses it anymore post-drawer-redesign. Same
+category as the already-tracked `.cat-empty` item. Left untouched to
+keep both patches surgical.
+
+Both files pushed to both `hivework-redesign` repos (JSX mirror pushed
+first, HTML bug fix pushed separately after) — both confirmed good by
+user.
+
+Full detail: see session-51.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Mirror the profile-menu → hamburger-drawer redesign into
-   `HiveworkApp.jsx` (same `.profile-menu` shape, roughly lines
-   3319-3323 CSS / 3674 mount) — the HTML shell is now ahead of the JSX
-   shell on this pattern.
-3. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
+2. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
    the canonical shell matches what's actually live in `index.css`.
    Documentation-only, no visual change.
-4. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
+3. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
    dead CSS (unused). Safe to remove whenever this file is touched next.
+4. **New, minor:** `.menu-item` CSS (base + 2 nested rules) is dead in
+   both shells post-drawer-redesign (session 51) — safe to remove
+   whenever either file is next touched.
 
-Item #4 from session 48/49's carried list (profile-menu vs. hamburger,
-`ui-ux-feedback` vs `ui-feedback`) is now **closed** — both resolved in
-session 50; the profile-menu item additionally produced a real shell
-patch, not just documentation. The `--cream`/`--line`/`--mist`/`--sand`
-near-white-grays decision (Section 60) is also **closed** — kept as 4
-distinct tokens.
+Item #2 from session 50's carried list (mirror the hamburger-drawer into
+`HiveworkApp.jsx`) is now **closed** — done and pushed in session 51,
+along with an unrelated live-breaking bug caught and fixed in the HTML
+shell along the way.
 
 No due date set on any of the above — open decision for the user.
