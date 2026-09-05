@@ -3,16 +3,20 @@ import React, { useState, useRef, useEffect } from "react";
 /**
  * Hivework — App
  * Home / Browse / Post / Dashboard live in the top segmented nav.
- * Profile is reached via the avatar menu ("View profile").
+ * Profile is reached via a direct avatar link (no dropdown — see below).
  * Job Detail and the three history screens (Work / Jobs / Withdrawals) are
  * sub-screens reached by tapping into content, and use a Back control
  * instead of the segmented nav. Applicants review is NOT a separate screen —
  * it lives inline inside Job Detail's owner view (real JobDetail.tsx has no
  * dedicated route for it); "Review applicants" buttons open Job Detail.
  *
- * Bell and avatar are fully decoupled: avatar opens the profile menu, bell
- * opens its own notifications panel with a real unread-count badge and
- * mark-all-read-on-open. They used to share one `menuOpen` toggle — fixed.
+ * Bell, hamburger, and avatar are fully decoupled: the hamburger opens a
+ * full-height side drawer (Help / Contact support / Log out), bell opens
+ * its own notifications panel with a real unread-count badge and
+ * mark-all-read-on-open, and avatar links straight to profile — matches
+ * real Layout.tsx (Section 61 / session 50), which dropped its old small
+ * avatar-anchored dropdown entirely. They used to share one `menuOpen`
+ * toggle — fixed.
  *
  * "Dashboard" maps to the real `dashboard` route (WithdrawPanel +
  * ApplicationCard + JobCard, tab: 'worker' | 'client') — My Work / My Jobs
@@ -3097,7 +3101,7 @@ export default function HiveworkApp() {
   const [screen, setScreen] = useState("landing");
   const [lastScreen, setLastScreen] = useState("landing");
   const [browseCategory, setBrowseCategory] = useState(null); // category value or null (all)
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sideDrawerOpen, setSideDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
@@ -3224,7 +3228,7 @@ export default function HiveworkApp() {
   // stays a hard reset to the full-page Landing screen (no header/segnav
   // at all), not a partial-nav browsing state. Nothing further to build.
   const hwLogout = () => {
-    setMenuOpen(false);
+    setSideDrawerOpen(false);
     showToast("Logged out");
     goTo("landing");
   };
@@ -3232,7 +3236,7 @@ export default function HiveworkApp() {
   const goTo = (id) => {
     setLastScreen(screen);
     setScreen(id);
-    setMenuOpen(false);
+    setSideDrawerOpen(false);
     setNotifOpen(false);
     window.scrollTo(0, 0);
   };
@@ -3243,15 +3247,13 @@ export default function HiveworkApp() {
   const goBack = () => goTo(lastScreen);
   const goBackToDashboard = () => goTo("dashboard");
 
-  // Avatar opens the profile menu; bell opens its own notifications panel.
-  // These used to share one `menuOpen` toggle (real bug — see roadmap
-  // Section 7) — kept fully decoupled from here on.
-  const toggleProfileMenu = () => {
-    setNotifOpen(false);
-    setMenuOpen((o) => !o);
-  };
+  // Hamburger opens the side drawer; bell opens its own notifications
+  // panel; avatar now links straight to profile (Section 61 / session 50 —
+  // matches real Layout.tsx, no more avatar-anchored dropdown). Side
+  // drawer and notif panel are independent, each with its own overlay.
+  const toggleSideDrawer = () => setSideDrawerOpen((o) => !o);
+  const closeSideDrawer = () => setSideDrawerOpen(false);
   const toggleNotifPanel = () => {
-    setMenuOpen(false);
     setNotifOpen((o) => {
       const next = !o;
       if (next) {
@@ -3262,7 +3264,7 @@ export default function HiveworkApp() {
     });
   };
   const unreadCount = notifications.filter((n) => n.unread).length;
-  const closeMenus = () => { setMenuOpen(false); setNotifOpen(false); };
+  const closeMenus = () => { setNotifOpen(false); };
   const openFromNotification = (n) => {
     setNotifOpen(false);
     if (n.jobKey) openDetail(n.jobKey);
@@ -3316,11 +3318,18 @@ export default function HiveworkApp() {
         .hw-app .notif-empty-icon{width:40px;height:40px;border-radius:50%;background:var(--cream);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;opacity:.6;}
         .hw-app .avatar-btn{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--violet-deep));color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;}
 
-        .hw-app .profile-menu{position:absolute;top:64px;right:20px;width:228px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 60px -20px rgba(27,26,31,.28);z-index:30;display:none;}
-        .hw-app .profile-menu.open{display:block;}
-        .hw-app .profile-menu .who{padding:16px;border-bottom:1px solid var(--line);}
-        .hw-app .profile-menu .who .name{font-weight:700;font-size:14.5px;font-family:'Sora';}
-        .hw-app .profile-menu .who .badges{display:flex;gap:6px;margin-top:9px;}
+        .hw-app .header-left{display:flex;align-items:center;gap:14px;}
+        .hw-app .menu-btn{background:none;border:none;padding:2px;margin:0;color:var(--ink);cursor:pointer;display:flex;line-height:0;}
+        .hw-app .side-drawer-overlay{position:fixed;inset:0;background:rgba(27,26,31,.4);z-index:50;display:none;}
+        .hw-app .side-drawer-overlay.open{display:flex;}
+        .hw-app .side-panel{width:78%;max-width:300px;height:100%;background:var(--cream);box-shadow:12px 0 30px -12px rgba(27,26,31,.3);display:flex;flex-direction:column;animation:hwSlideIn .18s ease;}
+        @keyframes hwSlideIn{from{transform:translateX(-16px);opacity:.4;}to{transform:translateX(0);opacity:1;}}
+        .hw-app .side-head{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px;border-bottom:1px solid var(--line);}
+        .hw-app .side-close{background:none;border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;padding:4px;}
+        .hw-app .side-nav{display:flex;flex-direction:column;padding:12px 8px;}
+        .hw-app .side-item{display:block;width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;font-size:14.5px;font-weight:600;color:var(--ink);text-decoration:none;background:none;border:none;text-align:left;cursor:pointer;font-family:'Inter',sans-serif;}
+        .hw-app .side-item:hover{background:var(--card);}
+        .hw-app .side-logout{color:var(--coral);}
         .hw-app .hw-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 20px;border-radius:100px;box-shadow:0 20px 40px -18px rgba(27,26,31,.4);z-index:999;max-width:80%;text-align:center;}
         .hw-app .pf-edit-section{margin:20px 0;}
         .hw-app .pf-edit-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
@@ -3650,8 +3659,13 @@ export default function HiveworkApp() {
         <div className="frame">
           <div className="scroll-area">
             <header>
-              <div className="logo"><span className="logo-text">Hive<span className="accent">work</span></span>
-                <span className="testnet-badge" onClick={(e) => { e.stopPropagation(); setTestnetTipOpen((o) => !o); }}>Testnet</span>
+              <div className="header-left">
+                <button className="menu-btn" onClick={toggleSideDrawer} aria-label="Open menu">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
+                <div className="logo"><span className="logo-text">Hive<span className="accent">work</span></span>
+                  <span className="testnet-badge" onClick={(e) => { e.stopPropagation(); setTestnetTipOpen((o) => !o); }}>Testnet</span>
+                </div>
               </div>
               <div className="header-actions">
                 <button className="icon-wrap" onClick={toggleNotifPanel} aria-label="Notifications">
@@ -3660,31 +3674,32 @@ export default function HiveworkApp() {
                     <div className="badge-dot badge-count">{unreadCount > 9 ? "9+" : unreadCount}</div>
                   )}
                 </button>
-                <button className="avatar-btn" onClick={toggleProfileMenu}>O</button>
+                <button className="avatar-btn" onClick={() => goToProfile(false)}>O</button>
               </div>
             </header>
             {testnetTipOpen && (
               <div className="testnet-tip">Hivework is running on the Pi Testnet. Balances and payments shown are Test-Pi and carry no real-world value.</div>
             )}
 
-            {(menuOpen || notifOpen) && (
+            {notifOpen && (
               <div className="menu-overlay" onClick={closeMenus}></div>
             )}
 
-            <div className={`profile-menu${menuOpen ? " open" : ""}`}>
-              <div className="who">
-                <div className="name">@Olawalt</div>
-                <div className="badges">
-                  <span className={`chip ${LEVEL_CHIP_CLASS[profileLevel]}`}>{LEVEL_LABEL[profileLevel]}</span>
-                  <span className={`chip ${TRUST_CHIP_CLASS[profileTrustTier]}`}>{profileTrustTier}</span>
+            {sideDrawerOpen && (
+              <div className="side-drawer-overlay open" onClick={closeSideDrawer}>
+                <div className="side-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="side-head">
+                    <span className="logo-text">Hive<span className="accent">work</span></span>
+                    <button className="side-close" onClick={closeSideDrawer} aria-label="Close menu">×</button>
+                  </div>
+                  <nav className="side-nav">
+                    <div className="side-item" onClick={() => { closeSideDrawer(); goTo("help"); }}>Help</div>
+                    <div className="side-item" onClick={() => { closeSideDrawer(); setContactModalOpen(true); }}>Contact support</div>
+                    <div className="side-item side-logout" onClick={hwLogout}>Log out</div>
+                  </nav>
                 </div>
               </div>
-              <div className="menu-item" onClick={() => goToProfile(false)}>View profile</div>
-              <div className="menu-item" onClick={() => goToProfile(true)}>Edit profile</div>
-              <div className="menu-item" onClick={() => { setMenuOpen(false); showToast("Notification settings — coming soon"); }}>Notification settings</div>
-              <div className="menu-item" onClick={() => { setMenuOpen(false); setContactModalOpen(true); }}>Contact support</div>
-              <div className="menu-item" onClick={hwLogout}>Log out</div>
-            </div>
+            )}
 
             {contactModalOpen && (
               <>
