@@ -82,7 +82,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
-| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) | 4-step wizard (Basics/Details/Workers/Review), SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. |
+| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
@@ -4108,15 +4108,58 @@ shimmer looks right.**
 
 Full detail: see session-46.md.
 
+## Section 58 — Session 47 (2026-09-05): PostJob wizard step-indicator resolved
+
+Picked up the open item carried from Section 57 (session 46): decide the
+`PostJob.tsx` wizard step-indicator direction (open since Section 50 /
+session 39).
+
+Per the standing sweep-before-designing rule, pulled `PostJob.tsx`
+directly. `WIZARD_STEPS` declared 4 dots (Basics/Details/Workers/Review),
+but the `wizard-track` markup only rendered in the main return block
+(reached for `wizardStep` 1–3) — `step === 'review'` is a separate
+early-return with no wizard-track at all. Dots 1–3 worked correctly;
+dot 4 ("Review") was declared but never reachable, so the indicator
+simply vanished the moment a user reached Review. A grep for
+`currentStep|activeStep|wizardStep` across `frontend/src` confirmed no
+other indicator existed elsewhere to fill the gap.
+
+**Decision: trim `WIZARD_STEPS` to 3 entries**, treating Review/Paying/
+Done/Error as a distinct no-indicator phase rather than extending the
+wizard-track onto Review. Review/Paying/Done/Error already read as one
+continuous full-screen state sequence with their own idiom; a step dot
+implies "one more short step, same shape as the others," which
+undersells that Review is a checkpoint before an irreversible Pi
+payment, not a data-entry step. Paying/Done/Error never had an
+indicator and were never flagged as missing one — only Review's dot
+read as a gap, and that was leftover framing from an old "4-step
+wizard" description rather than a real UX need. Also a smaller,
+reversible change if it reads wrong live.
+
+Also retitled the step-3 CTA from "Continue →" to "Review job →" so the
+exit from wizard mode reads as intentional.
+
+Patch script, backup + unique-anchor-check convention. Both anchors
+(the `WIZARD_STEPS` array, the step-3 button) matched exactly once.
+Diff reviewed clean — exactly the two intended changes. `npx tsc`
+clean; `npm run build` clean: `326.59 kB` JS (down slightly from
+session 46's `326.61 kB` — one fewer array entry) / `2.38 kB` CSS
+unchanged (inline JS-embedded styles, not `index.css`).
+
+Pushed to the Piwork repo: `PostJob: drop dead 4th wizard-step dot,
+retitle step-3 CTA to "Review job"` (commit `8542ef3`). **Push
+confirmed clean by the user. Live-tested and confirmed good.**
+
+Full detail: see session-47.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Decide the `PostJob.tsx` wizard step-indicator direction (Section 50)
-   and the `JobDetail.tsx` owner-view ledger-connector /
-   worker-view dead-CSS-and-attachments items (Section 51) — none fixed
-   yet, no due dates set.
+2. Decide the `JobDetail.tsx` owner-view ledger-connector /
+   worker-view dead-CSS-and-attachments items (Section 51) — not fixed
+   yet, no due date set.
 3. Open question (Section 55): `--cream`/`--line`/`--mist`/`--sand`
    are 4 very close near-white warm-grays — worth a follow-up pass to
    decide if any should merge, or if the layering is intentional.
@@ -4127,7 +4170,8 @@ Full detail: see session-46.md.
    category-value naming mismatch. Neither urgent.
 
 Tokenization (Section 55), the `.pj-combo input` background question
-(Section 56), and the WithdrawPanel loading-skeleton glitch (Section 57)
-are all now **closed**.
+(Section 56), the WithdrawPanel loading-skeleton glitch (Section 57),
+and the PostJob wizard step-indicator direction (Section 58) are all
+now **closed**.
 
 No due date set on any of the above — open decision for the user.
