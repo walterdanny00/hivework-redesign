@@ -4152,26 +4152,73 @@ confirmed clean by the user. Live-tested and confirmed good.**
 
 Full detail: see session-47.md.
 
+## Section 59 — Session 48 (2026-09-05): `JobDetail.tsx` owner-view ledger connector + worker-view dead CSS/attachments resolved
+
+Picked up open item #2 carried from session 47 (Section 51, flagged
+session 40): decide the `JobDetail.tsx` owner-view ledger-connector /
+worker-view dead-CSS-and-attachments items.
+
+Per the standing sweep-before-designing rule, pulled `JobDetail.tsx`
+directly and diffed both style blocks (`HW_JDO_STYLES`/`HW_JDW_STYLES`)
+against canonical. Owner view: `.jdo .ledger:before` (the connector-line
+rule) was missing entirely — every other ledger rule matched canonical
+exactly, so this was a dropped rule from the Section 37 port, not a
+design mismatch. Worker view: `.hw-jdw .entry-time` is declared but
+never rendered anywhere in the JSX, and no per-stage timestamp data
+exists in the fetched shape to back it — genuinely dead. The attachments
+notice under "Submit your work" rendered only plain text where canonical
+shows a disabled dashed "+ Add photo or video" button plus a sample
+preview row; the real file already had partial CSS for this
+(`.attach-disabled`, `.attach-add-wide:disabled`) but was missing the
+base `.attach-add-wide` class and never rendered the button.
+
+**Decisions:** ported the connector-line rule verbatim (1-line fix, no
+adjustment needed). Deleted the dead `.entry-time` rule rather than
+inventing timestamp data to justify keeping it. Added the dashed
+"+ Add photo or video" button (same visible-but-inert pattern as the
+owner-view Decline button) for visual parity — but **deliberately did
+not** port canonical's fake sample attachment row (`checkout-error.png`),
+since no real upload ever happened and showing one would misrepresent
+real state, against the project's standing practice for undesigned
+backend features.
+
+Patch script, backup + unique-anchor-check convention. All 4 anchors
+matched exactly once; diff reviewed clean. `npx tsc --noEmit` clean
+(run from `frontend/`, not the monorepo root — the workspace's
+tsconfig/build script live there, not at `~/Piwork`). `npm run build`
+clean: `326.94 kB` JS (up slightly from session 47's `326.59 kB` —
+expected) / `2.38 kB` CSS unchanged.
+
+Pushed to the Piwork repo: `JobDetail: restore owner-view ledger
+connector line, remove dead entry-time CSS, add attach-add-wide button
+for worker-view attachments notice`.
+
+**Live verification:** owner Slots tab initially showed no connector
+line in Pi Browser — traced to a stale cached bundle, resolved by a hard
+refresh (full tab close/reopen). After that: connector line confirmed
+rendering the full height of the ledger, including past a completed
+entry into open-slot placeholders below it (confirmed as expected — a
+pure progress-track visual motif, not a claim about any relationship
+between workers/slots). Worker-view attachments button confirmed
+rendering correctly.
+
+Full detail: see session-48.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Decide the `JobDetail.tsx` owner-view ledger-connector /
-   worker-view dead-CSS-and-attachments items (Section 51) — not fixed
-   yet, no due date set.
-3. Open question (Section 55): `--cream`/`--line`/`--mist`/`--sand`
-   are 4 very close near-white warm-grays — worth a follow-up pass to
-   decide if any should merge, or if the layering is intentional.
-4. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
+2. `--cream`/`--line`/`--mist`/`--sand` are 4 very close near-white
+   warm-grays — worth a follow-up pass to decide if any should merge, or
+   if the layering is intentional.
+3. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
    dead CSS (unused). Safe to remove whenever this file is touched next.
-5. Documentation-only, still open: shell's stale profile-menu dropdown vs.
+4. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
-Tokenization (Section 55), the `.pj-combo input` background question
-(Section 56), the WithdrawPanel loading-skeleton glitch (Section 57),
-and the PostJob wizard step-indicator direction (Section 58) are all
-now **closed**.
+The `JobDetail.tsx` owner-view ledger-connector / worker-view
+dead-CSS-and-attachments items (Section 51/59) are now **closed**.
 
 No due date set on any of the above — open decision for the user.
