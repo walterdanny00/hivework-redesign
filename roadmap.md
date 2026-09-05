@@ -4204,21 +4204,64 @@ rendering correctly.
 
 Full detail: see session-48.md.
 
+## Section 60 — Session 49 (2026-09-05): `--cream`/`--line`/`--mist`/`--sand` near-white grays resolved
+
+Picked up open item #2 carried from session 48 (flagged session 40): decide
+whether the 4 very close near-white warm-grays should merge, or whether
+the layering is intentional.
+
+Per the standing sweep-before-designing rule, pulled token definitions and
+every usage site via Termux, across both `hivework-redesign/screens/`
+(canonical) and `~/Piwork/frontend/src/` (real, patched code).
+
+**Finding:** `--mist`/`--sand` aren't canonical at all — neither appears
+anywhere in `hivework-app-v4-3.html` or any `screens/` file; every
+canonical `:root` block defines only `--cream`/`--line` (plus per-screen
+extras like `--danger`/`--radius`). Both tokens exist solely in the real
+app's `index.css`, introduced during the patching-into-main-app phase and
+never carried back into the shell. Usage is fully non-overlapping, one job
+each: `--mist` (`#F1EFEA`) is always paired as
+`background:var(--mist);color:var(--ink-soft)` for closed/inactive status
+states (`JobDetail.tsx`, `Dashboard.tsx`, `HistoryJobs.tsx`,
+`HistoryWithdrawals.tsx` status-chip/pill `.closed` states, plus
+`Profile.tsx`'s `.chip-unverified`); `--sand` (`#EFECE5`) is used for
+grouped-control-surface backgrounds (`Layout.tsx` segnav track,
+`JobDetail.tsx`/`Dashboard.tsx` toggle-row tracks, `RangeFilter.tsx`'s
+track, `JobDetail.tsx`'s `.app-chip` pills and disabled Decline button).
+Ordered by lightness the four form a tonal ramp: `--cream` `#F7F5F1`
+(page bg) → `--mist` `#F1EFEA` (muted status fill) → `--sand` `#EFECE5`
+(control-track fill) → `--line` `#E7E3DA` (border/divider).
+
+**Decision:** keep all four — no merge. Each has exactly one distinct,
+consistently-applied role; the closeness in value is a deliberate
+warm-neutral depth ramp, not drift or duplication.
+
+**New open item logged:** `--mist`/`--sand` are live in production but
+were never migrated into the canonical shell's `:root` — documentation-
+only fix needed so `hivework-app-v4-3.html` stays the accurate source of
+truth. Not fixed this session.
+
+Investigation-and-decision only — no code touched on either side, nothing
+pushed.
+
+Full detail: see session-49.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. `--cream`/`--line`/`--mist`/`--sand` are 4 very close near-white
-   warm-grays — worth a follow-up pass to decide if any should merge, or
-   if the layering is intentional.
+2. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
+   the canonical shell matches what's actually live in `index.css`.
+   Documentation-only, no visual change.
 3. Minor, not fixed: `Jobs.tsx`'s `.cat-empty` rule in `BROWSE_STYLES` is
    dead CSS (unused). Safe to remove whenever this file is touched next.
 4. Documentation-only, still open: shell's stale profile-menu dropdown vs.
    real hamburger pattern; shell's `ui-ux-feedback` vs. real `ui-feedback`
    category-value naming mismatch. Neither urgent.
 
-The `JobDetail.tsx` owner-view ledger-connector / worker-view
-dead-CSS-and-attachments items (Section 51/59) are now **closed**.
+The `--cream`/`--line`/`--mist`/`--sand` near-white-grays decision
+(Section 60) is now **closed** — resolved this session, kept as 4 distinct
+tokens.
 
 No due date set on any of the above — open decision for the user.
