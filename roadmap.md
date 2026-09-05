@@ -4373,17 +4373,43 @@ app code, not `hivework-redesign` content): commit `6b72f70` on
 
 Full detail: see session-52.md.
 
+## Section 64 — Session 53 (2026-09-05): `--mist`/`--sand` token sync closed (both shells)
+
+Picked up the item carried from session 52 (originally logged Section
+60, session 49): `--mist`/`--sand` are live in production (`index.css`)
+but were never migrated into the canonical shell's `:root`.
+
+Pulled values via Termux (`grep -n -A2 -B2 -- '--mist\|--sand'
+frontend/src/index.css`): `--mist: #F1EFEA;`, `--sand: #EFECE5;`.
+
+**`hivework-app-v4-3.html`:** added both tokens to the file's single
+`:root` block. 3172 → 3173 lines. Confirmed no existing
+`var(--mist)`/`var(--sand)` references anywhere beforehand — genuinely
+documentation-only. Verified via `node --check` on the inline `<script>`
+— clean.
+
+**`HiveworkApp.jsx`:** file has 5 separate embedded `:root`-style blocks;
+4 (`HW_JDW_STYLES`/`HW_LANDING_STYLES`/`HWPC_STYLES`/`HW_ONBOARD_STYLES`)
+are standalone screens' own canonical CSS copied in verbatim, out of
+scope here. Only the main shell's own `<style>` block (the direct
+counterpart of the HTML file's `:root`) was touched, keeping the patch
+anchor-scoped. 4219 → 4220 lines. Verified via
+`tsc --noEmit --jsx react --allowJs`, filtered to `TS1xxx` — zero errors.
+
+Both files pushed to both `hivework-redesign` repos — HTML shell first,
+JSX shell separately after. **Both confirmed clean push by user.**
+
+Full detail: see session-53.md.
+
 ## Next session
 
 1. Landing / Wallet Connect re-verification remains blocked — no way
    found yet to actualize a real logged-out state to test against.
    Revisit if/when that becomes possible.
-2. Add `--mist`/`--sand` to `hivework-app-v4-3.html`'s `:root` block so
-   the canonical shell matches what's actually live in `index.css`.
-   Documentation-only, no visual change.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
-shells, `.cat-empty` in `Jobs.tsx`) are now **closed** — removed,
-verified, and pushed in session 52.
+shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
+(carried from session 49/52) are now **closed** — all removed/added,
+verified, and pushed as of session 53.
 
-No due date set on either remaining item — open decision for the user.
+No due date set on the remaining item — open decision for the user.
