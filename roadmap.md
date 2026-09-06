@@ -4781,18 +4781,47 @@ blank dead end, which was judged sufficient.
 `tsc --noEmit -p frontend` clean. Pushed to Piwork only (real
 `frontend/src/` edit).
 
+## 76. `JobDetail.tsx` gated-action sweep — dead `connected` guards removed (session 64, 2026-09-07)
+
+Closed the sole open item carried from session 63: swept `JobDetail.tsx`
+for any gated action still assuming Browse is public.
+
+Confirmed `jobs/:id` sits inside the `RequireAuth` route group (same
+live, continuously-evaluated guard confirmed in session 62), meaning
+`connected` is guaranteed true for the page's entire mounted lifetime.
+Found and removed 7 dead `connected` sites: the `isOwner` calc, three
+data-fetch effects (my-rating, owner per-applicant ratings,
+wallet-status/profile-completion, my-application/BUG-103 — guard term
++ dependency array each), `handleApply`'s guard, and the Apply button's
+`disabled`/label logic.
+
+The Apply button was the more notable find: not just a dead guard but
+dead **presentation copy** — a `'Open in Pi Browser to apply'` fallback
+string that could never render (confirmed via `jdwState`'s derivation,
+which depends only on wallet/profile/slot state, never `connected`) —
+a leftover assumption from before Section 68 gated Browse.
+
+No other gated action on the page (approve/decline/rate) assumed
+public Browse; those already gated correctly on `isOwner`/
+`isPartyToJob`, untouched by this sweep.
+
+Cascade: `connected` destructured from `usePiConnection()` was now
+fully unused, dropped (kept `user`, still referenced throughout;
+import itself unchanged).
+
+`tsc --noEmit -p frontend` to be run on-device before push (not run in
+sandbox — no repo context there). Pushed to Piwork only (real
+`frontend/src/` edit).
+
 ## Open items carried forward
 
-1. Whether `JobDetail.tsx`'s Apply button (and any other in-context
-   gated action on that page, e.g. rating/approve — not yet swept) needs
-   an inline `connect()` trigger is moot now that Browse itself is
-   gated (Section 68 superseded the original "inline trigger on a public
-   page" plan), but worth confirming nothing on that page still assumes
-   the old public-Browse behavior.
+None. Section 76's `JobDetail.tsx` sweep (session 64) closes the last
+open item.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
 (carried from session 49/52) remain **closed** — all removed/added,
 verified, and pushed as of session 53. Section 73's dead-code cleanup
-(session 62), Section 74's Notify-step investigation, and Section 75's
-404 route fix (both session 63) are also now **closed**.
+(session 62), Section 74's Notify-step investigation, Section 75's
+404 route fix (both session 63), and Section 76's gated-action sweep
+(session 64) are also now **closed**.
