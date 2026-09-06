@@ -4491,17 +4491,217 @@ clean push by user.**
 
 Full detail: see session-55.md.
 
-## Next session
+## 67. Connect Wallet UI patched into Onboarding.tsx (session 56, 2026-09-06)
 
-1. Patch the 3-state Connect Wallet UI (Not connected / Connecting… /
-   Connected, KYC banner, Testnet note, ToS checkbox) into real
-   `Onboarding.tsx` from the canonical shell — currently only a bare
-   redirect effect exists there. This is also where the new `connect()`
-   export from Section 66 gets wired up (the "Connect with Pi Wallet" tap
-   should call it explicitly, driving the Connecting… state properly).
-2. Once that lands, Landing / Wallet Connect re-verification can finally
-   be live-tested against a real logged-out state — previously blocked,
-   now unblocked by Section 66's mount-time gate.
+Section 66's remaining item, done. `Onboarding.tsx`'s bare `navigate('/')`
+redirect for not-connected visitors replaced with a `ConnectWalletStep`
+component, ported from the shell's `renderWelcome()` `connect` state
+(`hivework-app-v4-3.html`) and wired to Section 66's `connect()` export.
+
+Two deliberate deviations from a 1:1 port: error states collapsed to one
+generic state (real `usePi.ts` can't distinguish no-Pi-Browser from a real
+auth failure — not faked, logged as an open gap), and the testnet note is
+gated on the real `PI_SANDBOX` flag instead of always-on static text.
+
+`tsc --noEmit` caught one unused `useEffect` import (the old redirect
+effect was removed but the import wasn't) — fixed via `sed`, then clean.
+Pushed to Piwork repo. **Confirmed clean push by user.**
+
+Full detail: see session-56.md.
+
+## 68. Route guard + placeholder Landing branch + `lastRoute` clear on logout (session 57, 2026-09-06)
+
+Live-testing Section 67 surfaced a bigger gap than expected: `PostJob.tsx`
+and `Dashboard.tsx` had their own static "not connected" dead-end
+messages (no button, no `connect()` call) that used to self-heal via the
+unconditional pre-Section-66 auto-authenticate. Section 66's gate (correct
+fix for logout) removed that self-healing, silently turning both into
+permanent walls for any first-time or logged-out visitor. Separately,
+`Home.tsx` rendered full functional content regardless of auth state —
+there was no dedicated logged-out Landing experience anywhere, and no nav
+path back to it once a logged-out visitor reached `/jobs`.
+
+**Decision (user call, not Claude's default):** gate everything
+account-related behind a connected wallet — `/post-job`, `/dashboard`,
+`/onboarding`, `/profile/:username`, `/history/*` — redirecting to `/` if
+not connected. `/jobs` and `/jobs/:id` (Browse) were reconsidered
+mid-session and **also gated** per explicit instruction, reversing the
+shipped "browsing is open to everyone" product decision from Section 3's
+KYC copy. `/help` stays open, matching Contact Support.
+
+**Built:**
+- `RequireAuth.tsx` (new) — route-guard wrapper, redirects to `/` when
+  `ready && !connected`.
+- `App.tsx` — wraps the newly-gated routes in `RequireAuth`.
+- `Home.tsx` — added a `!connected` branch (placeholder marketing content
+  at this point, not yet the real ported Landing — see Section 70).
+- `Layout.tsx` — `handleLogout` also clears `lastRoute` now, alongside
+  `sessionToken`/`piConnected`. Needed because `RoutePersistence` restores
+  the last-visited route on boot *before* anything checks `connected` —
+  without this, logout would flicker through the just-left gated page
+  before landing on `/`.
+
+Existing `if (!connected) return (...)` blocks in `PostJob.tsx`,
+`Dashboard.tsx`, `JobDetail.tsx` were left untouched — now unreachable
+dead code since the route guard blocks access first. Harmless, flagged
+for a later cleanup pass, not folded into this patch.
+
+`tsc --noEmit -p frontend` run unfiltered (not just grepped) given the
+size of this patch — clean across the whole build, including
+`Profile.tsx`, `Jobs.tsx`, and the History pages. Pushed. **Confirmed
+clean push by user.**
+
+Full detail: see session-57.md.
+
+## 69. Shared `PiProvider` context — fixes stale per-component connection state (session 58, 2026-09-06)
+
+Live-testing Section 68 surfaced a deeper architectural bug, pre-existing
+but previously invisible: `usePiConnection()` was a plain hook, not a
+shared context — every call site (`Layout.tsx`, `RequireAuth.tsx`,
+`Onboarding.tsx`, `Home.tsx`, `JobDetail.tsx`, `PostJob.tsx`,
+`Dashboard.tsx`, `Profile.tsx`) ran its **own independent** instance and
+mount-time auto-auth check, synced only via the `piConnected` localStorage
+flag. Before Section 66, every instance unconditionally self-authenticated
+on its own mount, so they all converged within moments regardless. Once
+that auto-run was correctly gated behind `piConnected`, any instance
+mounted *before* the flag existed (chiefly `Layout.tsx`, which mounts once
+at cold boot and never remounts) got permanently stuck — symptom seen
+live: routed page content correctly showed connected, but `Layout`'s
+header still showed the old "not connected" chrome.
+
+**Fix:** moved connection state into a `PiProvider` context wrapping the
+app once in `App.tsx`; every `usePiConnection()` call site now reads from
+one shared instance via `useContext` instead of running its own. Public
+shape (`{ connected, user, ready, incompletePayment, connect }`) kept
+identical, so none of the 8 consuming files needed changes — only
+`usePi.ts` and `App.tsx` were touched. (One correction mid-build: the
+provider needed JSX, but `usePi.ts` is a `.ts` file, not `.tsx` — used
+`React.createElement` instead of renaming the file.)
+
+`tsc --noEmit` clean. Pushed. **Confirmed clean push by user** (re-tested
+live: header updates immediately on connect, no reload needed).
+
+Full detail: see session-58.md.
+
+## 70. Full Landing page ported from shell; own chrome via `Layout`'s `isLandingRoute` bypass (session 59, 2026-09-06)
+
+Section 68's placeholder Landing branch in `Home.tsx` was flagged live as
+incomplete — it was Claude-improvised content for the route-guard patch,
+never an actual port of the shell's design. Investigating the shell
+surfaced that Landing is a genuinely separate screen (`#page-landing`),
+architecturally distinct from both `renderWelcome()` (the connect screen,
+confirmed in session 56) and the in-app `Home`. The shell's own comment
+notes fullpage screens (Landing/Welcome/Onboarding) bypass the shell's
+header/segnav entirely — real code didn't do this; `Home.tsx` rendered
+inside `Layout.tsx`'s always-on app header.
+
+**Scope decisions (user calls):** port the *full* Landing page (hero,
+trust row, animated ticker, Categories preview, "How escrow works"
+section, footer — not just what was visible on-screen), and give it its
+own bespoke chrome (Option B: own logo/testnet badge/"Get started" nav,
+no app hamburger menu) rather than squeezing it into the existing
+`Layout` header (Option A).
+
+**Built:**
+- `Landing.tsx` (new) — full ported page. Category cards pull live counts
+  from `/api/jobs/stats` (3 real categories only, not the shell's
+  hardcoded numbers). All nav links and both hero CTAs route through
+  `/onboarding` with the matching `returnTo` (`goToWelcome('none'|'find'
+  |'post')` in the shell maps directly onto `Onboarding.tsx`'s existing
+  `returnTo` param — no new mechanism needed).
+- `Home.tsx` — `!connected` branch now just `return <Landing />`;
+  connected functional Home untouched.
+- `Layout.tsx` — added `isLandingRoute` (true at `/` when not connected);
+  hides the app header, side menu, and segnav when true, so Landing owns
+  its own chrome. Deliberate call: the small "Need help? Contact support"
+  strip stays visible even on Landing (consistent with Help staying
+  reachable logged-out), a deviation from the shell that wasn't reverted
+  when flagged.
+
+One unused-import fix needed (`usePiConnection` imported but unused in
+`Landing.tsx`, since it's only ever rendered from `Home.tsx`'s already-
+resolved `!connected` branch) — fixed via `sed`. `tsc --noEmit` clean.
+Pushed. **Confirmed clean push by user** — live-tested as "working
+beautifully": ticker animation, real category counts, full CTA routing,
+and clean logout-to-Landing with no flicker all confirmed.
+
+Full detail: see session-59.md.
+
+## 71. KYC pill styling matched to shell; profile-complete skip check added (session 60, 2026-09-06)
+
+Two gaps surfaced during Section 70's live test, both in `Onboarding.tsx`:
+
+1. **KYC pill styling** — Section 67's original port was a plain
+   improvised pill; the shell's actual version has a shield icon,
+   gold/butter color scheme, and a rotating open/closed chevron, none of
+   which had been checked against the shell's CSS at the time. Fixed to
+   match visually. The pill's *text* was deliberately **not** reverted to
+   the shell's original "Browsing is open to everyone" copy — that line
+   became inaccurate once Section 68 gated Browse, and reverting it would
+   reintroduce a false claim into the app.
+2. **Profile-complete skip check** — every connecting user was seeing the
+   profile-completion form, even ones with an already-complete saved
+   profile (the shell's "returning user" demo path had no real
+   equivalent). Fixed by reusing the existing `/api/users/me/profile` →
+   `profile_complete` check (same field `Dashboard.tsx` already reads) to
+   skip straight to `returnTo` for users who already have one.
+
+`tsc --noEmit` clean after two small import fixes (`useEffect` needed
+re-adding, having been dropped in session 56). Pushed. **Confirmed clean
+push by user** — but live-testing this immediately surfaced Section 72's
+race condition (see below), which needed its own fix before the skip
+check actually worked correctly.
+
+Full detail: see session-60.md.
+
+## 72. Session establishment moved into `PiProvider`; new `sessionReady` flag fixes profile-check race (session 61, 2026-09-06)
+
+Section 71's profile-complete skip check appeared to fail — an account
+confirmed to genuinely have a complete server-side profile
+(`profile_complete: true`, computed as `cleanedSkills.length > 0` in
+`backend/src/routes/users.ts`) still saw the profile form. Ruled out a
+separate-save-path bug (`Profile.tsx` and `Onboarding.tsx` hit the same
+`PUT /api/users/me/profile` endpoint). Root cause: a timing race —
+`Onboarding.tsx`'s profile-check effect fired as soon as `connected`
+became true, but `Layout.tsx`'s separate effect was what actually called
+`/api/auth/verify` and set the `sessionToken` that `apiFetch` (reading
+`localStorage.getItem('sessionToken')` fresh on every call) depends on.
+If the profile fetch raced ahead of session establishment, it came back
+unauthenticated and the `.catch()` silently defaulted to "show the form"
+— indistinguishable from a genuinely incomplete profile.
+
+Same underlying lesson as Section 69: cross-cutting async state living in
+the wrong place instead of one shared source of truth. **Fix:** moved
+session establishment (the `/api/auth/verify` call and `sessionToken`
+storage) out of `Layout.tsx` and into the shared `PiProvider`, exposing a
+new `sessionReady` flag. `Layout.tsx` no longer runs its own verify effect
+(would now duplicate the provider's). `Onboarding.tsx`'s profile-complete
+check now waits on `sessionReady`, not just `connected`.
+
+`tsc --noEmit` clean. Pushed and **live-tested end-to-end by user across
+the full arc (Sections 67-72): all confirmed working**, including the
+returning-user profile-skip case this section fixes.
+
+Full detail: see session-61.md.
+
+## Open items carried forward
+
+1. **Connect → Profile → Notify step indicator** — the shell shows a
+   3-step progress indicator on the connect/onboarding flow; real
+   `Onboarding.tsx` has no step-indicator UI at all, and no "Notify"
+   (notification-permission) step exists anywhere in real code. Flagged
+   during Section 71, not yet answered: in scope for a future session, or
+   an aspirational shell-only piece (similar to the shell's aspirational
+   category list) to leave out for now?
+2. **Dead code cleanup** — the now-unreachable `if (!connected) return
+   (...)` blocks in `PostJob.tsx`, `Dashboard.tsx`, `JobDetail.tsx`
+   (Section 68) are harmless but worth removing in a dedicated pass.
+3. Whether `JobDetail.tsx`'s Apply button (and any other in-context
+   gated action on that page, e.g. rating/approve — not yet swept) needs
+   an inline `connect()` trigger is moot now that Browse itself is
+   gated (Section 68 superseded the original "inline trigger on a public
+   page" plan), but worth confirming nothing on that page still assumes
+   the old public-Browse behavior.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
