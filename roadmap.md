@@ -4453,18 +4453,55 @@ yet implemented; next session's starting point.
 
 Full detail: see session-54.md.
 
+## 66. `piConnected` flag gate — built (session 55, 2026-09-06)
+
+Section 65's proposed fix, implemented. Real file was found at
+`frontend/src/lib/usePi.ts`, not `frontend/src/hooks/usePi.ts` as
+Section 65 assumed — located via `find frontend/src -iname "*pi*"`.
+
+**`usePi.ts` changes:**
+- Added `PI_CONNECTED_KEY = 'piConnected'` (localStorage key).
+- Extracted the existing `Pi.init()`/`Pi.authenticate()` logic out of the
+  mount-time `useEffect` into a standalone `runAuth` callback.
+- Mount-time `useEffect` now only calls `runAuth()` if
+  `localStorage.getItem('piConnected') === 'true'` (refresh-while-connected
+  case). Otherwise it sets `ready: true, connected: false` directly, with
+  no `Pi.authenticate()` call at all — a fresh/logged-out visitor no
+  longer silently re-authenticates.
+- On successful auth (whether from the mount-time path or an explicit
+  call), `runAuth` now sets `localStorage.setItem('piConnected', 'true')`.
+- `PiState` gained a `connect: () => Promise<void>` field, returning
+  `runAuth` directly — this is what Landing/Onboarding's "Connect with Pi
+  Wallet" tap will call explicitly (wiring that into the UI is Section
+  66's remaining item below, tracked as "Next session" step 1).
+
+**`Layout.tsx` change:** `handleLogout` now also does
+`localStorage.removeItem('piConnected')`, alongside the existing
+`sessionToken` removal — applied via `sed` in Termux, confirmed via
+`grep` that it landed correctly (line 52, right after the `sessionToken`
+line).
+
+**Verification:** `npx tsc --noEmit -p frontend` filtered to
+`usePi|Layout` — zero output, clean.
+
+**Pushed:** Piwork repo only (real `frontend/src` edit, not
+`hivework-redesign` content) — `git add frontend/src/lib/usePi.ts
+frontend/src/components/Layout.tsx`, committed, pushed. **Confirmed
+clean push by user.**
+
+Full detail: see session-55.md.
+
 ## Next session
 
-1. Build the `piConnected`-flag gate in `usePi.ts` (expose a callable
-   `connect()`, remove the unconditional mount-time auto-call) and update
-   `handleLogout` to clear it alongside `sessionToken`.
-2. Patch the 3-state Connect Wallet UI (Not connected / Connecting… /
+1. Patch the 3-state Connect Wallet UI (Not connected / Connecting… /
    Connected, KYC banner, Testnet note, ToS checkbox) into real
    `Onboarding.tsx` from the canonical shell — currently only a bare
-   redirect effect exists there.
-3. Once both land, Landing / Wallet Connect re-verification can finally
+   redirect effect exists there. This is also where the new `connect()`
+   export from Section 66 gets wired up (the "Connect with Pi Wallet" tap
+   should call it explicitly, driving the Connecting… state properly).
+2. Once that lands, Landing / Wallet Connect re-verification can finally
    be live-tested against a real logged-out state — previously blocked,
-   now unblocked pending the above build.
+   now unblocked by Section 66's mount-time gate.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
