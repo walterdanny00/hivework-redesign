@@ -4684,6 +4684,34 @@ returning-user profile-skip case this section fixes.
 
 Full detail: see session-61.md.
 
+## 73. Dead `if (!connected)` guard cleanup in `PostJob.tsx`/`Dashboard.tsx` (session 62, 2026-09-06)
+
+Closed open item 2. Confirmed via `RequireAuth.tsx` that the session-57
+route guard (`frontend/src/App.tsx`) is a **live**, continuously-evaluated
+guard — it reads `usePiConnection()` directly and swaps `<Outlet/>` for a
+redirect the instant `connected` goes false, unmounting the routed page
+immediately. That confirmed all flagged spots were genuinely dead, not
+just redundant:
+
+- `PostJob.tsx`'s single JSX early-return (`if (!connected) return (...)`,
+  "Pi Browser required" state) — removed.
+- `Dashboard.tsx`'s JSX early-return ("Open in Pi Browser..." state) and
+  both `useEffect` `if (!connected) return` guards — removed. `connected`
+  stays in both effects' dependency arrays (harmless unused dep; left
+  alone rather than risk an unrelated edit).
+- `JobDetail.tsx` — swept and confirmed it never had this pattern at all;
+  Section 68/72's item description was mis-scoped for this file. No
+  change needed there.
+
+Removing `PostJob.tsx`'s guard cascaded into two more unused-variable
+`tsc` errors, resolved in order: dropped the now-unused `connected`
+destructure (`const { connected } = usePiConnection()`), then the
+now-unused `usePiConnection` import itself — each confirmed via `grep` to
+have no other call site before removal.
+
+`tsc --noEmit -p frontend` clean. Pushed to Piwork only (real `frontend/src/`
+edit).
+
 ## Open items carried forward
 
 1. **Connect → Profile → Notify step indicator** — the shell shows a
@@ -4693,10 +4721,7 @@ Full detail: see session-61.md.
    during Section 71, not yet answered: in scope for a future session, or
    an aspirational shell-only piece (similar to the shell's aspirational
    category list) to leave out for now?
-2. **Dead code cleanup** — the now-unreachable `if (!connected) return
-   (...)` blocks in `PostJob.tsx`, `Dashboard.tsx`, `JobDetail.tsx`
-   (Section 68) are harmless but worth removing in a dedicated pass.
-3. Whether `JobDetail.tsx`'s Apply button (and any other in-context
+2. Whether `JobDetail.tsx`'s Apply button (and any other in-context
    gated action on that page, e.g. rating/approve — not yet swept) needs
    an inline `connect()` trigger is moot now that Browse itself is
    gated (Section 68 superseded the original "inline trigger on a public
@@ -4706,4 +4731,5 @@ Full detail: see session-61.md.
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
 (carried from session 49/52) remain **closed** — all removed/added,
-verified, and pushed as of session 53.
+verified, and pushed as of session 53. Section 73's dead-code cleanup
+(session 62) is also now **closed**.
