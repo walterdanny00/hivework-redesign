@@ -2692,7 +2692,7 @@ function HiveworkProfileCompleteScreen({ onDone }) {
 
 /* ===== Welcome (Wallet-Connect Onboarding) — full standalone page
    (canonical, ported from HiveworkOnboarding.jsx). This is the PROPOSED
-   3-step Connect/Profile/Notify flow reached from Landing's "Get started"
+   2-step Connect/Profile flow reached from Landing's "Get started"
    and hero CTAs — distinct from HiveworkProfileCompleteScreen (the real
    `/onboarding` route, reached only from Dashboard's nudge). Per roadmap:
    this flow is a proposed product improvement, not a real-route redesign —
@@ -2710,7 +2710,7 @@ const HW_ONBOARD_SKILLS = ["Bug testing", "UI feedback", "Translation", "Android
 const HW_ONBOARD_DEVICES = ["Android", "iOS"];
 
 function HWOWizardTrack({ step }) {
-  const labels = ["Connect", "Profile", "Notify"];
+  const labels = ["Connect", "Profile"];
   return (
     <div className="wizard-track">
       {labels.map((label, i) => {
@@ -2848,7 +2848,7 @@ const HW_ONBOARD_STYLES = `
 `;
 
 function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
-  const [screen, setScreen] = useState("connect"); // 'connect' | 'profile' | 'notify' | 'routing'
+  const [screen, setScreen] = useState("connect"); // 'connect' | 'profile' | 'routing'
   const [tosChecked, setTosChecked] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
@@ -2872,7 +2872,7 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
   // from "not connected" — logged gap).
   //
   // `returning` mirrors what Dashboard.tsx already does for real: it never
-  // gates a returning/complete-profile user behind profile+notify screens,
+  // gates a returning/complete-profile user behind profile screen,
   // just shows a soft inline nudge banner instead. Real Pi.authenticate()
   // would return this on the user object; the demo link passes it directly
   // as an argument (not read off state) because this callback fires inside
@@ -3047,37 +3047,8 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
                   </div>
                 </div>
 
-                <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => goTo("notify")}>Continue →</button>
-                <button className="btn-text" onClick={() => goTo("notify")}>Skip for now</button>
-              </div>
-            )}
-
-            {screen === "notify" && (
-              <div>
-                <button className="back-btn" onClick={() => goTo("profile")}><BackIcon />Back</button>
-                <HWOWizardTrack step={3} />
-                <div className="step-head">
-                  <h1>Stay in the loop</h1>
-                  <p>Get notified the moment your work is approved or paid, or when someone applies to your job.</p>
-                </div>
-
-                <div className="notif-visual">
-                  <div className="notif-row">
-                    <div className="notif-ic">✓</div>
-                    <div><h4>Work approved</h4><p>Know instantly when a job you applied to gets approved</p></div>
-                  </div>
-                  <div className="notif-row">
-                    <div className="notif-ic">π</div>
-                    <div><h4>Pi released</h4><p>Get notified the moment Pi lands in your wallet</p></div>
-                  </div>
-                  <div className="notif-row">
-                    <div className="notif-ic">👤</div>
-                    <div><h4>New applicant</h4><p>See when someone applies to a job you posted</p></div>
-                  </div>
-                </div>
-
-                <button className="btn btn-primary" onClick={finishOnboarding}>Enable notifications</button>
-                <button className="btn-text" onClick={finishOnboarding}>Not now</button>
+                <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={finishOnboarding}>Continue →</button>
+                <button className="btn-text" onClick={finishOnboarding}>Skip for now</button>
               </div>
             )}
 

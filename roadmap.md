@@ -4712,16 +4712,48 @@ have no other call site before removal.
 `tsc --noEmit -p frontend` clean. Pushed to Piwork only (real `frontend/src/`
 edit).
 
+## 74. BUG-004 investigated: in_app_notifications scope confirmed real but non-functional; Notify step dropped from shell (session 63, 2026-09-07)
+
+Investigated whether device/push notifications are feasible in Pi Browser,
+closing the open question behind `BUG-004` (`NotificationBell.tsx` comment)
+and Section 73's open item 1 (shell's Connect→Profile→Notify step).
+
+**Findings, in order:**
+- `Notification` API is `undefined` in Pi Browser's webview — standard web
+  push is not an option here at all.
+- `Pi.nativeFeaturesList()` reports `request_permission` as available, but
+  no method to invoke it exists anywhere in the official SDK reference.
+- The live `pi-sdk.js` source (not the docs) contains an undocumented
+  scope, `in_app_notifications`, in its scope list alongside `payments`/
+  `username`/etc.
+- Requesting `Pi.authenticate(['username','in_app_notifications'], ...)`
+  in Pi Browser **does** show a distinct, real consent line: "In app
+  notifications: Send you in-app notifications" — confirming Pi is
+  building toward this.
+- However, the returned `credentials.scopes` in the auth result did
+  **not** include `in_app_notifications` even after Allow — the feature
+  is visible in the consent UI but not yet honored end-to-end. Not
+  usable today.
+
+**Decision:** dropped the shell's "Notify" step. Onboarding wizard trimmed
+from Connect→Profile→Notify (3 steps) to Connect→Profile (2 steps),
+matching real `Onboarding.tsx`'s existing behavior. `owWizardTrack`/
+`HWOWizardTrack` labels and the `notify` screen block removed from both
+canonical shells; Profile screen's Continue/Skip buttons now route
+straight to `routing` (`owFinish()`/`finishOnboarding`).
+
+**Not revisited:** in-app notifications (the bell) were separately
+confirmed already fully built and redesign-ported (`NotificationBell.tsx`,
+polling-based) — unrelated to this decision, nothing to do there.
+
+**Worth re-testing later:** if Pi ships `in_app_notifications` scope
+support end-to-end, this is a one-line scopes-array change wherever
+`Pi.authenticate()` is called for auth, no redesign needed to reintroduce
+a notify step if wanted then.
+
 ## Open items carried forward
 
-1. **Connect → Profile → Notify step indicator** — the shell shows a
-   3-step progress indicator on the connect/onboarding flow; real
-   `Onboarding.tsx` has no step-indicator UI at all, and no "Notify"
-   (notification-permission) step exists anywhere in real code. Flagged
-   during Section 71, not yet answered: in scope for a future session, or
-   an aspirational shell-only piece (similar to the shell's aspirational
-   category list) to leave out for now?
-2. Whether `JobDetail.tsx`'s Apply button (and any other in-context
+1. Whether `JobDetail.tsx`'s Apply button (and any other in-context
    gated action on that page, e.g. rating/approve — not yet swept) needs
    an inline `connect()` trigger is moot now that Browse itself is
    gated (Section 68 superseded the original "inline trigger on a public
@@ -4732,4 +4764,5 @@ Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
 (carried from session 49/52) remain **closed** — all removed/added,
 verified, and pushed as of session 53. Section 73's dead-code cleanup
-(session 62) is also now **closed**.
+(session 62) and Section 74's Notify-step investigation (session 63) are
+also now **closed**.

@@ -2382,7 +2382,7 @@ function owToggleKyc(){ onboardState.kycOpen = !onboardState.kycOpen; renderWelc
 // (real code today can't tell "Pi Browser missing" from "not connected" — logged gap).
 //
 // `returning` mirrors what Dashboard.tsx already does for real: it never gates a
-// returning/complete-profile user behind profile+notify screens, just shows a soft
+// returning/complete-profile user behind profile screen, just shows a soft
 // inline nudge banner instead. Real Pi.authenticate() would return this on the user
 // object; the demo link passes it directly as an argument here.
 function owConnect(forceOutcome, returning){
@@ -2417,7 +2417,7 @@ function owToggleDevice(d){
 }
 function owFinish(){ owGoTo('routing'); }
 function owWizardTrack(step){
-  const labels = ['Connect','Profile','Notify'];
+  const labels = ['Connect','Profile'];
   let html = '<div class="wizard-track">';
   labels.forEach((label,i)=>{
     const n = i+1;
@@ -2486,21 +2486,8 @@ function renderWelcome(){
       + '<div class="pc-row"><div class="pc-label">Skills · optional</div>'+owChipGroup(HW_ONBOARD_SKILLS, s.skills, 'owToggleSkill')+'</div>'
       + '<div class="pc-row"><div class="pc-label">Devices · optional</div>'+owChipGroup(HW_ONBOARD_DEVICES, s.devices, 'owToggleDevice')+'</div>'
       + '</div>'
-      + '<button class="btn btn-primary" style="margin-top:8px;" onclick="owGoTo(\'notify\')">Continue →</button>'
-      + '<button class="btn-text" onclick="owGoTo(\'notify\')">Skip for now</button>'
-      + '</div>';
-  } else if(s.screen==='notify'){
-    inner = '<div>'
-      + '<button class="back-btn" onclick="owGoTo(\'profile\')">'+BACK_ICON_SVG+'Back</button>'
-      + owWizardTrack(3)
-      + '<div class="step-head"><h1>Stay in the loop</h1><p>Get notified the moment your work is approved or paid, or when someone applies to your job.</p></div>'
-      + '<div class="notif-visual">'
-      + '<div class="notif-row"><div class="notif-ic">✓</div><div><h4>Work approved</h4><p>Know instantly when a job you applied to gets approved</p></div></div>'
-      + '<div class="notif-row"><div class="notif-ic">π</div><div><h4>Pi released</h4><p>Get notified the moment Pi lands in your wallet</p></div></div>'
-      + '<div class="notif-row"><div class="notif-ic">👤</div><div><h4>New applicant</h4><p>See when someone applies to a job you posted</p></div></div>'
-      + '</div>'
-      + '<button class="btn btn-primary" onclick="owFinish()">Enable notifications</button>'
-      + '<button class="btn-text" onclick="owFinish()">Not now</button>'
+      + '<button class="btn btn-primary" style="margin-top:8px;" onclick="owFinish()">Continue →</button>'
+      + '<button class="btn-text" onclick="owFinish()">Skip for now</button>'
       + '</div>';
   } else if(s.screen==='routing'){
     inner = '<div class="routing"><div class="spin"></div><h2>'+routingCopy.title+'</h2><p>'+routingCopy.sub+'</p></div>';
