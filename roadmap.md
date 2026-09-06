@@ -4401,15 +4401,72 @@ JSX shell separately after. **Both confirmed clean push by user.**
 
 Full detail: see session-53.md.
 
+## 65. Logout — reopened (session 54, 2026-09-06)
+
+**Previously closed as infeasible, not deferred** — see Section 39
+(2026-08-16): that investigation swept `usePi.ts`, confirmed the Pi SDK's
+entire client method surface has no logout/disconnect/deauthorize method,
+considered a local-only state reset, and rejected it with the reasoning
+that it "wouldn't survive a page refresh (`Pi.authenticate()` re-runs on
+mount and likely re-succeeds silently), so it would look like logout
+without being one." Decision at the time: no "Log out" menu item would be
+built; the disconnected UI already shipped is the permanent UI for
+"auth hasn't succeeded yet," not a stub waiting on logout. That closure is
+also carried in that date's session brief.
+
+**Reopened this session** on an angle the original investigation didn't
+consider: gating *when* `Pi.authenticate()` runs, rather than trying to
+revoke it after the fact.
+
+**Findings from sweeping the real code (Termux, `~/Piwork`):**
+- `Layout.tsx`'s `handleLogout` already does the right thing — it clears
+  the app's own `sessionToken` from localStorage and reloads to `/`. This
+  part was never the problem.
+- `usePi.ts`'s `useEffect` calls `Pi.init()` + `Pi.authenticate()`
+  unconditionally on every mount, with no gate at all. So clearing
+  `sessionToken` and reloading just triggers this effect to fire again
+  immediately — Pi Browser already has consent from a prior session, so
+  it silently re-authenticates, and a fresh `sessionToken` gets minted
+  again within moments via `Layout.tsx`'s own verify effect. The logout
+  works for one render before undoing itself.
+- Separately, and not previously flagged: the shell's 3-state Connect
+  Wallet UI (Not connected / Connecting… / Connected, KYC banner,
+  Testnet note, ToS checkbox) was never actually patched into real
+  `Onboarding.tsx`. That file currently only has a bare
+  redirect-if-not-connected effect — no visible connect step exists in
+  the real app today.
+
+**Proposed fix, not yet built:** gate the auto-authenticate call in
+`usePi.ts` behind a persisted "connect intent" flag (e.g. `piConnected`
+in localStorage) rather than running it unconditionally on mount:
+- Set the flag on first successful authentication.
+- `usePi.ts` only auto-runs `Pi.init()`/`Pi.authenticate()` if the flag
+  is already set (refresh-while-connected) — otherwise it waits for an
+  explicit `connect()` call, exposed from the hook for Landing/Onboarding's
+  "Connect with Pi Wallet" tap to invoke directly, driving the existing
+  Connecting… UI properly instead of a passive mount-time effect.
+- `handleLogout` clears both `sessionToken` and the flag.
+
+This doesn't require anything from Pi Core Team or a hidden SDK method —
+it only changes which event in *our own app* triggers the auth call. Not
+yet implemented; next session's starting point.
+
+Full detail: see session-54.md.
+
 ## Next session
 
-1. Landing / Wallet Connect re-verification remains blocked — no way
-   found yet to actualize a real logged-out state to test against.
-   Revisit if/when that becomes possible.
+1. Build the `piConnected`-flag gate in `usePi.ts` (expose a callable
+   `connect()`, remove the unconditional mount-time auto-call) and update
+   `handleLogout` to clear it alongside `sessionToken`.
+2. Patch the 3-state Connect Wallet UI (Not connected / Connecting… /
+   Connected, KYC banner, Testnet note, ToS checkbox) into real
+   `Onboarding.tsx` from the canonical shell — currently only a bare
+   redirect effect exists there.
+3. Once both land, Landing / Wallet Connect re-verification can finally
+   be live-tested against a real logged-out state — previously blocked,
+   now unblocked pending the above build.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
-(carried from session 49/52) are now **closed** — all removed/added,
+(carried from session 49/52) remain **closed** — all removed/added,
 verified, and pushed as of session 53.
-
-No due date set on the remaining item — open decision for the user.
