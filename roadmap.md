@@ -4740,7 +4740,9 @@ from Connect→Profile→Notify (3 steps) to Connect→Profile (2 steps),
 matching real `Onboarding.tsx`'s existing behavior. `owWizardTrack`/
 `HWOWizardTrack` labels and the `notify` screen block removed from both
 canonical shells; Profile screen's Continue/Skip buttons now route
-straight to `routing` (`owFinish()`/`finishOnboarding`).
+straight to `routing` (`owFinish()`/`finishOnboarding`). Stale in-code
+comments referencing the old "profile+notify screens" flow updated to
+say "profile screen".
 
 **Not revisited:** in-app notifications (the bell) were separately
 confirmed already fully built and redesign-ported (`NotificationBell.tsx`,
@@ -4750,6 +4752,34 @@ polling-based) — unrelated to this decision, nothing to do there.
 support end-to-end, this is a one-line scopes-array change wherever
 `Pi.authenticate()` is called for auth, no redesign needed to reintroduce
 a notify step if wanted then.
+
+## 75. Catch-all 404 route added after a stale `RoutePersistence` restore stranded a user on a blank page (session 63, 2026-09-07)
+
+While live-testing Section 74's spike page before removal, a stale
+`lastRoute` value in `RoutePersistence.tsx`'s `localStorage` persistence
+(see that file's own header comment for the Pi-Browser-refresh-loses-
+location workaround it implements) caused a returning visit to
+client-side-navigate to `/debug/notify-test` — a route already removed
+from `App.tsx` by that point. Because there was no catch-all `*` route,
+React Router rendered nothing at all: a blank page with no way back to
+Home, surviving even a cache clear (the stale value lived in
+`localStorage`, not cache).
+
+This surfaced a real, standing gap unrelated to the spike itself: **any**
+future route rename/removal will stall out the same way for anyone whose
+`localStorage` still points at it. Fixed by adding `frontend/src/pages/NotFound.tsx`
+(simple "page not found" message + link Home) and a `<Route path="*" element={<NotFound />} />`
+as the last child inside the outer `path="/"` `Layout` route (after the
+`RequireAuth` group closes, so it doesn't shadow any gated route).
+
+`RoutePersistence.tsx` itself was deliberately left unhardened — validating
+the saved path against the known route list before restoring was proposed
+and declined as unnecessary now that the catch-all prevents the stranding
+outcome; a stale restore now lands on the "not found" page instead of a
+blank dead end, which was judged sufficient.
+
+`tsc --noEmit -p frontend` clean. Pushed to Piwork only (real
+`frontend/src/` edit).
 
 ## Open items carried forward
 
@@ -4764,5 +4794,5 @@ Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
 (carried from session 49/52) remain **closed** — all removed/added,
 verified, and pushed as of session 53. Section 73's dead-code cleanup
-(session 62) and Section 74's Notify-step investigation (session 63) are
-also now **closed**.
+(session 62), Section 74's Notify-step investigation, and Section 75's
+404 route fix (both session 63) are also now **closed**.
