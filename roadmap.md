@@ -4967,13 +4967,88 @@ it over is next.
    a dark theme could hook into, or whether this would be a
    from-scratch addition — needs its own sweep when that phase starts.
 
+## Section 78 (session 66) — Dark mode port into `HiveworkApp.jsx`
+
+Item 1 from Section 77's open items, closed out. Ported the full
+Session 65 dark mode work from `hivework-app-v4-3.html` into the
+compiled JSX shell — token plumbing plus all seven fixes, not a
+partial port, per the scope Session 65 flagged for confirmation.
+
+**Token plumbing:**
+- Main `.hw-app` `:root` block extended with the full Session 65
+  token set (`--violet-tint`/`--violet-tint-border`, `--ink-fixed`/
+  `--cream-fixed`, `--gold-tint`/`--gold-ink`, `--teal-tint`/
+  `--teal-ink`, `--trust-silver`/`--trust-bronze`, `--pastel-1..5`)
+  plus a matching `[data-theme="dark"]` override block, copied 1:1
+  from the HTML shell's mapping.
+- React has no pre-paint document-head hook the way a static HTML
+  file's inline `<script>` does, so the boot logic was adapted: a
+  lazy `useState` initializer reads `localStorage['hw-theme']`
+  (falling back to `prefers-color-scheme`), and a `useLayoutEffect`
+  sets `data-theme` on `<html>` and persists it — same storage key,
+  same fallback behavior as the HTML shell, earliest safe
+  equivalent in a mounted component.
+- Added `.toggle-switch`/`.knob` CSS and `.settings-row*` CSS to the
+  main style block; added a **Settings** entry to the side-drawer nav
+  (above Help) and the Settings screen itself (Appearance section,
+  dark mode toggle row, "More" placeholder) — structurally identical
+  to the HTML shell's version.
+
+**Structural fix required for the port to actually work (found
+during the port, not present in the HTML shell since it's a single
+document):** `HW_JDW_STYLES`, `HW_LANDING_STYLES`, `HWPC_STYLES`, and
+`HW_ONBOARD_STYLES` each carried their own local redeclaration of the
+base tokens (`--cream`, `--ink`, `--violet`, etc. — the "harmless
+duplicate, same convention as other canonical files" pattern noted
+in earlier sessions). Harmless for light-only, but since these
+sub-blocks render after the main style block in DOM order and share
+`:root`'s exact specificity, their light-only values would have
+silently overridden the dark theme on every screen except the main
+`.hw-app` shell itself. Stripped each down to only its genuinely
+unique additions (`--radius`/`--radius-sm`/`--cream-deep` for JDW,
+`--radius:18px` for Landing, `--danger` for HWPC and Post Job,
+nothing unique for Onboarding — its `:root` block was removed
+outright) so all of them now inherit the dark override correctly.
+
+**Seven fixes, ported 1:1:**
+1. `.jdo .declined-row` / `.jdo .ledger-submission` background → `var(--mist)`
+2. `.jdo .close-slots-card` background → `var(--card)`
+3. `.hw-jdw` `.paid-strip`/`.verified-strip`/`.attach-icon`/`textarea:focus` background → `var(--card)`
+4. `.hw-onboard` background → `var(--sand)`
+5. `.hw-onboard .kyc-pill` background/border tokenized (`--gold-tint`/`--line`) — border was Session 65's specific fix; background was tokenized to match the HTML canonical's current state, needed for the same reason
+6. `ChevIcon`'s hardcoded `stroke="#8A6512"` → `currentColor`, plus `.kyc-pill .chev{color:var(--gold-ink)}` (only usage site, confirmed no other screen uses `ChevIcon`)
+7. `.hivework-landing .nav-links a:hover` background → `var(--mist)`
+
+`TRUST_COLOR` (Silver/Bronze hardcoded hex) also fixed to
+`var(--trust-silver)`/`var(--trust-bronze)`, matching the HTML fix.
+`.hw-onboard .kyc-pill span`'s hardcoded text color (`#8A6512`) was
+deliberately left as-is — confirmed the HTML canonical still has this
+one un-tokenized too, so the JSX now matches it exactly rather than
+going further than the reference.
+
+**Verification:** brace/paren/backtick balance checked (no JSX/babel
+tooling available in this environment to fully compile-check); no
+network access this session, so this could not be built/run — visual
+verification in an actual React environment is the outstanding step.
+
+**Flagged, not fixed this session (pre-existing drift, separate from
+dark mode):** `JOB_DETAIL_OWNER_STYLES`'s `.jdo .status-chip`/
+`.toggle-row` still use raw hex (`#FFF3DC`, `#F1EFEA`, `#EFECE5`,
+etc.) where the HTML canonical already uses tokens from an earlier
+tokenization pass (Section 54/55-era) that evidently never made it
+into the JSX shell. Not part of Session 65's specific fix list and
+left untouched to avoid silently expanding this session's scope —
+needs its own confirmed-scope pass.
+
+**Files touched:** `HiveworkApp.jsx`, `roadmap.md`, `sessions/session-66.md`.
+
 ## Open items carried forward
 
-As of session 65 (2026-09-07), three items carried forward from
-Section 77:
+As of session 66 (2026-09-08):
 
-1. `HiveworkApp.jsx` needs the full dark mode port (token plumbing +
-   all seven fixes) — confirmed as the next task.
+1. `JOB_DETAIL_OWNER_STYLES` pre-existing hex/token drift vs. the
+   HTML canonical (`.status-chip`, `.toggle-row`) — flagged this
+   session, not fixed, needs its own confirmed-scope pass.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation
    (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
@@ -4983,5 +5058,10 @@ Section 77:
    shells are complete — real feature patch, not yet started, needs
    its own sweep of whether real code has any existing theme-hookable
    pattern.
+4. `HiveworkApp.jsx` dark mode port done this session but unverified
+   in an actual build/browser (no network/build tooling available) —
+   worth a visual pass before treating it as fully confirmed.
 
-All items from session 64/Section 76 and earlier remain **closed**.
+Item 1 from Section 77 (`HiveworkApp.jsx` dark mode port) is now
+**closed**. All items from session 64/Section 76 and earlier remain
+**closed**.

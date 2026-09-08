@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 
 /**
  * Hivework — App
@@ -408,7 +408,7 @@ const ChevIcon = ({ open }) => (
     height="14"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="#8A6512"
+    stroke="currentColor"
     strokeWidth="2.5"
     style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
   >
@@ -602,7 +602,7 @@ const STAR_ICON = (
 );
 
 const TOTAL_SLOTS = 5;
-const TRUST_COLOR = { Gold: "var(--butter)", Silver: "#9CA3AF", Bronze: "#B45309", Unverified: "var(--ink-soft)" };
+const TRUST_COLOR = { Gold: "var(--butter)", Silver: "var(--trust-silver)", Bronze: "var(--trust-bronze)", Unverified: "var(--ink-soft)" };
 
 // Mirrors real Profile.tsx/Dashboard.tsx's LEVEL_MAP (pioneer/verified/expert/
 // validator) — a separate progression field from trust_tier above, rendered
@@ -683,12 +683,12 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .declined-toggle .chevron{transition:transform .15s ease;}
   .jdo .declined-toggle .chevron.open{transform:rotate(180deg);}
   .jdo .declined-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
-  .jdo .declined-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#F7F5F1;border-radius:12px;}
+  .jdo .declined-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--mist);border-radius:12px;}
   .jdo .declined-row .avatar-sm.dim{opacity:.55;}
   .jdo .declined-info{flex:1;min-width:0;}
   .jdo .declined-info .n{font-size:13px;font-weight:600;color:var(--ink-soft);}
   .jdo .declined-info .trust.dim{font-size:11px;color:var(--ink-soft);opacity:.7;}
-  .jdo .close-slots-card{background:#FDFBF7;border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
+  .jdo .close-slots-card{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:16px;margin-bottom:22px;}
   .jdo .close-slots-card .cs-label{font-size:12.5px;font-weight:700;margin-bottom:4px;}
   .jdo .close-slots-card .cs-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;}
   .jdo .cs-row{display:flex;gap:10px;align-items:center;}
@@ -711,7 +711,7 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .ledger-status.completed{background:#E4F8F6;color:#1A9E92;}
   .jdo .ledger-status.progress{background:#EFEAFB;color:var(--violet-deep);}
   .jdo .ledger-status.submitted{background:#FFF3DC;color:#B8860B;}
-  .jdo .ledger-submission{margin:12px 0 0 50px;background:#F7F5F1;border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
+  .jdo .ledger-submission{margin:12px 0 0 50px;background:var(--mist);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
   .jdo .ledger-submission .lbl{font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
   .jdo .rating-given{font-size:12px;color:var(--ink-soft);margin:12px 0 0 50px;}
   .jdo .rating-given .stars{color:var(--butter);letter-spacing:1px;}
@@ -1044,11 +1044,7 @@ function JobDetailOwner({ job, onBack }) {
 
 const HW_JDW_STYLES = `
   .hw-jdw{
-    --cream:#F7F5F1; --cream-deep:#EFEBE1; --ink:#1B1A1F; --ink-soft:#6B6874;
-    --violet:#6C5CE7; --violet-deep:#5643D9;
-    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
-    --line:#E7E3DA; --card:#FFFFFF;
-    --radius:16px; --radius-sm:10px;
+    --radius:16px; --radius-sm:10px; --cream-deep:#EFEBE1;
     background:var(--cream); color:var(--ink); font-family:'Inter',sans-serif;
     -webkit-font-smoothing:antialiased; padding-bottom:60px;
   }
@@ -1086,7 +1082,7 @@ const HW_JDW_STYLES = `
   .hw-jdw .panel-title{font-size:13px;font-weight:700;margin-bottom:8px;}
   .hw-jdw .field-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:6px;}
   .hw-jdw textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;min-height:100px;background:var(--cream-deep);}
-  .hw-jdw textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:#fff;}
+  .hw-jdw textarea:focus{outline:2px solid var(--violet);outline-offset:1px;background:var(--card);}
   .hw-jdw .sub-composer-hint{font-size:12px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;}
   .hw-jdw .sub-field{min-height:70px;}
   .hw-jdw .sub-field-sm{min-height:52px;}
@@ -1106,12 +1102,12 @@ const HW_JDW_STYLES = `
   .hw-jdw .error-note{font-size:12px;color:var(--coral);margin-top:10px;line-height:1.5;}
   .hw-jdw .error-note a{color:var(--coral);font-weight:700;text-decoration:underline;cursor:pointer;}
 
-  .hw-jdw .paid-strip{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:14px 16px;margin-top:10px;}
+  .hw-jdw .paid-strip{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--mint);border-radius:var(--radius-sm);padding:14px 16px;margin-top:10px;}
   .hw-jdw .paid-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:#1A9E92;}
   .hw-jdw .paid-amt span{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:4px;}
   .hw-jdw .paid-sub{font-size:11px;color:var(--ink-soft);text-align:right;font-family:'JetBrains Mono',monospace;}
 
-  .hw-jdw .verified-strip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--mint);border-radius:var(--radius-sm);padding:12px 14px;margin-top:10px;}
+  .hw-jdw .verified-strip{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--mint);border-radius:var(--radius-sm);padding:12px 14px;margin-top:10px;}
   .hw-jdw .verified-icon{width:22px;height:22px;border-radius:50%;background:var(--mint);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .hw-jdw .verified-text{font-size:12.5px;font-weight:600;color:#1A9E92;}
 
@@ -1121,7 +1117,7 @@ const HW_JDW_STYLES = `
 
   .hw-jdw .attach-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
   .hw-jdw .attach-row2{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--cream-deep);border:1px solid var(--line);border-radius:var(--radius-sm);}
-  .hw-jdw .attach-icon{width:34px;height:34px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .hw-jdw .attach-icon{width:34px;height:34px;border-radius:8px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
   .hw-jdw .attach-info{flex:1;min-width:0;}
   .hw-jdw .attach-name{font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .hw-jdw .attach-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);margin-top:2px;}
@@ -2096,10 +2092,7 @@ function PostJobWizard() {
 
 const HW_LANDING_STYLES = `
   :root{
-    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
-    --violet:#6C5CE7; --violet-deep:#5643D9;
-    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
-    --line:#E7E3DA; --card:#FFFFFF; --radius:18px;
+    --radius:18px;
   }
   body{margin:0;background:var(--cream);}
   .hivework-landing *{box-sizing:border-box;}
@@ -2134,7 +2127,7 @@ const HW_LANDING_STYLES = `
     padding:9px 16px;border-radius:100px;font-weight:600;font-size:14.5px;color:var(--ink-soft);
     transition:background .15s,color .15s; cursor:pointer;
   }
-  .hivework-landing .nav-links a:hover{background:#EFEBE3;color:var(--ink);}
+  .hivework-landing .nav-links a:hover{background:var(--mist);color:var(--ink);}
   .hivework-landing .nav-cta{background:var(--ink);color:white!important;padding:10px 20px!important;}
   .hivework-landing .nav-cta:hover{background:var(--violet-deep)!important;color:white!important;}
   @media (max-width:820px){ .hivework-landing .nav-links a:not(.nav-cta){display:none;} }
@@ -2453,10 +2446,7 @@ const HWPC_LANGUAGES = [
 
 const HWPC_STYLES = `
   :root{
-    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
-    --violet:#6C5CE7; --violet-deep:#5643D9;
-    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
-    --line:#E7E3DA; --card:#FFFFFF; --danger:#E5484D;
+    --danger:#E5484D;
   }
   .hwpc-frame{width:100%;max-width:560px;margin:0 auto;background:var(--cream);position:relative;min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
   .hwpc-frame *{box-sizing:border-box;}
@@ -2744,14 +2734,8 @@ function HWOChipGroup({ options, selected, onToggle }) {
 }
 
 const HW_ONBOARD_STYLES = `
-  :root{
-    --cream:#F7F5F1; --ink:#1B1A1F; --ink-soft:#6B6874;
-    --violet:#6C5CE7; --violet-deep:#5643D9;
-    --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
-    --line:#E7E3DA; --card:#FFFFFF;
-  }
   .hw-onboard *{box-sizing:border-box;}
-  .hw-onboard{margin:0;background:#EAE7DF;color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .hw-onboard{margin:0;background:var(--sand);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
   .hw-onboard h1,.hw-onboard h2,.hw-onboard h3{font-family:'Sora',sans-serif;}
   .hw-onboard .mono{font-family:'JetBrains Mono',monospace;}
 
@@ -2796,8 +2780,9 @@ const HW_ONBOARD_STYLES = `
   .hw-onboard .wallet-label{font-size:12px;opacity:.8;margin-top:22px;}
   .hw-onboard .wallet-value{font-family:'JetBrains Mono';font-size:15px;margin-top:3px;opacity:.95;}
 
-  .hw-onboard .kyc-pill{display:flex;align-items:center;gap:10px;background:#FFF3DC;border:1px solid #F4DFA8;border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;}
-  .hw-onboard .kyc-pill svg{color:#B8860B;flex-shrink:0;}
+  .hw-onboard .kyc-pill{display:flex;align-items:center;gap:10px;background:var(--gold-tint);border:1px solid var(--line);border-radius:100px;padding:10px 14px;margin:0 0 6px;cursor:pointer;}
+  .hw-onboard .kyc-pill .chev{color:var(--gold-ink);}
+  .hw-onboard .kyc-pill svg{color:var(--gold-ink);flex-shrink:0;}
   .hw-onboard .kyc-pill span{font-size:12.5px;font-weight:700;color:#8A6512;flex:1;}
   .hw-onboard .kyc-detail{max-height:0;overflow:hidden;transition:max-height .25s ease;}
   .hw-onboard .kyc-detail.open{max-height:220px;}
@@ -3067,6 +3052,28 @@ function HiveworkOnboardingFlow({ intent = "none", onFinish }) {
 }
 
 export default function HiveworkApp() {
+  // Dark mode — ported from hivework-app-v4-3.html Session 65. Same
+  // localStorage key ('hw-theme') and system-preference fallback as the
+  // HTML shell's inline boot script; adapted to a mounted React component
+  // (there's no pre-paint document-head hook available here, so the
+  // earliest safe point is a lazy useState initializer + a layout effect
+  // that runs before the browser paints the committed DOM).
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    try {
+      const saved = window.localStorage.getItem("hw-theme");
+      if (saved === "dark" || saved === "light") return saved;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { window.localStorage.setItem("hw-theme", theme); } catch {}
+  }, [theme]);
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
   const [screen, setScreen] = useState("landing");
   const [lastScreen, setLastScreen] = useState("landing");
   const [browseCategory, setBrowseCategory] = useState(null); // category value or null (all)
@@ -3251,7 +3258,25 @@ export default function HiveworkApp() {
           --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
           --line:#E7E3DA; --card:#FFFFFF;
           --mist:#F1EFEA; --sand:#EFECE5;
+          --violet-tint:#EFEAFB; --violet-tint-border:#D9CFFB;
+          --ink-fixed:#1B1A1F; --cream-fixed:#F7F5F1;
+          --gold-tint:#FFF3DC; --gold-ink:#B8860B; --teal-tint:#E4F8F6; --teal-ink:#1A9E92;
+          --trust-silver:#9CA3AF; --trust-bronze:#B45309;
+          --pastel-1:#FFE8E5; --pastel-2:var(--gold-tint); --pastel-3:var(--teal-tint); --pastel-4:#F3E8FF; --pastel-5:#E8F0FF;
         }
+        [data-theme="dark"]{
+          --cream:#23221E; --ink:#F7F5F1; --ink-soft:#9A96A6;
+          --violet:#8A7CF7; --violet-deep:#6C5CE7;
+          --mint:#2EC4B6; --coral:#FF6B5D; --butter:#FFC857;
+          --line:#2E2C27; --card:#121212;
+          --mist:#1E1D18; --sand:#1E1D18;
+          --violet-tint:rgba(124,108,245,.16); --violet-tint-border:rgba(124,108,245,.4);
+          --gold-tint:rgba(255,200,87,.14); --gold-ink:#F0C36A; --teal-tint:rgba(46,196,182,.14); --teal-ink:#4DD9C7;
+          --trust-silver:#C7CBD1; --trust-bronze:#E0995E;
+          --pastel-1:rgba(255,107,93,.14); --pastel-2:rgba(255,200,87,.14); --pastel-3:rgba(46,196,182,.14);
+          --pastel-4:rgba(124,108,245,.16); --pastel-5:rgba(90,150,255,.16);
+        }
+        .hw-app{transition:background .2s ease, color .2s ease;}
         .hw-app *{box-sizing:border-box;}
         html,body{height:100%;}
         .hw-app{margin:0;background:var(--cream);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -3398,6 +3423,14 @@ export default function HiveworkApp() {
         .hw-app .hw-help-faq-item p{font-size:12.5px;color:var(--ink-soft);margin:8px 0 0;line-height:1.45;}
         .hw-app .section-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;}
         .hw-app .section-title-row{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;}
+        .hw-app .settings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--line);}
+        .hw-app .settings-row:last-child{border-bottom:none;}
+        .hw-app .settings-row-title{font-weight:700;font-size:14px;margin-bottom:2px;}
+        .hw-app .settings-row-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+        .hw-app .toggle-switch{width:44px;height:26px;border-radius:100px;background:var(--line);position:relative;cursor:pointer;transition:background .2s ease;flex-shrink:0;}
+        .hw-app .toggle-switch .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--card);box-shadow:0 2px 6px rgba(27,26,31,.2);transition:transform .2s ease;}
+        .hw-app .toggle-switch.on{background:var(--violet);}
+        .hw-app .toggle-switch.on .knob{transform:translateX(18px);background:#fff;}
         .hw-app .see-all{font-size:12px;font-weight:700;color:var(--violet-deep);cursor:pointer;background:none;border:none;}
 
         .hw-app .rec-item{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid var(--line);cursor:pointer;}
@@ -3660,6 +3693,7 @@ export default function HiveworkApp() {
                     <button className="side-close" onClick={closeSideDrawer} aria-label="Close menu">×</button>
                   </div>
                   <nav className="side-nav">
+                    <div className="side-item" onClick={() => { closeSideDrawer(); goTo("settings"); }}>Settings</div>
                     <div className="side-item" onClick={() => { closeSideDrawer(); goTo("help"); }}>Help</div>
                     <div className="side-item" onClick={() => { closeSideDrawer(); setContactModalOpen(true); }}>Contact support</div>
                     <div className="side-item side-logout" onClick={hwLogout}>Log out</div>
@@ -4122,6 +4156,36 @@ export default function HiveworkApp() {
                 Swapping the canonical HiveworkJobDetail owner component in
                 is the next recompile step; the flat job-detail screen above
                 is a placeholder until then. */}
+
+            {/* SETTINGS — ported from hivework-app-v4-3.html Session 65.
+                Reached only via the side drawer (not segnav), same
+                drill-in pattern as Help. */}
+            {screen === "settings" && (
+              <div className="screen active">
+                <button className="back-btn" onClick={() => goTo("home")}><BackIcon />Back</button>
+                <div className="page-head" style={{ paddingTop: 8 }}><h1 style={{ fontSize: 22 }}>Settings</h1></div>
+
+                <div className="section-title">Appearance</div>
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-row-title">Dark mode</div>
+                    <div className="settings-row-desc">Switch between light and dark themes.</div>
+                  </div>
+                  <div
+                    className={`toggle-switch${theme === "dark" ? " on" : ""}`}
+                    role="switch"
+                    aria-label="Dark mode"
+                    aria-checked={theme === "dark"}
+                    onClick={toggleTheme}
+                  >
+                    <div className="knob"></div>
+                  </div>
+                </div>
+
+                <div className="section-title" style={{ marginTop: 28 }}>More</div>
+                <div className="hw-help-note">More preferences will live here as they're added.</div>
+              </div>
+            )}
 
             {/* HELP — Section 27. Reached only from Home's single link row
                 (not in segnav, same "drill-in" pattern as History/Profile).
