@@ -5042,13 +5042,63 @@ needs its own confirmed-scope pass.
 
 **Files touched:** `HiveworkApp.jsx`, `roadmap.md`, `sessions/session-66.md`.
 
+## Section 79 (session 67) — Headless-browser verification of the `HiveworkApp.jsx` dark mode port
+
+Item 4 from Section 78's open items, closed out. Session 66 ported
+dark mode into `HiveworkApp.jsx` but couldn't verify it in a real
+build/browser (no network/JSX tooling in that session's environment).
+This session had offline-capable tooling available (Playwright with a
+cached Chromium binary, esbuild, local React/React-DOM packages), so
+the actual verification ran.
+
+**Correction made first:** initial plan was to check via `npm run dev`
+in the real `~/Piwork` app — wrong target, since dark mode only exists
+in the shell files and hasn't been patched into `~/Piwork/frontend`
+yet (that's Section 78's open item 3, still untouched). Corrected to
+verifying the shell itself via headless browser, matching this
+project's established pattern for shell-only work.
+
+**Method:** bundled `HiveworkApp.jsx` with React 19/React-DOM 19 via
+esbuild (the file has no self-mount — `export default function
+HiveworkApp()` only — so a small wrapper handled `createRoot(...)`),
+loaded the bundle in headless Chromium, and ran two mounts: fresh
+(no seeded storage, exercises the `prefers-color-scheme` fallback) and
+seeded (`localStorage['hw-theme']='dark'` set via
+`page.add_init_script` before the app's scripts ran, exercising the
+full lazy-`useState` + `useLayoutEffect` boot path exactly as it runs
+in production). Clicked Landing → Get started → checked ToS to reach
+`.hw-onboard`/`.kyc-pill`, and diffed computed styles against a
+separate headless run of `hivework-app-v4-3.html` directly.
+
+**Results — all three fixed elements match the HTML canonical exactly:**
+
+| Element | Light | Dark (JSX) |
+|---|---|---|
+| `.hw-onboard` background | `rgb(239,236,229)` | `rgb(30,29,24)` |
+| `.kyc-pill` background | `rgb(255,243,220)` | `rgba(255,200,87,.14)` |
+| `.chev` color | `rgb(184,134,11)` | `rgb(240,195,106)` |
+
+No console errors on either mount. `data-theme` and the `localStorage`
+value both persisted correctly through the seeded-mount path.
+
+**Not fully exercised:** couldn't click all the way through the
+simulated wallet-connect flow to reach the Settings screen's actual
+toggle switch (the "Connected" state didn't advance under scripted
+clicks — likely a timed transition or conditional demo-link not
+triggered). Not pursued further — the seeded-`localStorage` test
+already exercises the same `data-theme`/persistence mechanism the
+toggle switch itself uses, just via a different entry point.
+
+**Files touched:** `roadmap.md`, `sessions/session-67.md`. No app
+code changed — verification only.
+
 ## Open items carried forward
 
-As of session 66 (2026-09-08):
+As of session 67 (2026-09-09):
 
 1. `JOB_DETAIL_OWNER_STYLES` pre-existing hex/token drift vs. the
-   HTML canonical (`.status-chip`, `.toggle-row`) — flagged this
-   session, not fixed, needs its own confirmed-scope pass.
+   HTML canonical (`.status-chip`, `.toggle-row`) — flagged session
+   66, not fixed, needs its own confirmed-scope pass.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation
    (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
@@ -5058,10 +5108,14 @@ As of session 66 (2026-09-08):
    shells are complete — real feature patch, not yet started, needs
    its own sweep of whether real code has any existing theme-hookable
    pattern.
-4. `HiveworkApp.jsx` dark mode port done this session but unverified
-   in an actual build/browser (no network/build tooling available) —
-   worth a visual pass before treating it as fully confirmed.
+4. The Settings-screen toggle-switch UI path itself still hasn't been
+   click-tested end-to-end (as opposed to the underlying mechanism,
+   confirmed in Section 79 above) — low priority, noted in case the
+   wallet-connect flow's stalled transition is an unrelated bug worth
+   a look.
 
-Item 1 from Section 77 (`HiveworkApp.jsx` dark mode port) is now
+Item 4 from Section 78 (`HiveworkApp.jsx` dark mode port unverified in
+an actual build/browser) is now **closed** — see Section 79. Item 1
+from Section 77 (`HiveworkApp.jsx` dark mode port itself) remains
 **closed**. All items from session 64/Section 76 and earlier remain
 **closed**.
