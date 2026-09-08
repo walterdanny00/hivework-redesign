@@ -4815,8 +4815,10 @@ sandbox — no repo context there). Pushed to Piwork only (real
 
 ## Open items carried forward
 
-None. Section 76's `JobDetail.tsx` sweep (session 64) closes the last
-open item.
+None as of session 64. Section 76's `JobDetail.tsx` sweep closes the
+last open item from that point. **Superseded by session 65/Section 77
+below** — see the "Open items carried forward" section at the very end
+of this document for current status.
 
 Both dead-CSS items carried from sessions 50/51 (`.menu-item` in both
 shells, `.cat-empty` in `Jobs.tsx`) and the `--mist`/`--sand` token sync
@@ -4825,3 +4827,161 @@ verified, and pushed as of session 53. Section 73's dead-code cleanup
 (session 62), Section 74's Notify-step investigation, Section 75's
 404 route fix (both session 63), and Section 76's gated-action sweep
 (session 64) are also now **closed**.
+
+## 77. Dark mode — completion sweep, HTML shell only (2026-09-07, session 65)
+
+User arrived partway into building dark mode on the HTML shell — "was
+working it half way already." Goal: assess what's done, find what
+isn't, finish it.
+
+**What was already built (further along than "half way"):** an
+entirely new **Settings screen** (didn't exist in the shell at all
+before this — no `id="settings"`, no side-drawer nav entry) with an
+"Appearance" section and a "Dark mode" toggle row; a FOUC-prevention
+boot script; a complete `:root`/`[data-theme="dark"]` variable swap
+covering the existing base tokens (cream, ink, ink-soft, violet, line,
+card, mist, sand) plus new infrastructure tokens introduced
+specifically to make this work — `--ink-fixed`/`--cream-fixed` (for
+elements like `.balance-card`/`.job-head` that should stay pinned dark
+regardless of theme, per Section 34's "money moment" idiom) and
+`--gold-tint`/`--gold-ink`/`--teal-tint`/`--teal-ink`/`--violet-tint`
+plus all five `--pastel-*` tokens (replacing 35+ previously-hardcoded
+pastel colors — status pills, chips, category tiles, ticker icons —
+scattered across nearly every screen in the app with theme-aware
+equivalents); `applyTheme()`/`toggleTheme()`/`syncThemeToggleUI()`,
+wired to the new toggle and called at boot.
+
+Confirmed via full diff against the real canonical (pre-dark-mode)
+`hivework-app-v4-3.html` that this migration was done cleanly — the
+only differences found were the new Settings screen, the boot script,
+the token system described above, and the bug fixes below. Nothing
+else in the file was touched or drifted.
+
+**Sweep 1 — hex/rgba color audit across the whole file.** Confirmed
+clean and needing no action: every `color:white` usage (30+) sits on
+theme-stable tokens (`--violet`, `--ink-fixed`, `--coral`); `.balance-
+card`/`.hw-jdw`'s `.job-head` are deliberately always-dark money-
+moment cards whose light-toned inner text is correct in both themes;
+no `<img>` tags anywhere; `var(--line)` borders 94 rules app-wide and
+is properly light→dark mapped, meaning most surfaces are already
+edge-defined by border rather than shadow.
+
+**Real bugs found and fixed (seven total):**
+1. `.jdo .declined-row`/`.ledger-submission` — hardcoded `#F7F5F1`
+   (exactly light mode's `--cream` value — barely visible against the
+   page even in light mode) → `var(--mist)`.
+2. `.jdo .close-slots-card` — hardcoded `#FDFBF7` → `var(--card)`.
+3. `.hw-jdw .paid-strip`/`.verified-strip`/`.attach-icon`/
+   `textarea:focus` — hardcoded `background:#fff` → `var(--card)`.
+   Would've been bright white boxes on an otherwise-dark Job Detail
+   (Worker) screen.
+4. `.hw-onboard` — entire onboarding background hardcoded `#EAE7DF`,
+   zero dark override, confirmed as a live reachable screen → fixed to
+   `var(--sand)` (existing token, not invented, matches the intended
+   "deeper cream" feel).
+5. `.hw-onboard .kyc-pill` border (`#F4DFA8`) → `var(--line)`.
+6. Chevron SVG (`chevIconSvg()`) — hardcoded `stroke="#8A6512"` instead
+   of tracking `--gold-ink` like its sibling icons already do → fixed
+   to `stroke="currentColor"` + new `.kyc-pill .chev{color:var(--gold-
+   ink)}` rule.
+7. `.hivework-landing .nav-links a:hover` — hardcoded `#EFEBE3` →
+   `var(--mist)`.
+
+**Two open design questions, resolved:**
+- **Landing page follows dark mode or stays fixed light?** It was
+  already correctly wired (`var(--cream)`/`var(--ink)`), only the
+  hover bug above was broken. Decision: keep it theme-responsive —
+  forcing perpetual light would mean a jarring bright landing page for
+  a dark-mode user; consistency wins.
+- **Does dark mode need a different shadow treatment** since ink-
+  tinted shadows may not read well on an already-dark background?
+  Checked how surfaces get edge-defined app-wide first — `var(--line)`
+  borders already carry most of that job (94 rules, properly mapped).
+  Decision: leave shadows as-is; not actually a gap.
+
+**Sweep 2 — JS-generated dynamic screens**, on request, for the same
+class of issue in string-concatenation-built markup (inline
+`style="...#hex..."`, DOM `.style.color = '#...'` assignments,
+`_COLOR` mapping constants). No hardcoded inline styles or DOM-set
+colors found — dynamic screens route entirely through CSS classes,
+already covered by Sweep 1.
+
+**One more real bug found this way:** `TRUST_COLOR` map —
+`Gold`/`Unverified` already used tokens (`var(--butter)`/`var(--ink-
+soft)`), but `Silver`(`#9CA3AF`)/`Bronze`(`#B45309`) were raw hex.
+Applied as inline text color on `.jdo`'s applicant/ledger list rows —
+regular page-background rows, not fixed-dark cards. Bronze specifically
+was a genuine contrast failure: readable dark-on-cream in light mode,
+unreadable dark-amber-on-near-black in dark mode. Confirmed identical
+in the real canonical file (not just the working copy), so this was a
+real pre-existing bug, not something introduced by dark-mode work.
+Fixed by adding `--trust-silver`/`--trust-bronze` tokens (same
+light→dark lightening pattern as `--gold-ink`: `#9CA3AF`→`#C7CBD1`,
+`#B45309`→`#E0995E`).
+
+**Verification:** div open/close balance held at 686/686 through every
+edit pass across both sweeps; parses clean via `lxml`, confirmed after
+each pass; final diff against real canonical confirmed clean (see
+above).
+
+**Numbering correction (worth recording):** this work was initially
+drafted as "Session 30"/"Section 35" against a stale roadmap the user
+had mistakenly uploaded (a real but out-of-date snapshot, accurate
+only through Section 34/session 29). Corrected once the real current
+`roadmap.md` (through Section 76, session 64) and real canonical shell
+files were provided — this entry replaces that draft, renumbered.
+Nothing from the mistaken draft was pushed.
+
+**Side-finding, unrelated to dark mode, flagged for later:** while
+diffing, noticed the shell's Dashboard budget-tracker demo data
+(`HW_DASH_BUDGET_TRACKER`, `HW_DASH_JOBS_POSTED_COUNT`, both from
+Section 34) has drifted behind what Section 43 actually shipped to the
+real app — a real backend field `jobs_posted_count` (an actual
+Supabase count query, not a derived guess) and an `earnings_pending`/
+"Pending" stat pill exist in production but not in either shell. Not
+touched this session; noted as an open item below.
+
+**Filename:** canonical name `hivework-app-v4-3.html` unchanged —
+this version supersedes the one from session 29/Section 34.
+
+**Files touched:** `hivework-app-v4-3.html`, `roadmap.md`,
+`sessions/session-65.md`.
+
+**Scope note — HTML shell only.** None of this session's work touched
+`HiveworkApp.jsx`, which currently has no dark mode work at all —
+neither the token plumbing nor any of the seven fixes above. Porting
+it over is next.
+
+**Still open, unresolved:**
+1. `HiveworkApp.jsx` needs the full dark mode port — plumbing plus all
+   seven fixes, not a partial pass. Confirmed as the next task.
+2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
+   drifted behind Section 43's real, shipped implementation
+   (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
+   stat pill) — needs its own sweep/reconciliation pass at some point,
+   unrelated to dark mode, not blocking.
+3. Building dark mode into the real main-app project (`Piwork`/
+   `frontend`) once both shells are complete — this is Section
+   30-methodology territory (a real feature patch, not a restyle).
+   Unconfirmed whether real code has any existing CSS-variable pattern
+   a dark theme could hook into, or whether this would be a
+   from-scratch addition — needs its own sweep when that phase starts.
+
+## Open items carried forward
+
+As of session 65 (2026-09-07), three items carried forward from
+Section 77:
+
+1. `HiveworkApp.jsx` needs the full dark mode port (token plumbing +
+   all seven fixes) — confirmed as the next task.
+2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
+   drifted behind Section 43's real, shipped implementation
+   (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
+   stat pill) — unrelated to dark mode, needs its own reconciliation
+   pass eventually, not blocking.
+3. Building dark mode into the real `Piwork`/`frontend` app once both
+   shells are complete — real feature patch, not yet started, needs
+   its own sweep of whether real code has any existing theme-hookable
+   pattern.
+
+All items from session 64/Section 76 and earlier remain **closed**.
