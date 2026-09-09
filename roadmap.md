@@ -5092,9 +5092,52 @@ toggle switch itself uses, just via a different entry point.
 **Files touched:** `roadmap.md`, `sessions/session-67.md`. No app
 code changed — verification only.
 
+## Section 80 (session 68) — Real `Piwork/frontend` dark mode plumbing landed; parallel-session drift caught
+
+Picks up item 3 from Section 79's open list (dark mode into the real
+`~/Piwork/frontend`). Session opened with a wrinkle: two other Claude
+chat sessions had independently continued from the Section 79
+checkpoint and begun this same item in parallel, risking duplicate or
+conflicting edits to the live repo. Rather than trust either
+transcript, this session pulled fresh ground truth from the real repo
+(`git status --short`, `git diff --stat`, per-file `grep -c` checks)
+before writing anything.
+
+**Confirmed already landed (from the parallel session, verified not
+duplicated):** `frontend/src/index.css` (+34 lines: new tokens,
+`[data-theme="dark"]` block, badge dark overrides), `frontend/src/App.tsx`
+(wrapped in new `ThemeProvider`), new `frontend/src/lib/ThemeContext.tsx`
+(lazy `useState` + `useLayoutEffect`, mirrors the `HiveworkApp.jsx` port).
+
+**Landed this session:** `frontend/index.html` (pre-paint script),
+and `[data-theme="dark"]` overrides in `frontend/src/components/Layout.tsx`,
+`frontend/src/pages/Dashboard.tsx`, `frontend/src/pages/HistoryWithdrawals.tsx`.
+Root cause of the parallel session's two failed attempts: Termux
+`/tmp` isn't writable (Android sandboxing), and a follow-up fix using
+`~/piwork-tmp/...` hit a bash quoting bug — `~` only expands at the
+start of a shell word, not buried mid-string inside a quoted `sed -i`
+argument, and GNU `sed`'s `r` command silently no-ops on a missing
+file rather than erroring. Fixed by using `$HOME` instead of `~` for
+the embedded paths. Per-file `grep -c 'data-theme="dark"'` confirmed
+1 hit each; `(cd frontend && npx tsc --noEmit)` clean.
+
+This closes the six-file dark-mode plumbing batch for the real app.
+
+**Not done:** `NotificationBell.tsx` dark override (scoped under
+`.hnb-wrap`, not attempted yet); the actual Settings page/route/nav
+entry — the real app has no Settings screen today, decided to build
+one now sourced 1:1 from the shell's Appearance section rather than
+ship dark mode with no manual toggle (bigger remaining piece, queued
+next). Uncommitted stray items flagged, not reviewed: `.bak` diffs on
+`JobDetail.tsx.bak`/`Profile.tsx.bak`, untracked `WithdrawPanel.tsx.bak`
+and `patch_jobdetail_section51.py`.
+
+**Files touched:** `roadmap.md`, `sessions/session-68.md`. Real-app
+files listed above.
+
 ## Open items carried forward
 
-As of session 67 (2026-09-09):
+As of session 68 (2026-09-09):
 
 1. `JOB_DETAIL_OWNER_STYLES` pre-existing hex/token drift vs. the
    HTML canonical (`.status-chip`, `.toggle-row`) — flagged session
@@ -5104,18 +5147,23 @@ As of session 67 (2026-09-09):
    (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
    stat pill) — unrelated to dark mode, needs its own reconciliation
    pass eventually, not blocking.
-3. Building dark mode into the real `Piwork`/`frontend` app once both
-   shells are complete — real feature patch, not yet started, needs
-   its own sweep of whether real code has any existing theme-hookable
-   pattern.
-4. The Settings-screen toggle-switch UI path itself still hasn't been
+3. `NotificationBell.tsx` dark override — not started (Section 80).
+4. Settings page/route/nav entry in the real app — not started, next
+   up (Section 80).
+5. The Settings-screen toggle-switch UI path itself still hasn't been
    click-tested end-to-end (as opposed to the underlying mechanism,
-   confirmed in Section 79 above) — low priority, noted in case the
+   confirmed in Section 79) — low priority, noted in case the
    wallet-connect flow's stalled transition is an unrelated bug worth
    a look.
+6. Uncommitted `.bak`/stray files in `~/Piwork` (`JobDetail.tsx.bak`,
+   `Profile.tsx.bak`, `WithdrawPanel.tsx.bak`,
+   `patch_jobdetail_section51.py`) not yet diffed or cleaned up.
 
-Item 4 from Section 78 (`HiveworkApp.jsx` dark mode port unverified in
-an actual build/browser) is now **closed** — see Section 79. Item 1
-from Section 77 (`HiveworkApp.jsx` dark mode port itself) remains
+Item 3 from Section 79's open list (real dark mode plumbing) is now
+**mostly closed** — see Section 80 (Settings + NotificationBell still
+open, tracked as items 3/4 above). Item 4 from Section 78
+(`HiveworkApp.jsx` dark mode port unverified in an actual
+build/browser) remains **closed** — see Section 79. Item 1 from
+Section 77 (`HiveworkApp.jsx` dark mode port itself) remains
 **closed**. All items from session 64/Section 76 and earlier remain
 **closed**.
