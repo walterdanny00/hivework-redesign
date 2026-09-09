@@ -5135,35 +5135,78 @@ and `patch_jobdetail_section51.py`.
 **Files touched:** `roadmap.md`, `sessions/session-68.md`. Real-app
 files listed above.
 
+## Section 81 (session 69) — Parallel-session dark-mode commit verified & landed; `JOB_DETAIL_OWNER_STYLES` shell drift reconfirmed open (2026-09-09)
+
+Opened with a third artifact alongside the usual brief/roadmap: a
+`.mhtml` shared-chat export — not design reference, a transcript of
+another Claude session that had continued from the Session 68
+checkpoint. Per this project's standing rule, treated the same way
+Session 68 treated its own parallel transcripts: read for what it
+claimed, verified against the real repo, nothing written up until
+confirmed.
+
+**Verified via `git log`/`git status`/`git diff --stat`/`git show
+--stat` in `~/Piwork`:**
+- `332775e` "Add dark mode: theme context, tokens, and per-component
+  overrides" — landed and pushed; touches exactly the seven files
+  Section 80 described.
+- `e4bdb21` "Remove stale .bak snapshots (JobDetail.tsx, Profile.tsx)"
+  — landed and pushed; both files confirmed via `git log --follow`
+  as stale Sep 4 snapshots superseded by later commits, safe deletes.
+- `03826ce`, initially mistaken for a possible duplicate of `332775e`,
+  resolved as Section 80's own docs commit
+  (`hivework-redesign/roadmap.md` + `session-68.md`) — no overlap,
+  nothing duplicated.
+
+**`JOB_DETAIL_OWNER_STYLES` (Section 78/Section 66 open item) —
+reconfirmed still open.** The parallel session initially conflated
+the real app's `JobDetail.tsx` (`HW_JDO_STYLES`, fixed via `255992a`)
+with the shell's `HiveworkApp.jsx` (`JOB_DETAIL_OWNER_STYLES`) — same
+`.status-chip`/`.toggle-row` class names by convention, different
+files/repos. It self-corrected and ran `git show --stat 255992a |
+grep -i "HiveworkApp\|hivework-app-v4"` — no hit. Re-run
+independently here, same result: shell drift stays open; only the
+real-app equivalent is fixed.
+
+**Not reviewed this session:** `WithdrawPanel.tsx.bak` (genuinely
+untracked, never diffed), `patch_jobdetail_section51.py` (untracked,
+not reviewed).
+
+**Files touched:** `session-69.md`, `roadmap.md`. No app code changed
+this session — verification only; `332775e`/`e4bdb21` were made in
+the prior parallel session.
+
 ## Open items carried forward
 
-As of session 68 (2026-09-09):
+As of session 69 (2026-09-09):
 
-1. `JOB_DETAIL_OWNER_STYLES` pre-existing hex/token drift vs. the
-   HTML canonical (`.status-chip`, `.toggle-row`) — flagged session
-   66, not fixed, needs its own confirmed-scope pass.
+1. `JOB_DETAIL_OWNER_STYLES` hex/token drift in the *shell*
+   (`HiveworkApp.jsx`) vs. HTML canonical (`.status-chip`,
+   `.toggle-row`) — flagged session 66, reconfirmed still open
+   session 69. Real app's equivalent (`HW_JDO_STYLES` in
+   `JobDetail.tsx`) is already fixed — don't conflate the two again.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation
    (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
    stat pill) — unrelated to dark mode, needs its own reconciliation
    pass eventually, not blocking.
-3. `NotificationBell.tsx` dark override — not started (Section 80).
-4. Settings page/route/nav entry in the real app — not started, next
-   up (Section 80).
+3. `NotificationBell.tsx` dark override — not started, next up.
+4. Settings page/route/nav entry in the real app — not started,
+   queued after NotificationBell.
 5. The Settings-screen toggle-switch UI path itself still hasn't been
    click-tested end-to-end (as opposed to the underlying mechanism,
    confirmed in Section 79) — low priority, noted in case the
    wallet-connect flow's stalled transition is an unrelated bug worth
    a look.
-6. Uncommitted `.bak`/stray files in `~/Piwork` (`JobDetail.tsx.bak`,
-   `Profile.tsx.bak`, `WithdrawPanel.tsx.bak`,
-   `patch_jobdetail_section51.py`) not yet diffed or cleaned up.
+6. Uncommitted stray files in `~/Piwork` (`WithdrawPanel.tsx.bak`,
+   `patch_jobdetail_section51.py`) not yet diffed or cleaned up —
+   `JobDetail.tsx.bak`/`Profile.tsx.bak` resolved and removed session
+   69 (see Section 81).
 
 Item 3 from Section 79's open list (real dark mode plumbing) is now
-**mostly closed** — see Section 80 (Settings + NotificationBell still
-open, tracked as items 3/4 above). Item 4 from Section 78
-(`HiveworkApp.jsx` dark mode port unverified in an actual
-build/browser) remains **closed** — see Section 79. Item 1 from
-Section 77 (`HiveworkApp.jsx` dark mode port itself) remains
-**closed**. All items from session 64/Section 76 and earlier remain
-**closed**.
+**mostly closed** — Settings + NotificationBell still open, tracked
+as items 3/4 above. Item 4 from Section 78 (`HiveworkApp.jsx` dark
+mode port unverified in an actual build/browser) remains **closed**
+— see Section 79. Item 1 from Section 77 (`HiveworkApp.jsx` dark
+mode port itself) remains **closed**. All items from session 64/
+Section 76 and earlier remain **closed**.
