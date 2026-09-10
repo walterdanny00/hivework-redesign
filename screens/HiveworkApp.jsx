@@ -214,12 +214,25 @@ const DASH_CLOSED_JOB = { title: "Beta test iOS build", amt: "8π", refunded: tr
 // currently-withdrawable refund pot, not this lifetime total — real code
 // keeps these as two separate fields, not one.
 const DASH_BUDGET_TRACKER = { totalPosted: 24, totalRefunded: 4 };
-// Real code has no jobs-posted count field anywhere (confirmed via sweep
-// of budget_tracker's only consumer) — this is a genuine addition, not a
-// ported fact. Derived from the two static open rows + the closed-job
-// conditional below, rather than a separate hardcoded number, so it can't
-// drift out of sync with what's actually rendered.
+// UPDATED (Section 88, session 76): at the time this was first written,
+// real code had no jobs-posted count field anywhere. Section 43 closed
+// that gap for real — Dashboard.tsx now sources this from an actual
+// backend count query (jobs_posted_count, a Supabase
+// .select('id', {count:'exact', head:true}).eq('client_id', user_id)).
+// This demo value is now a stand-in for that real field, not an extra
+// addition beyond real code. Still derived from the two static open rows
+// + the closed-job conditional below (rather than a separate hardcoded
+// number) so it can't drift out of sync with what's actually rendered
+// on this screen.
 const DASH_JOBS_POSTED_COUNT = 2 + (DASH_CLOSED_JOB.refunded ? 1 : 0);
+// NEW (Section 88, session 76): demoes real Dashboard.tsx's worker-tab
+// third stat pill ("Pending"), added in Section 43 and never ported to
+// either shell until now (ported from the HTML shell fix, same session).
+// Real field is earnings_pending — sum of approved-status application
+// budgets, i.e. work that's been accepted but not yet paid out. Worker
+// tab only; hidden entirely on the myjobs (client) tab, same gating
+// pattern as DASH_CLOSED_JOB above.
+const DASH_EARNINGS_PENDING = 3;
 
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
 // requested_amount/fee/net_amount/status/to_address. Flat fee=0.01π across
@@ -3986,6 +3999,13 @@ export default function HiveworkApp() {
                     <div className="l">{workView === "myjobs" ? "Jobs posted" : "Jobs done"}</div>
                   </div>
                   <div className="stat-pill"><div className="n">4.3★</div><div className="l">Rating</div></div>
+                  {/* Real Dashboard.tsx (Section 43) added a third stat pill, worker
+                      tab only, sourced from the real earnings_pending backend field
+                      (sum of approved-status application budgets). Shell never had
+                      this — added here to close that drift (Section 88). */}
+                  {workView === "mywork" && (
+                    <div className="stat-pill"><div className="n">{DASH_EARNINGS_PENDING}π</div><div className="l">Pending</div></div>
+                  )}
                 </div>
 
                 {!nudgeDismissed && (
