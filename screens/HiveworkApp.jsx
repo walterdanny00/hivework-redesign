@@ -646,10 +646,10 @@ const JOB_DETAIL_OWNER_STYLES = `
   .jdo .slot-summary b{color:var(--ink);font-weight:700;}
   .jdo .detail-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
   .jdo .posted-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
-  .jdo .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:#FFF3DC;color:#B8860B;text-transform:capitalize;}
-  .jdo .status-chip.closed{background:#F1EFEA;color:var(--ink-soft);}
-  .jdo .status-chip.completed{background:#E4F8F6;color:#1A9E92;}
-  .jdo .toggle-row{display:flex;gap:6px;background:#EFECE5;border-radius:100px;padding:5px;margin-bottom:20px;}
+  .jdo .status-chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:var(--gold-tint);color:var(--gold-ink);text-transform:capitalize;}
+  .jdo .status-chip.closed{background:var(--mist);color:var(--ink-soft);}
+  .jdo .status-chip.completed{background:var(--teal-tint);color:var(--teal-ink);}
+  .jdo .toggle-row{display:flex;gap:6px;background:var(--sand);border-radius:100px;padding:5px;margin-bottom:20px;}
   .jdo .toggle-btn{flex:1;text-align:center;padding:10px 6px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
   .jdo .toggle-btn.active{background:var(--card);color:var(--ink);box-shadow:0 6px 16px -10px rgba(27,26,31,.25);}
   .jdo .tab-card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 40px -22px rgba(27,26,31,.2);padding:22px 20px;margin-bottom:26px;}
