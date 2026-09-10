@@ -5286,33 +5286,48 @@ nested inside `Piwork`) — not yet pulled into context.
 all tracked `.bak`/`.bak[0-9]` snapshots. Docs: `session-71.md`,
 `roadmap.md`.
 
+## Section 84 (session 72) — Home.tsx heading/hero-num sizing patched then reverted (2026-09-10)
+
+Picked up open item 5 from Session 71. Patched `.hw-page-head h2`
+(`22px`/`-.3px` → `28px`/`-.7px`) and `.hw-hero-num` (`44px`/`-1.5px`
+→ `52px`/`-2px`), committed `326e035`, pushed. Process note: `tsc
+--noEmit` must run from `frontend/`, not repo root, or it silently
+no-ops into the CLI help menu instead of compiling. User then asked
+to revert; `.bak` confirmed to match pre-patch state, restored, and
+since the patch was already on `origin/main`, undone via a proper
+revert commit (`044d8de`) rather than history rewrite. Working tree
+and remote confirmed clean/in-sync. Item 5 reopened — diagnosis and
+fix spec unchanged, nothing new to re-diagnose next pickup.
+
+**Files touched:** `frontend/src/pages/Home.tsx` (patched `326e035`,
+reverted `044d8de`). Docs: `session-72.md`, `roadmap.md`.
+
 ## Open items carried forward
 
-As of session 71 (2026-09-10):
+As of session 72 (2026-09-10):
 
 1. `JOB_DETAIL_OWNER_STYLES` hex/token drift in the *shell*
    (`HiveworkApp.jsx`) vs. HTML canonical (`.status-chip`,
-   `.toggle-row`) — flagged session 66, reconfirmed open sessions 69
-   and 70. Real app's equivalent (`HW_JDO_STYLES` in `JobDetail.tsx`)
-   is already fixed — don't conflate the two again. Located session 71
-   at `~/Piwork/hivework-redesign/screens/HiveworkApp.jsx`, still not
+   `.toggle-row`) — flagged session 66, reconfirmed open sessions 69,
+   70, 71. Real app's equivalent (`HW_JDO_STYLES` in `JobDetail.tsx`)
+   is already fixed — don't conflate the two again. Located at
+   `~/Piwork/hivework-redesign/screens/HiveworkApp.jsx`, still not
    pulled into any session's context.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation — not
    blocking.
-3. **New (session 71).** JobDetail token-redeclaration removal
-   (`bd53c30`, reverted as `5b13ca8`) caused regressions — needs
-   investigation into *why* before any retry.
-4. **New (session 71).** Segnav active-pill flip to theme-reactive
-   (`--ink`/`--cream` instead of `--ink-fixed`) — confirmed wanted,
-   patch drafted, not yet run.
-5. **New (session 71).** Home.tsx welcome heading + "Your standing"
-   hero number smaller/less tightly tracked than shell canonical
-   (`.hw-page-head h2` → `28px`/`-.7px`; `.hw-hero-num` → `52px`/`-2px`)
-   — diagnosed, fix specified, not yet applied.
+3. JobDetail token-redeclaration removal (`bd53c30`, reverted as
+   `5b13ca8`, session 71) caused regressions — needs investigation
+   into *why* before any retry.
+4. Segnav active-pill flip to theme-reactive (`--ink`/`--cream`
+   instead of `--ink-fixed`) — confirmed wanted, patch drafted, not
+   yet run.
+5. **Reopened session 72.** Home.tsx welcome heading + "Your
+   standing" hero number smaller/less tightly tracked than shell
+   canonical (`.hw-page-head h2` → `28px`/`-.7px`; `.hw-hero-num` →
+   `52px`/`-2px`) — diagnosed, fix specified, applied (`326e035`) then
+   reverted (`044d8de`) this session at user's request. Fix itself
+   unchanged, just deferred.
 
-Items 3 (Settings) and 5 (untracked strays) from Session 70 are now
-**fully closed** — see Section 83. Settings-screen toggle-switch
-click-testing (Session 70's item 4) is also closed — it's what
-surfaced the theme-fixed token bugs above. All items from session 68
-and earlier remain **closed**.
+All items from session 70 and earlier remain **fully closed** (see
+Section 83).
