@@ -5325,32 +5325,45 @@ investigation next time it's picked up.
 `hivework-redesign/screens/HiveworkApp.jsx`. Docs: `session-73.md`,
 `roadmap.md`.
 
+## Section 86 (session 74) — `JOB_DETAIL_OWNER_STYLES` hex/token drift fixed (2026-09-10)
+
+Picked up open item 1. `HiveworkApp.jsx`'s `JOB_DETAIL_OWNER_STYLES`
+had 4 rules silently detokenized to hardcoded light-mode hex —
+`.status-chip` (`#FFF3DC`/`#B8860B`), `.status-chip.closed`
+(`#F1EFEA`), `.status-chip.completed` (`#E4F8F6`/`#1A9E92`),
+`.toggle-row` (`#EFECE5`) — where the HTML canonical already used
+`var(--gold-tint)`/`var(--gold-ink)`/`var(--mist)`/`var(--teal-tint)`/
+`var(--teal-ink)`/`var(--sand)`. Not just a token-cleanliness issue:
+those tokens get different values in dark mode (confirmed via the
+`:root` dark-theme block), so the shell's owner Job Detail status
+chip and view toggle would have stayed stuck on light-mode colors
+while everything else around them flipped. Fixed by swapping in the
+tokens to match canonical exactly — 4-line diff, nothing else
+touched. Pushed clean to both `hivework-redesign` repos. Item 1
+fully closed.
+
+**Files touched:** `hivework-redesign/screens/HiveworkApp.jsx`.
+Docs: `session-74.md`, `roadmap.md`.
+
 ## Open items carried forward
 
-As of session 73 (2026-09-10):
+As of session 74 (2026-09-10):
 
-1. `JOB_DETAIL_OWNER_STYLES` hex/token drift in the *shell*
-   (`HiveworkApp.jsx`) vs. HTML canonical (`.status-chip`,
-   `.toggle-row`) — flagged session 66, reconfirmed open sessions 69,
-   70, 71. Real app's equivalent (`HW_JDO_STYLES` in `JobDetail.tsx`)
-   is already fixed — don't conflate the two again. **Unblocked
-   session 73** — `HiveworkApp.jsx` now pulled into context, ready to
-   investigate.
-2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
+1. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation — not
    blocking.
-3. JobDetail token-redeclaration removal (`bd53c30`, reverted as
+2. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) caused regressions — needs investigation
    into *why* before any retry.
-4. **Reopened session 72.** Home.tsx welcome heading + "Your
-   standing" hero number smaller/less tightly tracked than shell
-   canonical (`.hw-page-head h2` → `28px`/`-.7px`; `.hw-hero-num` →
-   `52px`/`-2px`) — diagnosed, fix specified, applied (`326e035`) then
-   reverted (`044d8de`) session 72 at user's request. Fix itself
-   unchanged, just deferred.
+3. Home.tsx welcome heading + "Your standing" hero number smaller/
+   less tightly tracked than shell canonical (`.hw-page-head h2` →
+   `28px`/`-.7px`; `.hw-hero-num` → `52px`/`-2px`) — diagnosed, fix
+   specified, applied (`326e035`) then reverted (`044d8de`) session
+   72 at user's request. Fix itself unchanged, just deferred.
 
-Segnav active-pill (formerly item 4) — **closed session 73**, see
-Section 85.
+`JOB_DETAIL_OWNER_STYLES` hex/token drift (formerly item 1) —
+**closed session 74**, see Section 86. Segnav active-pill (formerly
+item 4) — closed session 73, see Section 85.
 
-All items from session 70 and earlier remain **fully closed** (see
-Section 83).
+All items from session 73 and earlier remain **fully closed** except
+those still carried forward above (see Sections 83, 85).
