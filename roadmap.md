@@ -5345,16 +5345,43 @@ fully closed.
 **Files touched:** `hivework-redesign/screens/HiveworkApp.jsx`.
 Docs: `session-74.md`, `roadmap.md`.
 
+## Section 87 (session 75) — JobDetail token-redeclaration regression investigated, no retry (2026-09-10)
+
+Picked up open item 2. Traced all 10 custom properties removed by
+`bd53c30` (`--cream`, `--ink`, `--ink-soft`, `--violet`,
+`--violet-deep`, `--mint`, `--coral`, `--butter`, `--line`, `--card`)
+against `index.css`: all resolve correctly via `:root`/
+`[data-theme="dark"]` inheritance, with 5 having dark-mode overrides
+that only apply once the local shadow is removed — consistent with
+the removal being a correct fix. Confirmed `ThemeProvider` applies
+`data-theme` on `<html>` synchronously (`useLayoutEffect`, wraps the
+whole app) — no timing gap. No Shadow DOM/isolation boundary found.
+Re-examined the bundled `--mist` ledger-submission tint change
+(replacing an effectively-invisible cream-on-cream hardcoded value) —
+looks like a legitimate improvement, not a regression source. Original
+bug report (session 71) was only "it's worse," no further detail, so
+no live symptom is available to chase further.
+
+**No code-level cause identified.** Recommended an isolated `git
+revert 5b13ca8` + live re-test to get a concrete symptom; user
+declined since the app is currently stable and stable-is-good outranks
+a "probably fine" theory. Item stays open, parked — no further action
+planned unless a concrete symptom resurfaces on its own.
+
+**Files touched:** none (investigation only). Docs: `session-75.md`,
+`roadmap.md`.
+
 ## Open items carried forward
 
-As of session 74 (2026-09-10):
+As of session 75 (2026-09-10):
 
 1. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation — not
    blocking.
 2. JobDetail token-redeclaration removal (`bd53c30`, reverted as
-   `5b13ca8`, session 71) caused regressions — needs investigation
-   into *why* before any retry.
+   `5b13ca8`, session 71) — investigated in depth session 75 (see
+   Section 87), no code-level cause found; parked, no retry planned
+   unless a concrete symptom resurfaces.
 3. Home.tsx welcome heading + "Your standing" hero number smaller/
    less tightly tracked than shell canonical (`.hw-page-head h2` →
    `28px`/`-.7px`; `.hw-hero-num` → `52px`/`-2px`) — diagnosed, fix
@@ -5365,5 +5392,5 @@ As of session 74 (2026-09-10):
 **closed session 74**, see Section 86. Segnav active-pill (formerly
 item 4) — closed session 73, see Section 85.
 
-All items from session 73 and earlier remain **fully closed** except
-those still carried forward above (see Sections 83, 85).
+All items from session 74 and earlier remain **fully closed** except
+those still carried forward above (see Sections 83, 85, 87).
