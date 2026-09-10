@@ -3621,7 +3621,7 @@ export default function HiveworkApp() {
 
         .hw-app .segnav{display:flex;gap:3px;background:#EFECE5;border-radius:100px;padding:4px;margin:6px 24px 4px;position:sticky;top:0;z-index:8;}
         .hw-app .segnav button{flex:1;text-align:center;padding:9px 0;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;background:none;border:none;}
-        .hw-app .segnav button.active{background:var(--ink);color:white;}
+        .hw-app .segnav button.active{background:var(--ink);color:var(--cream);}
         .hw-app .help-strip{text-align:center;padding:20px 24px 6px;margin-top:4px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-soft);}
         .hw-app .help-strip .help-strip-link{color:var(--violet-deep);font-weight:700;cursor:pointer;}
         .hw-app .help-strip .help-strip-link:hover{text-decoration:underline;}
