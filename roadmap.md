@@ -85,6 +85,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
+| Settings | `settings` | ✅ Done · ✅ **Built directly into real `Settings.tsx` and live-verified** (Section 83) | No standalone shell/HTML canonical file — sourced 1:1 from the shell's inline Appearance section (`applyTheme()`/`toggleTheme()`/`syncThemeToggleUI()`, `.toggle-switch`/`.knob`). Real app already had a working `ThemeContext` (`useTheme()` hook, persists to `localStorage['hw-theme']`), so `Settings.tsx` calls that instead of reimplementing the shell's vanilla JS. Structural template matched to `Help.tsx` (back-button + component-scoped `<style>`). Route + side-drawer nav entry added. Click-testing the toggle is what surfaced the theme-fixed token bugs fixed the same session — see Section 83. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
 | History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals **tokenized to `:root` vars in Section 55**. |
 | History → Withdrawals | `history/withdrawals` | ✅ Done · ✅ **Patched into real `HistoryWithdrawals.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Previously duplicated `WithdrawPanel`'s row markup; now shares the new `WithdrawalRow.tsx` component with it instead. |
@@ -5176,37 +5177,142 @@ not reviewed).
 this session — verification only; `332775e`/`e4bdb21` were made in
 the prior parallel session.
 
+## Section 82 (session 70) — `NotificationBell.tsx` dark override landed (2026-09-09)
+
+Picked up open item 3 from Session 69/81 (`NotificationBell.tsx`
+dark override, not started).
+
+**Existing token setup reviewed first:** unlike the three files
+patched in Session 68/80 (`Layout.tsx`, `Dashboard.tsx`,
+`HistoryWithdrawals.tsx`), which redeclare theme variables in a bare
+`[data-theme="dark"]{}` block, `NotificationBell.tsx` scopes its own
+tokens locally under `.hnb-wrap` (Section 51 — deliberate, to avoid
+re-declaring globals on every header mount). Followed that existing
+convention: added `[data-theme="dark"] .hnb-wrap{...}` redeclaring
+the same locals the light block defines (`--cream`, `--ink`,
+`--ink-soft`, `--violet`, `--violet-deep`, `--line`, `--card`),
+matching `index.css`'s dark values. `--mint`/`--coral`/`--butter`
+left unchanged (don't shift between themes elsewhere).
+
+Patched via Python one-shot script, `assert` guard, `.bak` backup.
+`grep -n 'data-theme="dark"'` confirmed exactly one hit post-patch.
+`tsc --noEmit` clean. Committed and pushed to `~/Piwork` (real-app
+code change only, two-repo docs routine doesn't apply).
+
+Also noted while reviewing item 1: canonical `hivework-app-v4-3.html`
+does not itself contain a `JOB_DETAIL_OWNER_STYLES` string — that
+constant lives in `HiveworkApp.jsx`, not yet pulled into this
+session's context. Will need it when that item is picked up.
+
+**Files touched:** `frontend/src/components/NotificationBell.tsx`
+(real app). Docs: `session-70.md`, `roadmap.md`.
+
+## Section 83 (session 71) — Settings screen shipped; theme-fixed token sweep; JobDetail regression reverted (2026-09-10)
+
+Picked up open item 3 (Settings page/route/nav, not started) and half
+of open item 5 (`WithdrawPanel.tsx.bak`, unreviewed) from Session 70.
+
+**Settings screen (item 3 — done).** Swept `App.tsx`/`Layout.tsx`
+first: routes already split into an open group and a `RequireAuth`
+group, and `Layout.tsx` already imports a working `ThemeContext`
+(`useTheme()` → `{ theme, toggleTheme }`, persists to
+`localStorage['hw-theme']`, applies `data-theme` via
+`useLayoutEffect`) — so `Settings.tsx` calls that hook rather than
+reimplementing the shell's vanilla theme JS. Built to match
+`Help.tsx`'s structural convention. New `frontend/src/pages/Settings.tsx`
+(Appearance section + dark-mode toggle), route in `App.tsx`,
+side-drawer nav entry in `Layout.tsx`. Committed `74e515b`, pushed.
+
+**Theme-fixed token sweep.** Click-testing the new toggle surfaced a
+real bug: several components used theme-*reactive* tokens
+(`--ink`/`--cream`) where the canonical uses theme-*fixed* tokens
+(`--ink-fixed`/`--cream-fixed`) for elements meant to stay permanently
+dark regardless of site theme. First pass: 9 instances across 5 files
+(`Layout.tsx`, `JobDetail.tsx`, `Dashboard.tsx`, `HistoryJobs.tsx`, +1)
+— committed `6f0e990`. Second pass caught 2 more the text-pattern grep
+missed (inline JSX style objects, quoted form —
+`style={{ background: 'var(--ink)' }}`): `PostJob.tsx`'s category tile,
+`WithdrawPanel.tsx`'s balance card — committed `6e2c51f`.
+
+**History pages + RangeFilter.** Third variant of the same bug family:
+hardcoded `color:#1B1A1F` baked into all three History pages (shared
+template, confirmed via grep). Fixed all three; rebuilt
+`RangeFilter.tsx` to match the shell's bordered-pill design in the same
+pass. Committed `a4470ad`.
+
+**JobDetail token-redeclaration — regression, reverted.** Removing a
+redundant local token redeclaration in `JobDetail.tsx` (worker+owner),
+bundled with ledger-submission/refund-badge hardcoded-color fixes
+(`bd53c30`), made things worse on live-test. Reverted immediately, no
+further edits (`5b13ca8`). New open item — root cause of the
+regression not yet diagnosed.
+
+**Repo cleanup — closes item 5 in full.** `.gitignore` entries for
+`*.bak`, `*.bak[0-9]`, `patch_*.py`; deleted accumulated scratch
+debris including `patch_jobdetail_section51.py` and
+`WithdrawPanel.tsx.bak` (diffed first — just an earlier, simpler
+loading-skeleton, safe delete). Committed `d497b0c`. A follow-up catch
+found 6 more stale `.bak`s, including two never-reviewed-before
+(`Home.tsx.bak`, `Jobs.tsx.bak`) — committed separately as stale disk
+deletions. Flag: those two were removed without individual review.
+
+**Segnav active-pill — design change, diagnosed, not applied.** Active
+pill sits permanently dark (`--ink-fixed`) in both themes per current
+shell canonical — barely lifts against dark mode's dark track.
+Confirmed as a wanted design change (not a bug fix); patch drafted
+(`--ink-fixed`/`#fff` → `--ink`/`--cream`) but never run — new open
+item, patch ready. Carry the same change back into the shell canonical
+afterward so it doesn't drift back via a future check.
+
+**Font-rendering investigation — no code bug.** Ruled out font-loading
+and font-style/italic in code. Direct CSS comparison (shell vs. real
+app) found the actual cause: on Home only, the welcome `<h2>` and
+"Your standing" hero number are smaller/less tightly letter-spaced than
+canonical (`28px`/`-.7px`→`22px`/`-.3px`; `52px`/`-2px`→`44px`/none);
+Dashboard's equivalents are exact matches. Diagnosed, not yet applied —
+new open item. Separately, a one-off Pi-Browser-only "different
+glyphs" look turned out to be a stale cached font file, resolved on
+refresh — no code issue.
+
+**Item 1 unblocked, not started.** `HiveworkApp.jsx` located at
+`~/Piwork/hivework-redesign/screens/HiveworkApp.jsx` (docs-repo copy
+nested inside `Piwork`) — not yet pulled into context.
+
+**Files touched:** `frontend/src/pages/Settings.tsx` (new),
+`App.tsx`, `Layout.tsx`, `JobDetail.tsx` (patched then reverted),
+`Dashboard.tsx`, `HistoryJobs.tsx`, `HistoryWithdrawals.tsx`,
+`HistoryWork.tsx`, `RangeFilter.tsx`, `PostJob.tsx`,
+`WithdrawPanel.tsx`, `.gitignore`. Removed: `patch_jobdetail_section51.py`,
+all tracked `.bak`/`.bak[0-9]` snapshots. Docs: `session-71.md`,
+`roadmap.md`.
+
 ## Open items carried forward
 
-As of session 69 (2026-09-09):
+As of session 71 (2026-09-10):
 
 1. `JOB_DETAIL_OWNER_STYLES` hex/token drift in the *shell*
    (`HiveworkApp.jsx`) vs. HTML canonical (`.status-chip`,
-   `.toggle-row`) — flagged session 66, reconfirmed still open
-   session 69. Real app's equivalent (`HW_JDO_STYLES` in
-   `JobDetail.tsx`) is already fixed — don't conflate the two again.
+   `.toggle-row`) — flagged session 66, reconfirmed open sessions 69
+   and 70. Real app's equivalent (`HW_JDO_STYLES` in `JobDetail.tsx`)
+   is already fixed — don't conflate the two again. Located session 71
+   at `~/Piwork/hivework-redesign/screens/HiveworkApp.jsx`, still not
+   pulled into any session's context.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
-   drifted behind Section 43's real, shipped implementation
-   (`jobs_posted_count` backend field, `earnings_pending`/"Pending"
-   stat pill) — unrelated to dark mode, needs its own reconciliation
-   pass eventually, not blocking.
-3. `NotificationBell.tsx` dark override — not started, next up.
-4. Settings page/route/nav entry in the real app — not started,
-   queued after NotificationBell.
-5. The Settings-screen toggle-switch UI path itself still hasn't been
-   click-tested end-to-end (as opposed to the underlying mechanism,
-   confirmed in Section 79) — low priority, noted in case the
-   wallet-connect flow's stalled transition is an unrelated bug worth
-   a look.
-6. Uncommitted stray files in `~/Piwork` (`WithdrawPanel.tsx.bak`,
-   `patch_jobdetail_section51.py`) not yet diffed or cleaned up —
-   `JobDetail.tsx.bak`/`Profile.tsx.bak` resolved and removed session
-   69 (see Section 81).
+   drifted behind Section 43's real, shipped implementation — not
+   blocking.
+3. **New (session 71).** JobDetail token-redeclaration removal
+   (`bd53c30`, reverted as `5b13ca8`) caused regressions — needs
+   investigation into *why* before any retry.
+4. **New (session 71).** Segnav active-pill flip to theme-reactive
+   (`--ink`/`--cream` instead of `--ink-fixed`) — confirmed wanted,
+   patch drafted, not yet run.
+5. **New (session 71).** Home.tsx welcome heading + "Your standing"
+   hero number smaller/less tightly tracked than shell canonical
+   (`.hw-page-head h2` → `28px`/`-.7px`; `.hw-hero-num` → `52px`/`-2px`)
+   — diagnosed, fix specified, not yet applied.
 
-Item 3 from Section 79's open list (real dark mode plumbing) is now
-**mostly closed** — Settings + NotificationBell still open, tracked
-as items 3/4 above. Item 4 from Section 78 (`HiveworkApp.jsx` dark
-mode port unverified in an actual build/browser) remains **closed**
-— see Section 79. Item 1 from Section 77 (`HiveworkApp.jsx` dark
-mode port itself) remains **closed**. All items from session 64/
-Section 76 and earlier remain **closed**.
+Items 3 (Settings) and 5 (untracked strays) from Session 70 are now
+**fully closed** — see Section 83. Settings-screen toggle-switch
+click-testing (Session 70's item 4) is also closed — it's what
+surfaced the theme-fixed token bugs above. All items from session 68
+and earlier remain **closed**.
