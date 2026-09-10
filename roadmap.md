@@ -84,7 +84,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
-| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. |
+| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added, jobs-posted-count comment corrected to match Section 43's real shipped fields (Section 88).** |
 | Settings | `settings` | ✅ Done · ✅ **Built directly into real `Settings.tsx` and live-verified** (Section 83) | No standalone shell/HTML canonical file — sourced 1:1 from the shell's inline Appearance section (`applyTheme()`/`toggleTheme()`/`syncThemeToggleUI()`, `.toggle-switch`/`.knob`). Real app already had a working `ThemeContext` (`useTheme()` hook, persists to `localStorage['hw-theme']`), so `Settings.tsx` calls that instead of reimplementing the shell's vanilla JS. Structural template matched to `Help.tsx` (back-button + component-scoped `<style>`). Route + side-drawer nav entry added. Click-testing the toggle is what surfaced the theme-fixed token bugs fixed the same session — see Section 83. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
 | History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals **tokenized to `:root` vars in Section 55**. |
@@ -5371,26 +5371,76 @@ planned unless a concrete symptom resurfaces on its own.
 **Files touched:** none (investigation only). Docs: `session-75.md`,
 `roadmap.md`.
 
+## Section 88 (session 76) — Dashboard budget-tracker demo data reconciled with Section 43 (2026-09-10)
+
+Picked up open item 1. Swept `hivework-app-v4-3.html`'s Dashboard demo
+data against what Section 43 actually shipped to real `Dashboard.tsx`
+and found two points of drift:
+
+1. **Missing third stat pill.** Real code added a worker-tab-only
+   "Pending" stat pill in Section 43, sourced from the real
+   `earnings_pending` backend field (sum of approved-status
+   application budgets). The shell's `.dash-stat-row` only ever had
+   two pills ("Jobs done"/"Jobs posted" swap + static "Rating") and
+   never picked this up. **Fixed:** added a third `.stat-pill`
+   (`#dash-stat3`), gated the same way as `HW_DASH_CLOSED_JOB` —
+   visible on the My Work (worker) tab, hidden entirely on My Jobs
+   (client) via `toggleWork()`. New demo constant
+   `HW_DASH_EARNINGS_PENDING = 3` (a plain π figure, not derived from
+   other demo state — there's no existing pending-application demo
+   data to derive it from).
+2. **Stale comment, not a functional bug.** `HW_DASH_JOBS_POSTED_COUNT`'s
+   comment claimed real code has no jobs-posted-count field anywhere —
+   true when Section 34 first wrote it, but Section 43 closed that gap
+   for real (`jobs_posted_count`, a Supabase
+   `.select('id', {count:'exact', head:true}).eq('client_id', user_id)`
+   query). The shell's locally-derived count (`2 +
+   (HW_DASH_CLOSED_JOB.refunded ? 1 : 0)`) still renders the same
+   correct number — nothing to fix behaviorally — but the comment was
+   corrected so it no longer describes this as "a genuine addition, not
+   a ported fact" when it now demoes a real field.
+
+Budget tracker card itself (Posted/Refunded/"Net committed") was
+checked and found accurate to real code — no drift there, nothing
+touched.
+
+**Verification:** diffed edited file against original — 3 isolated
+changes only (markup pill, two data-constant/comment edits, one
+`toggleWork()` addition), nothing else touched. `lxml` parse clean;
+div open/close balance unchanged from the file's pre-existing baseline
+(the file has always been off-by-one due to `'</div>'` string literals
+inside JS template strings, confirmed present in the original
+unedited file too — not a real tag mismatch).
+
+**Files touched:** `hivework-redesign/screens/hivework-app-v4-3.html`.
+Docs: `session-76.md`, `roadmap.md`.
+
+**Scope note — HTML shell only.** `HiveworkApp.jsx` was not in this
+session's context, so it's unconfirmed whether it has the same drift.
+Worth a follow-up sweep next time that file is available.
+
 ## Open items carried forward
 
-As of session 75 (2026-09-10):
+As of session 76 (2026-09-10):
 
-1. Shell's Dashboard budget-tracker demo data (Section 34-era) has
-   drifted behind Section 43's real, shipped implementation — not
-   blocking.
+1. `HiveworkApp.jsx` — unconfirmed whether it has the same Dashboard
+   budget-tracker drift just fixed in the HTML shell (missing "Pending"
+   stat pill, stale jobs-posted-count comment). Needs its own sweep
+   once that file is available.
 2. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
-3. Home.tsx welcome heading + "Your standing" hero number smaller/
-   less tightly tracked than shell canonical (`.hw-page-head h2` →
-   `28px`/`-.7px`; `.hw-hero-num` → `52px`/`-2px`) — diagnosed, fix
-   specified, applied (`326e035`) then reverted (`044d8de`) session
-   72 at user's request. Fix itself unchanged, just deferred.
 
-`JOB_DETAIL_OWNER_STYLES` hex/token drift (formerly item 1) —
-**closed session 74**, see Section 86. Segnav active-pill (formerly
-item 4) — closed session 73, see Section 85.
+Shell's Dashboard budget-tracker demo data (formerly item 1) —
+**closed session 76**, see Section 88. Home.tsx welcome heading +
+"Your standing" hero number sizing (formerly item 3) — **closed
+session 76 at user's decision**: the reverted state (`044d8de`) is now
+accepted as final, not deferred; the previously-specified fix
+(`326e035`) will not be reapplied. `JOB_DETAIL_OWNER_STYLES` hex/token
+drift (formerly item 1 as of session 74) — closed session 74, see
+Section 86. Segnav active-pill (formerly item 4) — closed session 73,
+see Section 85.
 
-All items from session 74 and earlier remain **fully closed** except
-those still carried forward above (see Sections 83, 85, 87).
+All items from session 75 and earlier remain **fully closed** except
+Section 87's JobDetail item, still carried forward above.

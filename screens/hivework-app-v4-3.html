@@ -1227,6 +1227,12 @@
       <div class="dash-stat-row">
         <div class="stat-pill"><div class="n" id="dash-stat1-n">17</div><div class="l" id="dash-stat1-l">Jobs done</div></div>
         <div class="stat-pill"><div class="n">4.3★</div><div class="l">Rating</div></div>
+        <!-- Real Dashboard.tsx (Section 43) added a third stat pill, worker
+             tab only, sourced from the real `earnings_pending` backend field
+             (sum of approved-status application budgets). Shell never had
+             this — added here to close that drift. Hidden on the myjobs
+             (client) tab via toggleWork(). -->
+        <div class="stat-pill" id="dash-stat3"><div class="n" id="dash-stat3-n">3π</div><div class="l">Pending</div></div>
       </div>
 
       <div class="nudge-banner" id="nudge-banner">
@@ -2832,12 +2838,24 @@ const HW_DASH_CLOSED_JOB = {title:'Beta test iOS build', amt:'8π', refunded:tru
 // currently-withdrawable refund pot, not this lifetime total — real code
 // keeps these as two separate fields, not one.
 const HW_DASH_BUDGET_TRACKER = {totalPosted:24, totalRefunded:4};
-// Real code has no jobs-posted count field anywhere (confirmed via sweep
-// of budget_tracker's only consumer) — this is a genuine addition, not a
-// ported fact. Derived from the two static open rows + the closed-job
-// conditional below, rather than a separate hardcoded number, so it can't
-// drift out of sync with what's actually rendered.
+// UPDATED (Section 88, session 76): at the time this was first written,
+// real code had no jobs-posted count field anywhere. Section 43 closed
+// that gap for real — `Dashboard.tsx` now sources this from an actual
+// backend count query (`jobs_posted_count`, a Supabase
+// `.select('id', {count:'exact', head:true}).eq('client_id', user_id)`).
+// This demo value is now a stand-in for that real field, not an extra
+// addition beyond real code. Still derived from the two static open rows
+// + the closed-job conditional below (rather than a separate hardcoded
+// number) so it can't drift out of sync with what's actually rendered
+// on this screen.
 const HW_DASH_JOBS_POSTED_COUNT = 2 + (HW_DASH_CLOSED_JOB.refunded ? 1 : 0);
+// NEW (Section 88, session 76): demoes real Dashboard.tsx's worker-tab
+// third stat pill ("Pending"), added in Section 43 and never ported to
+// either shell until now. Real field is `earnings_pending` — sum of
+// approved-status application budgets, i.e. work that's been accepted
+// but not yet paid out. Worker tab only; hidden entirely on the myjobs
+// (client) tab, same gating pattern as HW_DASH_CLOSED_JOB above.
+const HW_DASH_EARNINGS_PENDING = 3;
 // Real "2π withdrawn"/"1π withdrawn" text has no date in it — these dates
 // are a filtering-demo assumption, not real-code-derived (same note as JSX).
 // Shape now matches real WithdrawPanel.tsx/HistoryWithdrawals.tsx exactly:
@@ -3179,6 +3197,14 @@ function toggleWork(view, el){
   if(stat1N && stat1L){
     if(view==='myjobs'){ stat1N.textContent = HW_DASH_JOBS_POSTED_COUNT; stat1L.textContent = 'Jobs posted'; }
     else { stat1N.textContent = '17'; stat1L.textContent = 'Jobs done'; }
+  }
+  // "Pending" pill (Section 88, session 76) — worker tab only, matching
+  // real Dashboard.tsx's earnings_pending gating from Section 43.
+  const stat3 = document.getElementById('dash-stat3');
+  const stat3N = document.getElementById('dash-stat3-n');
+  if(stat3 && stat3N){
+    if(view==='myjobs'){ stat3.style.display = 'none'; }
+    else { stat3.style.display = ''; stat3N.textContent = HW_DASH_EARNINGS_PENDING + 'π'; }
   }
 }
 
