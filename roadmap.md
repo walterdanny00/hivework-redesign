@@ -5302,32 +5302,55 @@ fix spec unchanged, nothing new to re-diagnose next pickup.
 **Files touched:** `frontend/src/pages/Home.tsx` (patched `326e035`,
 reverted `044d8de`). Docs: `session-72.md`, `roadmap.md`.
 
+## Section 85 (session 73) — Segnav active-pill flipped to theme-reactive (2026-09-10)
+
+Picked up open item 4 from session 72. Confirmed real `Layout.tsx`
+already used theme-reactive `--ink`/`--cream` for
+`.hw-segnav-btn.active` — no real-app change needed, that design
+decision was already live there. Both shell canonicals were still
+behind: `hivework-app-v4-3.html`'s `.segnav a.active` flipped from
+`background:var(--ink-fixed); color:white` to `background:var(--ink);
+color:var(--cream)`; `HiveworkApp.jsx`'s `.hw-app .segnav
+button.active` had `background:var(--ink)` already correct, only
+`color:white` → `color:var(--cream)` needed (verified via diff:
+single-line change, nothing else touched). Both patched, downloaded,
+pushed clean to both `hivework-redesign` repos. Item 4 fully closed.
+
+**Item 1 unblocked.** `HiveworkApp.jsx` was uploaded into this
+session's context — previously flagged (sessions 66–72) as "not yet
+pulled into context." Ready for the `JOB_DETAIL_OWNER_STYLES` drift
+investigation next time it's picked up.
+
+**Files touched:** `hivework-redesign/screens/hivework-app-v4-3.html`,
+`hivework-redesign/screens/HiveworkApp.jsx`. Docs: `session-73.md`,
+`roadmap.md`.
+
 ## Open items carried forward
 
-As of session 72 (2026-09-10):
+As of session 73 (2026-09-10):
 
 1. `JOB_DETAIL_OWNER_STYLES` hex/token drift in the *shell*
    (`HiveworkApp.jsx`) vs. HTML canonical (`.status-chip`,
    `.toggle-row`) — flagged session 66, reconfirmed open sessions 69,
    70, 71. Real app's equivalent (`HW_JDO_STYLES` in `JobDetail.tsx`)
-   is already fixed — don't conflate the two again. Located at
-   `~/Piwork/hivework-redesign/screens/HiveworkApp.jsx`, still not
-   pulled into any session's context.
+   is already fixed — don't conflate the two again. **Unblocked
+   session 73** — `HiveworkApp.jsx` now pulled into context, ready to
+   investigate.
 2. Shell's Dashboard budget-tracker demo data (Section 34-era) has
    drifted behind Section 43's real, shipped implementation — not
    blocking.
 3. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) caused regressions — needs investigation
    into *why* before any retry.
-4. Segnav active-pill flip to theme-reactive (`--ink`/`--cream`
-   instead of `--ink-fixed`) — confirmed wanted, patch drafted, not
-   yet run.
-5. **Reopened session 72.** Home.tsx welcome heading + "Your
+4. **Reopened session 72.** Home.tsx welcome heading + "Your
    standing" hero number smaller/less tightly tracked than shell
    canonical (`.hw-page-head h2` → `28px`/`-.7px`; `.hw-hero-num` →
    `52px`/`-2px`) — diagnosed, fix specified, applied (`326e035`) then
-   reverted (`044d8de`) this session at user's request. Fix itself
+   reverted (`044d8de`) session 72 at user's request. Fix itself
    unchanged, just deferred.
+
+Segnav active-pill (formerly item 4) — **closed session 73**, see
+Section 85.
 
 All items from session 70 and earlier remain **fully closed** (see
 Section 83).
