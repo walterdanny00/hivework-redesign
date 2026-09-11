@@ -5452,14 +5452,71 @@ no stray imbalance introduced).
 
 Both shell canonicals are now in sync on this point. Item fully closed.
 
+## 90. Decline button — built for real, live-verified (2026-09-11, session 78)
+
+Revisits the standing note from Section 37 ("this calculus should be
+revisited before wider release"). App is now getting close to wider
+release, so the owner-view Decline button — inert since session 31,
+no backend endpoint existed — was built for real, along with an Undo
+(un-reject) path to match the canonical demo UX (two-step confirm,
+collapsed "Declined (N)" section, Undo) that was already built in the
+shells.
+
+Two explicit decisions made before writing code: (1) decline now sends
+the worker a notification (`application_rejected`), matching the
+existing `application_approved` convention, rather than relying on the
+worker noticing the badge next visit; (2) Undo was built in the same
+pass rather than deferred, since the demo UX already assumed it
+existed.
+
+**Backend (`backend/src/lib/notifications.ts`):** added
+`application_rejected` to `NotificationType`; added
+`notifyApplicationRejected()`, same shape as `notifyApplicationApproved`.
+
+**Backend (`backend/src/routes/jobs.ts`):** `POST
+/:id/decline-application` — owner-only, only allows `pending ->
+rejected`, fires the new notification fire-and-forget. `POST
+/:id/undo-decline-application` — owner-only, only allows `rejected ->
+pending`, re-checks slot availability (multi-worker: slots not full;
+single-worker: job still `open`) before restoring.
+
+**Frontend (`frontend/src/pages/JobDetail.tsx`):** replaced the
+disabled "Decline ... soon" button with a real two-step confirm
+("Decline" → "Sure?"/"Cancel"). Added `declinedApps` (filters
+`applications` by `status === 'rejected'`) and a collapsed "Declined
+(N)" section with per-applicant Undo, mirroring the existing
+`pendingApps`/`slotApps` filter pattern. New CSS:
+`.decline-confirm` (coral), `.decline-cancel`, `.declined-section`,
+`.declined-toggle`, `.declined-row` — replacing the old `.decline`
+disabled/opacity styling and removing `.decline-soon` entirely.
+
+**Verification:** `tsc --noEmit` clean on both backend and frontend
+before and after. `vite build` succeeded (65 modules, 354.84 kB).
+Live-tested in Pi Browser: decline → confirm swap → moves to Declined
+section; Undo → returns to pending; worker received the new
+notification. Clean pass, no issues surfaced — first patch in this
+project's history to not turn up a real-environment surprise on first
+live test.
+
+Section 37's "Coming soon" language and inert-button note are now
+obsolete — should not be treated as current if referenced later.
+
+**Files touched:** `backend/src/lib/notifications.ts`,
+`backend/src/routes/jobs.ts`, `frontend/src/pages/JobDetail.tsx`
+(all Piwork repo). Docs: `session-78.md`, `roadmap.md`.
+
 ## Open items carried forward
 
-As of session 77 (2026-09-10):
+As of session 78 (2026-09-11):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
+
+Decline button (formerly an inert/parity-only item since session 31)
+— **closed session 78**, see Section 90, built for real and
+live-verified.
 
 Dashboard budget-tracker demo data drift (formerly item 1, both
 shells) — **closed session 77**, see Sections 88–89. Home.tsx welcome
