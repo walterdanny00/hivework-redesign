@@ -81,7 +81,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
-| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button ships visually but inert (no backend endpoint exists, Section 16/37); multi-worker "slots still open after first approval" gap and real file-upload attachments both logged, not designed for (Section 35). |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added and jobs-posted-count comment corrected in both shells to match Section 43's real shipped fields (Sections 88–89).** |
@@ -5505,14 +5505,104 @@ obsolete — should not be treated as current if referenced later.
 `backend/src/routes/jobs.ts`, `frontend/src/pages/JobDetail.tsx`
 (all Piwork repo). Docs: `session-78.md`, `roadmap.md`.
 
+## 91. Real file-upload attachments on submit-work (2026-09-11, session 79)
+
+Picked from session 78's queued candidates as the highest-priority
+functional gap ahead of wider release — a real proof-of-work mechanism
+matters more than cosmetic/backend-stats items with the app nearing
+release.
+
+**Sweep:** `applications.submission` is plain `text`, built by
+`composeSubmission()` into a joined markdown-style string, rendered
+raw (no markdown renderer anywhere in the app — pre-existing, see
+Deferred below). No Supabase Storage buckets existed. Backend uses the
+Supabase **service-role key** with a custom `sessions`-table +
+`x-session-token` auth model — no client-side Supabase Auth session
+ever exists.
+
+**Decisions:** new `attachments jsonb default '[]'` column on
+`applications`, additive and separate from `submission`; new private
+bucket `work-submissions`, path `{application_id}/{timestamp}-
+{filename}`; uploads route through the existing Express backend
+(`multer`, memory storage) rather than direct-from-browser, since no
+Supabase client exists in the frontend and adding one just for this
+would mean a second auth model; two `storage.objects` RLS policies
+were written then **dropped** once the service-role/no-client-auth
+setup was confirmed — `auth.uid()` never resolves for any real
+request here, so access control lives entirely in Express route
+ownership checks instead, consistent with the rest of the app. Limits:
+images 10MB/file, video 50MB/file (raised from an initial flat 10MB
+once video's larger footprint was flagged), 4 files/100MB combined cap
+per submission, no client-side video-duration cap (decided against —
+poor benefit-to-complexity ratio versus the size cap already in
+place). Owner-view attachment display is a plain file-name link list,
+not thumbnails — thumbnail/grid treatment is a visual decision
+deferred to the redesign shell, per the project's standing "old code
+informs facts, never dictates UX" rule.
+
+**Backend:** `multer` installed; `POST /:id/submit-work` now accepts
+`multipart/form-data` (`upload.array('files', 4)`), enforces the
+100MB combined cap, uploads to `work-submissions`, stores `{path,
+filename, size, type}` per file in `attachments`, returns `{ok,
+attachments}`. New `GET /attachment-url` route issues 5-minute signed
+URLs gated to the submitting worker or job's client.
+
+**Frontend:** `apiFetch` skips the forced JSON header for `FormData`
+bodies. `JobDetail.tsx` worker-view: real file input replaces the
+disabled "Coming soon" stub, with a `handleFilesSelected` handler that
+accumulates across multiple picker opens, dedupes, enforces size/count
+caps client-side with visible rejection messages, and supports
+per-file removal. `handleSubmitWork` sends `FormData` and merges the
+returned `attachments` into local state. Owner-view renders a
+clickable 📎 filename list; click fetches a signed URL and opens it in
+a new tab.
+
+**Three bugs found and fixed during live test (all same session):**
+(1) both `applications` SELECT queries omitted the new `attachments`
+column, so uploaded files never reached the client view — fixed by
+adding it to both; (2) native `<input type="file" multiple>`
+overwrites the whole selection on every "Choose Files" click, so
+picking images then adding a video discarded the images, with no
+feedback when exceeding the 4-file cap — fixed via the accumulating
+`handleFilesSelected` handler; (3) the new `GET /attachment-url` route
+was registered after the generic `GET /:id` route, so Express matched
+`/attachment-url` against `/:id` first and the real handler never
+ran, silently no-opping on click — fixed by reordering the route
+above `/:id`.
+
+**Verification:** `tsc --noEmit` clean on both backend and frontend
+across all 3 patch rounds; `vite build` succeeded each time (65
+modules, ~356 kB). Live-tested in Pi Browser across 3 rounds (commits
+`34e6102` → `0cfe143` → `726954b`), each round's fix confirmed against
+the live app before moving on; final round confirmed both video
+(plays + downloads via the browser's native handler) and image
+attachments open correctly on a fresh tab.
+
+Section 35's "not designed for" note on file-upload attachments is now
+obsolete for that item specifically — the multi-worker "slots still
+open after first approval" gap noted alongside it there remains open.
+
+**Files touched:** `backend/package.json`, `backend/src/routes/jobs.ts`,
+`frontend/src/lib/api.ts`, `frontend/src/pages/JobDetail.tsx` (all
+Piwork repo); Supabase SQL editor (column + bucket, run directly, no
+migration file in this project). Docs: `session-79.md`, `roadmap.md`.
+
 ## Open items carried forward
 
-As of session 78 (2026-09-11):
+As of session 79 (2026-09-11):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
+2. Submission-text markdown rendering (`composeSubmission()` produces
+   literal `### Header` text with no renderer anywhere in the app,
+   surfaced session 79) — deferred as a future redesign-shell
+   candidate, not designed for yet.
+
+Real file-upload attachments on submit-work — **closed session 79**,
+see Section 91, built for real and live-verified across 3 bug-fix
+rounds.
 
 Decline button (formerly an inert/parity-only item since session 31)
 — **closed session 78**, see Section 90, built for real and
@@ -5526,5 +5616,5 @@ final). `JOB_DETAIL_OWNER_STYLES` hex/token drift — closed session 74,
 see Section 86. Segnav active-pill — closed session 73, see Section
 85.
 
-All items from session 76 and earlier remain **fully closed** except
+All items from session 77 and earlier remain **fully closed** except
 Section 87's JobDetail item, still carried forward above.
