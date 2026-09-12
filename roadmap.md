@@ -5642,18 +5642,165 @@ without a change on Pi Browser's end.
 `frontend/src/pages/JobDetail.tsx` (Piwork repo) — net change is the
 revert described above. Docs: `session-79.md`, `roadmap.md`.
 
+## Section 93 (session 80) — Submission-display redesign: design fully
+locked, token-anchor mechanism validated live in Pi Browser (2026-09-12)
+
+**Context:** picked up session 79's deferred item — `composeSubmission()`
+emits `### Header` markdown text with no renderer, shown raw on the owner
+view. A real screenshot (job #4471, `@Olawalt`, bug-testing) surfaced a
+second, compounding bug during design review: the render div has no
+`white-space: pre-wrap`, so even the `\n\n`-joined sections collapse into
+one run-on line — the `###` problem and the missing-linebreak problem were
+never actually the same bug, just visually stacked on top of each other in
+the live screenshot.
+
+**Design process (five iterations, ground-up on the last two):**
+- **A/B** — kept the current 4-field shape, just fixed the render (labeled
+  stack; segmented ledger reusing the app's existing `.ledger` rail-and-dot
+  vocabulary). Both still treated evidence text and attachments as two
+  separate, disconnected zones.
+- **C** — restructured around an "evidence leads" principle: media strip
+  up top, mono key/value spec rows below. Fatal flaw caught by the user
+  pressure-testing with a real long Evidence paragraph: right-aligned
+  monospace does not hold up for prose-length text. Revised in place to
+  left-aligned proportional body copy, mono kept only for field labels.
+- **D** — added two structural ideas neither A/B/C had: (1) a quoted
+  one-line echo of the job's own `requirements` field above the
+  submission, so review reads as "asked vs. delivered" rather than the
+  submission in isolation; (2) category-weighted field emphasis, keying
+  off the already-existing `getSubmissionKind()` — Evidence promoted for
+  bug-testing jobs, other fields demoted to a quieter secondary group.
+- **E** — user's real screenshot then surfaced the actual live bug this
+  whole redesign needed to solve: submission text referenced "the second
+  screenshot" by position, with no way for a reviewer to tell which
+  attachment that meant. Thrown-out-design-system pass: evidence captured
+  *inline*, at the point of attachment, via a typed field-log aesthetic
+  (IBM Plex Mono narrative body, IBM Plex Sans UI chrome, deep
+  verification-green accent used only for confirmed/stamp moments) —
+  chosen deliberately to avoid both common AI-generated-design tells
+  (warm-cream-serif-terracotta, and near-black-plus-neon).
+
+**Real-precedent research (before committing to a direction):** GitHub's
+own issue-template maintainers have had this exact inline-vs-separate
+debate ("should screenshots be a separate field, or placed within the
+description where they're relevant?", unresolved as an open discussion on
+a real repo). GitLab/HackerOne vulnerability reports — a high-bar example,
+since researcher payment depends on report quality — use both at once:
+screenshots embedded inline inside numbered "Steps to reproduce," *and* a
+separate always-present "Attachments" tab listing every file regardless of
+whether it's referenced inline. This directly validated merging D and E
+rather than picking one.
+
+**Final merged design, locked:**
+- Labeled sections retained (not collapsed into one free-text box) — they
+  double as completeness scaffolding a blank composer would otherwise
+  lose; a worker with no field prompts has no cue to include repro steps,
+  environment, etc.
+- Each section can carry inline, captioned evidence — a photo sits
+  directly beneath the sentence that references it, not in a detached
+  strip the reviewer has to count through.
+- A full attachments record stays at the bottom of every submission
+  regardless — every file listed, with a checkmark on the ones actually
+  referenced inline — so a worker who forgets to insert a file inline
+  doesn't lose it from review. Mirrors GitLab's separate Attachments tab.
+- Requirement echo (from D) and category-weighted primary-field emphasis
+  (from D) both carry forward into the merged version unchanged.
+
+**Category field sets, locked (extends `getSubmissionKind()` from a
+fixed 4-field function into a per-kind field config):**
+
+| Category | Fields | Primary |
+|---|---|---|
+| Bug testing | What was done · Evidence · Environment | Evidence |
+| Translation | Original text · Translation · Notes | Translation |
+| UI feedback | What was reviewed · Findings/Verdict · Notes | Findings/Verdict |
+
+Translation splits what was one blended "Evidence" field into two
+structured fields (`Original text` / `Translation`) — a translation
+reviewer's real question is a side-by-side comparison, not a paragraph to
+parse, matching the same "which claim does this evidence support" problem
+the inline-anchor work was already solving for images. UI feedback's
+`Findings/Verdict` shape is not a guess — it's already implied by the
+existing (currently generic) `SUBMISSION_EVIDENCE_HINT` copy ("What you
+reviewed, and your specific verdict or findings") and by `Landing.tsx`'s
+own category description ("Give developers a clear read on what's
+confusing before it ships"). Confirmed via Termux sweep
+(`grep -rn "ui-feedback\|ui_feedback"`) that **no real `ui-feedback`
+submissions exist yet** to check against — this is a first-precedent
+decision backed by the app's own existing copy, not a confirmed pattern
+like bug-testing/translation had.
+
+**Token-anchor mechanism, decided and validated:** evidence attachments
+anchor to a token embedded in the text itself (`{{fig:xxxx}}`), not a
+numeric character-position offset. A coordinate-based anchor drifts every
+time text before it is edited; a text-embedded token doesn't, since it
+moves with the surrounding text naturally. This was flagged as the single
+riskiest decision the whole schema/composer design depends on, so it was
+prototyped standalone (throwaway, client-side only, no backend, no
+upload) before committing:
+
+- Cursor position captured via `textarea.selectionStart` immediately
+  before opening the native file picker.
+- **Live-tested in Pi Browser** (`npx serve` on Termux, loaded over
+  `http://localhost:8080` — `file://` URLs are unreliable in this
+  WebView sandbox, consistent with what session 79 already found).
+  Cursor position **survived the file-picker interruption** — the same
+  category of WebView behavior that broke `window.alert` and blob
+  downloads in session 79 did *not* break this. Token landed exactly at
+  the captured cursor position; user additionally typed more text
+  immediately after the inserted token, which appended cleanly without
+  corrupting the token — an edit-adjacent-to-token case the test script
+  itself didn't even prescribe. `FileReader`/`readAsDataURL` rendered a
+  correct local preview (an initial read of the small thumbnail as
+  "broken" was a misread on review — it was a real, correctly-rendered
+  dark screenshot at 56×56px, confirmed via a zoomed-in follow-up
+  screenshot). Token-to-image resolution in the rendered preview worked
+  cleanly ("1 token(s) resolved, 0 unresolved").
+- **All four validation checks passed.** Token-anchor approach is
+  confirmed safe to build the real schema and composer around.
+
+**What this does NOT yet include — real implementation work, next
+session:**
+1. Real composer UI supporting insert-at-cursor *within* each of the
+   (3, or 2-for-translation) labeled fields — deliberately scoped as
+   insertion within/between fixed field boundaries, not a full rich-text/
+   contenteditable doc editor, since the latter is meaningfully harder to
+   build reliably in this WebView and the cheaper approach was chosen
+   deliberately rather than discovered as a gap mid-build.
+2. Schema change: `attachments` (currently a flat `jsonb` array per
+   session 79) needs to become `{path, filename, caption, token}`,
+   effectively scoped per labeled field rather than one flat list.
+3. Migration decision for submissions/attachments already stored under
+   the old flat-array shape (no caption/token association) — not yet
+   decided.
+4. `composeSubmission()` needs to become a per-`kind` field config rather
+   than one fixed 4-field function.
+5. Composer placeholder/hint copy needs rewriting per category (UI
+   feedback's copy specifically should lean on Landing.tsx's "confusing
+   before it ships" framing rather than generic "your thoughts").
+6. Real implementation of the attachments-record fallback UI, including
+   the referenced/unreferenced checkmark logic tying back to which tokens
+   actually got resolved in each field.
+
+**Files:** design exploration only this session — no real code touched
+yet (`Piwork/frontend/src/pages/JobDetail.tsx` unchanged). Mockups
+(`submission-mockup.html` through `submission-mockup-merged.html`,
+`inline-evidence-prototype.html`) live in chat/session artifacts, not yet
+copied into `hivework-redesign/screens/`.
+
 ## Open items carried forward
 
-As of session 79 (2026-09-11/12):
+As of session 80 (2026-09-12):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
-2. Submission-text markdown rendering (`composeSubmission()` produces
-   literal `### Header` text with no renderer anywhere in the app,
-   surfaced session 79) — deferred as a future redesign-shell
-   candidate, not designed for yet.
+2. Submission-display redesign (Section 93) — design fully locked and
+   the token-anchor mechanism validated live in Pi Browser, but **no real
+   implementation started**: composer rebuild, schema change, migration
+   decision, `composeSubmission()` per-kind refactor, and attachments-
+   record UI are all still open, queued for session 81.
 
 Image download inside the app (session 79, see Section 92) is **not**
 an open item — investigated to a firm conclusion (Pi Browser WebView
