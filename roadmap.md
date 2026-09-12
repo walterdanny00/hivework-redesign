@@ -5587,9 +5587,64 @@ open after first approval" gap noted alongside it there remains open.
 Piwork repo); Supabase SQL editor (column + bucket, run directly, no
 migration file in this project). Docs: `session-79.md`, `roadmap.md`.
 
+## 92. Explicit image download — investigated, blocked by platform limitation (2026-09-11/12, session 79)
+
+Post-ship live testing of Section 91 found a real gap: video can be
+downloaded via its native player's own controls, but images — which
+only open/view in a new tab — had no equivalent, and native long-
+press-to-save on images does nothing in Pi Browser either.
+
+**Three attempts, in order:**
+1. Signed URL with Supabase's `createSignedUrl(..., { download:
+   filename })` option (`Content-Disposition: attachment` header) +
+   `window.open`. Video downloaded but under the wrong (raw storage
+   path) filename; all image downloads failed with "Download
+   unsuccessful" in the OS download manager.
+2. Client-side blob fetch + synthetic `<a download>` click, bypassing
+   server headers entirely. Completed with no thrown JS error, but
+   produced no file and no download-manager entry at all — silent
+   failure, harder to diagnose than attempt 1.
+3. Web Share API (`navigator.canShare`/`navigator.share`) as an
+   independent second mechanism, falling back to attempt 2 if
+   unsupported. `alert()`-based diagnostics showed nothing at all
+   (Pi Browser's WebView likely doesn't implement `window.alert`),
+   so diagnostics were switched to an on-page DOM status line updated
+   directly via `getElementById` (the download function lives at
+   module level, outside React state). Status line showed the full
+   sequence completing cleanly with no error, but again produced no
+   file — confirming the Share API silently fell through to the
+   already-failing blob method rather than ever opening a share sheet.
+
+**Conclusion:** two independent, standards-based download mechanisms
+both fail silently in this WebView, on top of native long-press-save
+also not working, and Pi Browser's own URL-bar menu offers no "open in
+system browser" escape hatch (checked directly). This is a Pi Browser
+WebView sandbox limitation — most likely a missing native download-
+listener the host app would need to wire up — not something fixable
+from this app's JavaScript. Video downloads worked all along because
+that path is handled by the OS's native video player taking over the
+tab, a mechanism entirely separate from anything this app's code
+triggers.
+
+**Resolution:** reverted cleanly to view-only (single button, opens
+signed URL in new tab); all diagnostic code, the second Download
+button, and the resulting unused backend `download` query-param
+handling were removed. Final frontend bundle hash matched byte-for-
+byte the pre-investigation build, confirming a clean revert with zero
+net change to shipped behavior beyond Section 91 itself.
+
+**Status:** flagged as a known platform limitation, not an open bug.
+Images have no working save path in-app; video remains downloadable
+via its native player. Not worth re-attempting from the app side
+without a change on Pi Browser's end.
+
+**Files touched:** `backend/src/routes/jobs.ts`,
+`frontend/src/pages/JobDetail.tsx` (Piwork repo) — net change is the
+revert described above. Docs: `session-79.md`, `roadmap.md`.
+
 ## Open items carried forward
 
-As of session 79 (2026-09-11):
+As of session 79 (2026-09-11/12):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
@@ -5599,6 +5654,11 @@ As of session 79 (2026-09-11):
    literal `### Header` text with no renderer anywhere in the app,
    surfaced session 79) — deferred as a future redesign-shell
    candidate, not designed for yet.
+
+Image download inside the app (session 79, see Section 92) is **not**
+an open item — investigated to a firm conclusion (Pi Browser WebView
+platform limitation) and intentionally not tracked for further work
+absent a change on Pi Browser's own side.
 
 Real file-upload attachments on submit-work — **closed session 79**,
 see Section 91, built for real and live-verified across 3 bug-fix

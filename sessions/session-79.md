@@ -148,11 +148,79 @@ this project)**
     plays via the browser's native handler and offers Download; images
     open as viewable images). All four test cases clean.
 
+## Post-ship investigation: explicit image download
+
+After shipping, live testing surfaced a real gap: video can be
+downloaded via the native player's own controls, but images — which
+only open/view — had no equivalent. User confirmed native long-press-
+to-save on images also does nothing in Pi Browser.
+
+**Attempt 1 (commit `2f7e3d2`):** added a second "Download" button
+per attachment, using Supabase's `createSignedUrl(path, ttl, {
+download: filename })` option to set a `Content-Disposition:
+attachment` header, opened via `window.open`. Live test: video
+downloaded (but saved under the raw `{timestamp}-{filename}` storage
+path, not the intended clean name — the `download` option's filename
+override was not honored), all image downloads failed with "Download
+unsuccessful" in the OS download manager.
+
+**Attempt 2 (commit `1852a34`):** switched to a client-side blob
+fetch + synthetic `<a download>` click, bypassing server headers
+entirely. Live test: completed the full JS flow with no thrown error,
+but produced no file and no download-manager entry at all — worse
+than attempt 1's visible failure, this failed silently.
+
+**Diagnosis (commits `300d2a3`, `51727e4`, `c8cec08`):** added
+`alert()`-based diagnostics first — no alerts appeared at all,
+suggesting Pi Browser's embedded WebView may not implement
+`window.alert`. Switched to an on-page DOM status line
+(`#download-status-line`, updated directly via
+`getElementById().textContent`, since `downloadAttachment` is a
+module-level function outside React state) to get visible diagnostics
+that don't depend on native dialogs.
+
+**Attempt 3 (commit not separately tagged, same patch round):** tried
+the Web Share API (`navigator.canShare`/`navigator.share` with a
+`File`) as a second, independent download mechanism, falling back to
+the attempt-2 blob method if unsupported. Live test: status line
+showed the full sequence completing ("Requesting URL..." → "Fetching
+file..." → "Got blob..." → "Download triggered for ...") with no
+error at any step, but again no file appeared anywhere on the device.
+This confirms `navigator.canShare` returned falsy (fell through to
+the already-failing blob method) rather than the share sheet ever
+opening.
+
+**Conclusion:** two independent, standards-based download mechanisms
+(`<a download>` blob URLs and Web Share API) both fail silently in
+this WebView, on top of native long-press-save also not working, and
+no "open in system browser" option exists in Pi Browser's own menu
+(checked directly — the chevron next to the URL bar only shows recent
+URLs). This is a Pi Browser WebView sandbox limitation (most likely a
+missing native download-listener wired up by the host app), not
+something fixable from this app's JavaScript. Video downloads via the
+native player worked all along because that path is handled by the
+OS's native video player taking over the tab, not by anything this
+app's code triggers.
+
+**Resolution (commits `056dce0`, `5530df6`):** reverted cleanly to the
+original view-only behavior — single button opens the signed URL in a
+new tab; all diagnostic code, the second Download button, and the
+now-unused backend `download` query-param handling were removed.
+Final frontend bundle hash (`Dh1Y_kg1`) matched byte-for-byte the
+build from before this entire detour, confirming a clean revert.
+Flagged as a known platform limitation: **images currently have no
+working save path in-app**; video remains downloadable via its native
+player. Would need Pi Browser itself to add proper WebView download
+support — not something to keep chasing from the app side.
+
 ## Status
 Real file-upload attachments on submit-work fully shipped and
 confirmed working end-to-end. Worker can attach up to 4 image/video
-files with client-side validation; client can view and open/download
-each one via short-lived signed URLs.
+files with client-side validation; client can view/open each one via
+short-lived signed URLs, and can download video via the native
+player. Explicit image download was investigated in depth post-ship
+and found to be blocked by a Pi Browser platform limitation — not
+fixed, flagged as known and out of this app's control.
 
 ## Deferred (not part of this session's scope)
 `composeSubmission()`'s raw `### Header` markdown text has no renderer
