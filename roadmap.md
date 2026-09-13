@@ -5835,21 +5835,72 @@ No code changed this session — visual-identity decision only, on top of
 Section 93's mockup. Mockup file: `submission-report-final.html`
 (supersedes the token-comparison exploration file used mid-session).
 
+## Section 95 — Submission-report implementation: composer refactor, attachments schema, renderer (2026-09-13)
+
+Follow-up to Section 94: moved from design to real code in `~/Piwork`
+(`frontend/src/pages/JobDetail.tsx`, `backend/src/routes/jobs.ts`) —
+first genuine implementation on this feature since Section 93's mockup.
+
+`composeSubmission()` was rebuilt around a `FIELD_CONFIGS` map keyed by
+`'bug' | 'translation' | 'feedback'` (real code's actual third-category
+name — not `ui-feedback` as earlier notes assumed), replacing the fixed
+4-argument function that only ever branched on `kind === 'bug'`. The
+worker composer's four separate `useState` fields were collapsed into
+one dynamic `subFields` record, so translation and feedback jobs now
+get real dedicated fields instead of a relabeled bug field.
+
+The `attachments` column (jsonb, on `applications`) now carries
+`field`/`caption`/`token` alongside the original `path`/`filename`/
+`size`/`type` — non-destructive, old rows simply lack the new keys. The
+upload endpoint accepts a parallel `attachmentsMeta` JSON array in the
+same FormData, zipped with uploaded files server-side.
+
+The owner-side raw-text dump (`.ledger-submission`/`.attach-list`,
+which just printed `app.submission` as one unstyled string) was
+replaced with a real `SubmissionReport` component: parses `### Label`
+sections back out, resolves `{{fig:xxxx}}` tokens against attachments,
+marks the primary section per kind, pulls `Environment` into its own
+footer line, and renders the attachments record with referenced/
+unreferenced marking. Signed URLs are fetched only for attachments that
+are both referenced and image-typed, to avoid loading every file on
+every render. CSS was ported using the real token names confirmed
+against `frontend/src/index.css` (`--teal`/`--teal-tint`, `--pi-gold`/
+`--pi-gold-tint`) rather than the mockup's similarly-named-but-wrong
+tokens.
+
+**Bug found and fixed during first live test**: stored `submission` text
+uses `\r\n` line endings; JS regex `.` doesn't match `\r`, so the
+section-label regex silently failed on every real submission, falling
+back to unparsed raw text. Fixed by normalizing CRLF/CR → LF once at
+the top of the parser. Confirmed fixed against a real existing
+submission (`@Olawalt`) after redeploy — checked via Supabase's SQL
+editor to confirm the actual stored line-ending format before patching
+blind.
+
+Still open: the composer-side token/caption insertion itself (attaching
+a file to a field with a caption, inserting `{{fig:xxxx}}` at cursor
+position) is not yet built — the renderer can resolve tokens if they
+exist, but nothing yet produces them, so every real submission will
+keep showing all attachments as unreferenced until this is wired in.
+The cursor-position mechanics were already validated separately in
+Section 93's throwaway Pi Browser prototype.
+
 ## Open items carried forward
 
-As of session 81 (2026-09-13):
+As of session 82 (2026-09-13):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
-2. Submission-display redesign (Sections 93-94) — design and visual
-   identity are now both fully locked (see Section 94 for the final
-   token/typography decision) and the token-anchor mechanism validated
-   live in Pi Browser, but **no real implementation started**: composer
-   rebuild, schema change, migration decision, `composeSubmission()`
-   per-kind refactor, and attachments-record UI are all still open,
-   queued for session 82.
+2. Submission-display redesign (Sections 93-95) — design, visual
+   identity, `composeSubmission()` refactor, the `attachments` schema
+   change, and the report renderer are all now live in `~/Piwork` and
+   confirmed working against a real submission (see Section 95). **Only
+   remaining piece**: the composer-side token/caption insertion itself
+   (attaching a file to a field with a caption, inserting `{{fig:xxxx}}`
+   at cursor position) — the renderer can resolve tokens if they exist,
+   but nothing yet produces them from the real composer.
 
 Image download inside the app (session 79, see Section 92) is **not**
 an open item — investigated to a firm conclusion (Pi Browser WebView
