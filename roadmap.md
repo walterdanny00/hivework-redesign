@@ -5788,19 +5788,68 @@ yet (`Piwork/frontend/src/pages/JobDetail.tsx` unchanged). Mockups
 `inline-evidence-prototype.html`) live in chat/session artifacts, not yet
 copied into `hivework-redesign/screens/`.
 
+## Section 94 — Submission-report visual identity finalized (2026-09-13)
+
+Follow-up to Section 93: no schema/composer work started yet (still
+queued, see below) — this pass resolved the one open visual question
+Section 93 left unanswered, reconciling the merged-model mockup
+(`submission-mockup-merged.html`) against the app's actual design tokens
+(cream/ink/violet, Sora/Inter/JetBrains Mono) using the real Slots-tab
+ledger context rather than the mockup in isolation.
+
+Two full alternatives were built side-by-side inside the actual
+`.jdo .ledger-item` markup (owner Slots tab, Job #4471/@Olawalt): the
+report exactly as designed in Section 93 (paper background, IBM Plex
+Mono narrative + IBM Plex Sans chrome, stamp-green accent), against a
+version restyled fully onto app tokens (white `.tab-card` surface,
+existing gold `.ledger-status.submitted` pill instead of a new stamp
+component, violet/pill-radius chrome).
+
+Decision, after direct comparison: **the paper/field-report layout is
+kept as a deliberate one-screen exception**, not reconciled to match
+every other screen — a submission review is meant to feel like handling
+evidence, not filling out another app form, and that distinctiveness is
+specifically what a fully-on-token version traded away. Kept as
+originally designed: paper background, rotated "Submitted" stamp chip,
+rail-mounted fig-caption left border, rectangular (not pill)
+chips/buttons.
+
+Two things changed from the original Section 93 mockup:
+- **Accent color**: the invented stamp-green (`#2F6F5E`) is gone — the
+  confirmed/referenced accent now resolves to the app's own existing
+  `--teal-ink`/`--teal-tint` (same color `.ledger-status.completed`
+  already uses), the one deliberate bridge back to the token system.
+- **Typography**: switched from IBM Plex Mono/Sans to the app's own Sora
+  (structural labels) + Inter (body prose) + JetBrains Mono (case-id and
+  the environment value only) — kept for readability, since IBM Plex
+  read as a slightly awkward reference on close comparison and the app's
+  existing font trio can carry the "field-report" identity through
+  layout/shape alone without a competing typeface stack.
+- **Layout width**: widened to bleed out of the ledger's 22px
+  rail-indent, sitting flush with the `.tab-card`'s own edges rather
+  than indented under the avatar column (the original
+  `margin-left: 50px` alignment made it read as a cramped note attached
+  to the ledger row rather than its own report).
+
+No code changed this session — visual-identity decision only, on top of
+Section 93's mockup. Mockup file: `submission-report-final.html`
+(supersedes the token-comparison exploration file used mid-session).
+
 ## Open items carried forward
 
-As of session 80 (2026-09-12):
+As of session 81 (2026-09-13):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
-2. Submission-display redesign (Section 93) — design fully locked and
-   the token-anchor mechanism validated live in Pi Browser, but **no real
-   implementation started**: composer rebuild, schema change, migration
-   decision, `composeSubmission()` per-kind refactor, and attachments-
-   record UI are all still open, queued for session 81.
+2. Submission-display redesign (Sections 93-94) — design and visual
+   identity are now both fully locked (see Section 94 for the final
+   token/typography decision) and the token-anchor mechanism validated
+   live in Pi Browser, but **no real implementation started**: composer
+   rebuild, schema change, migration decision, `composeSubmission()`
+   per-kind refactor, and attachments-record UI are all still open,
+   queued for session 82.
 
 Image download inside the app (session 79, see Section 92) is **not**
 an open item — investigated to a firm conclusion (Pi Browser WebView
