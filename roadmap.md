@@ -81,7 +81,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
-| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added and jobs-posted-count comment corrected in both shells to match Section 43's real shipped fields (Sections 88–89).** |
@@ -5887,20 +5887,18 @@ Section 93's throwaway Pi Browser prototype.
 
 ## Open items carried forward
 
-As of session 82 (2026-09-13):
+As of session 83 (2026-09-13):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
-2. Submission-display redesign (Sections 93-95) — design, visual
-   identity, `composeSubmission()` refactor, the `attachments` schema
-   change, and the report renderer are all now live in `~/Piwork` and
-   confirmed working against a real submission (see Section 95). **Only
-   remaining piece**: the composer-side token/caption insertion itself
-   (attaching a file to a field with a caption, inserting `{{fig:xxxx}}`
-   at cursor position) — the renderer can resolve tokens if they exist,
-   but nothing yet produces them from the real composer.
+
+Submission-display redesign (Sections 93-96) — **closed session 83**,
+see Section 96. Design, visual identity, `composeSubmission()` refactor,
+the `attachments` schema change, the report renderer, and the
+composer-side token/caption insertion are all live in `~/Piwork` and
+confirmed working end-to-end against a real submission.
 
 Image download inside the app (session 79, see Section 92) is **not**
 an open item — investigated to a firm conclusion (Pi Browser WebView
@@ -5925,3 +5923,37 @@ see Section 86. Segnav active-pill — closed session 73, see Section
 
 All items from session 77 and earlier remain **fully closed** except
 Section 87's JobDetail item, still carried forward above.
+
+## Section 96 — Composer-side figure token/caption insertion: built, tested, closed (2026-09-13)
+
+Follow-up to Section 95: closed the one remaining piece of the
+submission-report feature arc. Per-field "+ Image" buttons now capture
+cursor position, insert `{{fig:xxxx}}` tokens into the composer's
+`subFields`, and collect a caption per figure via a new `subFieldFigs`
+state array — separate from the existing flat loose-attachment picker.
+`attachmentsMeta` (already supported server-side since session 82, but
+never actually sent by the frontend) is now wired into
+`handleSubmitWork`'s FormData, zipping both attachment pools
+positionally to match the backend's existing per-index logic.
+
+Two bugs surfaced and fixed during live testing: `handleSubmitWork` had
+no error handling at all (a failed submit just silently reset the
+button with zero feedback — fixed with `submitError` state and a proper
+catch/non-ok branch); and `SubmissionReport`'s caption line hardcoded
+literal `Fig.` with no number ever computed — fixed with a
+`figNumberByToken` map assigning numbers by first-appearance order
+across the whole report, not per-section.
+
+Live-verified end-to-end on a real job/submission: token resolution,
+inline image render, correct "Fig. 1" numbering, and referenced/
+unreferenced attachment marking all confirmed working on the owner's
+Slots tab. See session-83.md for full detail.
+
+**This closes the submission-report feature arc (Sections 93-96) in
+full.** No further composer or renderer work queued for this feature.
+
+**Files:** `Piwork/frontend/src/pages/JobDetail.tsx` only — no backend
+changes needed, since `attachmentsMeta` support already existed
+server-side from session 82. Three separate pushes this session
+(feature patch, error-surfacing patch, figure-numbering patch), each
+built clean with `npx tsc && npx vite build` before push.
