@@ -6202,6 +6202,92 @@ build` run this time, clean: `✓ 65 modules transformed`,
 **Files:** `frontend/src/pages/HistoryWork.tsx`. No backend, no
 index.css changes (all hex mapped to existing tokens).
 
-**Status: closed.** Next in the dark-mode sweep queue: Help.tsx
-(style-block name/line-count check queued), then
-Landing.tsx/NotFound.tsx.
+**Status: closed.** See Sections 102-104 for the remainder of the
+queue (Help.tsx, Landing.tsx, NotFound.tsx) and the sweep's closure.
+
+## Section 102 — Dark mode sweep: Help.tsx (clean) (2026-09-16, session 89)
+
+Continuing the Section 97-101 dark-mode sweep queue. Style block is inline
+at line 59 (`grep -n "_STYLES\|<style"`), file is short (81 lines total).
+
+Findings: no Pattern 1 (hardcoded hex shadowing a token) — every color in
+the `<style>` block already uses tokens (`var(--ink-soft)`, `var(--ink)`,
+`var(--violet)`, `var(--card)`, `var(--line)`). One literal, `color:#fff`
+on `.hw-help-step-n`, is white text on a solid `var(--violet)` circle
+badge — the background isn't itself a token-shadowed value, so this
+stays legible in both themes. Judged intentional, consistent with other
+colored-badge text elsewhere in the app; not patched.
+
+No Pattern 2 (missing explicit `color`) — the only native control,
+`.hw-back-btn` (`<button>`), already sets `color:var(--ink-soft)`
+explicitly. `<ul>`/`<li>`/`<b>`/`<summary>`/`<p>` all either set their
+own color or inherit from a parent that does.
+
+**Files:** none changed. **Status: closed, no patch needed.** Next in
+the dark-mode sweep queue: Landing.tsx.
+
+## Section 103 — Dark mode sweep: Landing.tsx (tokenized) (2026-09-16, session 89)
+
+Continuing the sweep queue. Style block at line 133 (220 lines total).
+This file has more surface area than prior sweep targets — pastel tint
+badges for the activity ticker and category cards, plus a themed
+"flow" panel.
+
+Pattern 1 findings — 6 hardcoded hex values, cross-checked against
+`index.css`'s actual token defs (light hex vs. the `rgba(...)`
+overrides at lines 130-135, confirming these are real dark-mode bugs
+and not harmless light-only duplicates):
+
+| Hex | Rule(s) | Token |
+|---|---|---|
+| `#EFEAFB` | `.eyebrow` bg, `.t1 .ticker-icon` bg, `.ticker-frame` gradient | `var(--violet-tint)` |
+| `#FFE8E5` | `.cat-card:nth-child(1) .cat-blob` bg | `var(--coral-tint)` |
+| `#FFF3DC` | `.cat-card:nth-child(2) .cat-blob` bg, `.t2 .ticker-icon` bg | `var(--pi-gold-tint)` |
+| `#E4F8F6` | `.cat-card:nth-child(3) .cat-blob` bg, `.t3`/`.t4 .ticker-icon` bg | `var(--teal-tint)` |
+| `#B8860B` | `.t2 .ticker-icon` color, `.t2 .ticker-amount` color | `var(--pi-gold)` |
+| `#1A9E92` | `.t3`/`.t4 .ticker-icon` color, `.t3`/`.t4 .ticker-amount` color | `var(--teal)` |
+
+Patched via `sed -i` (unambiguous global hex swaps). Confirmed clean via
+grep for all 6 hex values afterward (empty).
+
+Two hex values considered and **not** patched:
+
+- `#EFEBE3` (`.nav-links a:hover` background) — no matching token in
+  `index.css`. New open item, same flavor as the `.badge-purple` gap
+  from Section 99 — flagged, not fixed.
+- `#B4B1BC`/`#B8A9FF` (`.flow` section step text/kicker) — sit inside
+  the `var(--ink-fixed)` panel, which is deliberately theme-constant
+  (same convention as `.testnet-tip`'s `--ink-fixed`/`--cream-fixed`
+  pairing). Since the panel never adapts to theme, these literals don't
+  break in dark mode either way — not the kind of bug this sweep
+  targets. Left as-is.
+
+Built with the established routine (`cd frontend && npm run build`):
+clean, `✓ 65 modules transformed`, `✓ built in 12.87s`.
+
+**Files:** `frontend/src/pages/Landing.tsx`. No backend, no index.css
+changes (all hex mapped to existing tokens).
+
+**Status: closed.** Next in the dark-mode sweep queue: NotFound.tsx.
+
+## Section 104 — Dark mode sweep: NotFound.tsx (clean) — sweep closed (2026-09-16, session 89)
+
+Last file in the dark-mode sweep queue. No `<style>` block at all
+(`grep -n "_STYLES\|<style"` returns nothing) — the whole 11-line file
+uses inline JSX styles only (`padding`, `fontSize`, `fontWeight`,
+`textAlign`, `marginBottom`), none of which touch `color`.
+
+No Pattern 1 (no hardcoded hex present at all). No Pattern 2 — since
+nothing overrides color, the page fully inherits whatever the
+container/body sets.
+
+**Files:** none changed. **Status: closed, no patch needed.**
+
+**Dark-mode sweep (started ~session 84, Section 97) is now fully
+closed.** Final tally across all 8 pages: Onboarding.tsx, Settings.tsx,
+Help.tsx, NotFound.tsx confirmed clean; HistoryJobs.tsx,
+HistoryWithdrawals.tsx, HistoryWork.tsx, Landing.tsx patched and
+pushed. Remaining open items, carried forward outside this sweep's
+scope: JobDetail.tsx token-redeclaration removal (parked indefinitely),
+`index.css` line 102 `.badge-purple` (`#EDE9FE`, no token match), and
+Landing.tsx `.nav-links a:hover` (`#EFEBE3`, no token match).
