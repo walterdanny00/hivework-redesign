@@ -6105,3 +6105,65 @@ worth a follow-up note.
 **Status: closed.** Next in the dark-mode sweep queue:
 HistoryWithdrawals.tsx (style-block name/line-count check already
 queued), then HistoryWork.tsx/Help.tsx/Landing.tsx/NotFound.tsx.
+
+## Section 100 — Dark mode sweep: HistoryWithdrawals.tsx (clean, dead token removed) (2026-09-16, session 87)
+
+Continuing the Section 97/98/99 dark-mode sweep queue. Found via
+`grep -n "_STYLES\|<style"` → inline block at line 49. File is short
+(93 lines total), pulled in full via `sed -n '1,120p'`.
+
+Findings: no Pattern-1 (hardcoded hex shadowing a token) and no
+Pattern-2 (missing explicit `color`) bugs — every rule in the
+`.hw-histwd` block already routes through `var(--violet-deep)`,
+`var(--card)`, `var(--line)`, `var(--ink-soft)`,
+`var(--pi-gold-tint)`, `var(--teal-tint)`, `var(--mist)`,
+`var(--ink)`. `.hw-loadmore`, the only native `<button>`, already
+sets `color:var(--ink)` explicitly.
+
+Notable structural difference from the other swept files: this page
+locally redeclares `--violet-deep`, `--coral`, `--ink-soft`, `--line`,
+`--card` in its own `:root{}`/`[data-theme="dark"]{}` blocks rather
+than relying solely on `index.css` globals — an in-file comment
+explains this is deliberate, since `WithdrawalRow` normally inherits
+these from `Dashboard.tsx`'s shared `:root` but this page can be
+reached standalone (deep link, refresh). Same reasoning as Section
+43's standing rule. Checked for value drift between the local copies
+and the global `index.css` source of truth — all four exactly match,
+light and dark:
+
+| Token | Local light | Global light | Local dark | Global dark |
+|---|---|---|---|---|
+| `--violet-deep` | `#5643D9` | `#5643D9` | `#6C5CE7` | `#6C5CE7` |
+| `--ink-soft` | `#6B6874` | `#6B6874` | `#9A96A6` | `#9A96A6` |
+| `--line` | `#E7E3DA` | `#E7E3DA` | `#2E2C27` | `#2E2C27` |
+| `--card` | `#FFFFFF` | `#FFFFFF` | `#121212` | `#121212` |
+
+No drift — the redeclaration pattern is safe here.
+
+One dead-code item found and removed: `--coral:#FF6B5D` was declared
+in both local blocks but never consumed anywhere in the file (no
+`var(--coral)` usage) — same flavor as the `.cat-empty` dead CSS from
+Section 54. Removed via `sed -i` from both blocks, confirmed empty
+grep for "coral" afterward.
+
+**Build-verification note:** the first build/push attempt used the
+established `npx tsc && npx vite build` shorthand run from `~/Piwork`
+root, but `tsc` with no project in scope silently falls back to
+printing its `--help` usage text (exit 0) instead of erroring — so
+the commit and push went out unverified. Caught on review, since the
+pasted output was clearly a help dump, not a compile result. Re-ran
+properly from the correct directory (`frontend/tsconfig.json` is
+where the project config actually lives) with `npx tsc --noEmit` +
+`npx vite build`, both of which produced real output this time (clean
+typecheck, `✓ 65 modules transformed`, `✓ built in 12.79s`). Also
+confirmed `frontend/package.json`'s own `build` script is `tsc && vite
+build` — **`cd frontend && npm run build` is the reliable one-liner
+for future sweeps**, not raw `npx tsc && npx vite build` from
+`~/Piwork` root.
+
+**Files:** `frontend/src/pages/HistoryWithdrawals.tsx` (dead token
+removed). No backend, no index.css changes.
+
+**Status: closed.** Next in the dark-mode sweep queue: HistoryWork.tsx
+(style-block name/line-count check queued), then
+Help.tsx/Landing.tsx/NotFound.tsx.
