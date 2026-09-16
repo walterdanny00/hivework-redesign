@@ -78,7 +78,7 @@ Section 6/7/8's findings surfaced in the first place.
 |---|---|---|---|
 | Landing | `/` (logged out) | ✅ Done · ✅ Recompiled (JSX) | Nav "Get started" + hero CTAs route into the Wallet Connect flow with intent (`find`/`post`/`none`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). In `HiveworkApp.jsx`, this is now the shell's actual entry screen (`screen="landing"` default), rendered full-page without the persistent header/segnav. |
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
-| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
+| Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) · **Dark mode fix** (Section 98) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (`.hw-eyebrow`, `.hw-status-pill.paid`) repointed to `var(--violet-tint)`. |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; dark mode bugs (hardcoded `--cream-deep`, white backgrounds, missing text colors, submission-report paper palette) — **closed session 84**, see Section 97; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
@@ -6021,3 +6021,37 @@ Landing, and NotFound have not been checked for the same two patterns
 `Dashboard.tsx`, `Home.tsx`, `PostJob.tsx`, `Profile.tsx`. No backend
 changes. Five separate pushes this session, each built clean with
 `npx tsc && npx vite build` before push.
+
+## Section 98 — Dark mode: Onboarding.tsx KYC pill (2026-09-16)
+
+Continuing session 84's incomplete dark-mode sweep (Onboarding, Settings,
+HistoryJobs, HistoryWithdrawals, HistoryWork, Help, Landing, NotFound
+were flagged unchecked). Swept `Onboarding.tsx`'s own `ONBOARDING_STYLES`
+block (no shared stylesheet, Section 43) against the two Section 97
+patterns.
+
+Found: `.chip-outline` repeated the same literal `#EFEAFB` violet-tint
+hex already fixed elsewhere in session 84 (missed because this file has
+its own separate style block). Also found a new variant not seen in the
+five files already swept — a whole hardcoded gold/amber block for the
+KYC notice pill (`#FFF3DC` background, `#F4DFA8` border, `#B8860B`/
+`#8A6512` text/icon color, plus an inline `stroke="#8A6512"` presentation
+attribute on the chevron SVG, which doesn't resolve `var()` the way CSS
+does). No pattern-2 (missing explicit `color`) bugs found in this file.
+
+`--pi-gold` and `--pi-gold-tint` already existed as dark-aware root
+tokens and matched exactly, just unused by this file. `--pi-gold-border`
+was added as a new root token (light `#F4DFA8` / dark
+`rgba(240,195,106,.35)`) since nothing existing covered that border
+color — same situation as `--report-*` in Section 97. The inline SVG
+stroke attribute was removed and replaced with a `.kyc-chev{stroke:...}`
+CSS rule instead, since presentation attributes don't take `var()`.
+
+**Files:** `frontend/src/index.css`, `frontend/src/pages/Onboarding.tsx`.
+Built clean, pushed. Live dark-mode screenshot of the expanded KYC pill
+still pending to fully close this file out.
+
+**Status: open** — fix built and pushed, live-verification screenshot
+outstanding. Dark-mode sweep continues: Settings.tsx next, then
+HistoryJobs.tsx/HistoryWithdrawals.tsx/HistoryWork.tsx/Help.tsx/
+Landing.tsx/NotFound.tsx.
