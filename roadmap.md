@@ -6291,3 +6291,54 @@ pushed. Remaining open items, carried forward outside this sweep's
 scope: JobDetail.tsx token-redeclaration removal (parked indefinitely),
 `index.css` line 102 `.badge-purple` (`#EDE9FE`, no token match), and
 Landing.tsx `.nav-links a:hover` (`#EFEBE3`, no token match).
+## Section 105 — Post-sweep cleanup: Landing hover, badge-purple review, cat-empty confirmed gone, WithdrawPanel skeleton (2026-09-16, session 90)
+
+Four items picked off the open-items list left over from session 89's
+dark-mode sweep closure, one at a time.
+
+**Landing.tsx `.nav-links a:hover` — fixed.** Hardcoded `#EFEBE3` was a
+near-duplicate of `--cream-deep` (`#EFEBE1`, light) with no
+`[data-theme="dark"]` override — a real Pattern-1 bug, not a harmless
+duplicate. `--cream-deep` already has a correct dark value
+(`#1A1914`). Patched to `var(--cream-deep)`. Build clean (65 modules,
+17.90s). Pushed to `Piwork` alone.
+
+**`index.css` `.badge-purple` — reviewed, kept as-is.** Not actually a
+dark-mode bug: has its own working `[data-theme="dark"]` override
+(`rgba(124,108,245,.16)`, line 149) that exactly matches
+`--violet-tint`'s dark value; only the light-mode hex (`#EDE9FE`) sits
+close-but-distinct from `--violet-tint`'s light value (`#F3E8FF`).
+Posed as a design question (consolidate into the token vs. keep
+distinct) — **user decided to leave it distinct.** No code change.
+Closed as a non-issue, not carried forward.
+
+**`Jobs.tsx` `.cat-empty` — confirmed already gone.** Flagged since
+Section 54 as dead CSS, safe to remove whenever the file was next
+touched. `grep -rn "cat-empty" .` across all of `frontend/src` returned
+zero matches — the rule no longer exists anywhere in the repo (only
+`.cat-clear` remains, in active use). The open-item note itself was
+stale; no code change needed. Closed.
+
+**WithdrawPanel.tsx loading skeleton — fixed.** Root cause: the three
+`.wp-skel-bar` divs used `rgba(255,255,255,.12)` against the near-black
+`--ink-fixed` (`#1B1A1F`) card background — too low-contrast to read
+as a shimmer, especially at the pulse animation's dim point (opacity
+drops to .5 at the `hw-pulse-skel` midpoint). The loaded state's own
+use of the same rgba value works fine there only because it sits under
+real white content, not as a bare fill. Confirmed the three bars
+(lines 93-95) were fully contained inside the `if (loading)` block
+before patching, distinct from an unrelated instance of the same rgba
+value elsewhere in the file. Bumped to `rgba(255,255,255,.22)` via
+line-scoped sed. Build clean. Pushed to `Piwork` alone.
+
+**Files:** `frontend/src/pages/Landing.tsx`,
+`frontend/src/components/WithdrawPanel.tsx`. No backend, no
+`index.css` changes (badge-purple deliberately untouched).
+
+**Status: closed.** Remaining open items after this session: JobDetail
+token-redeclaration removal (parked indefinitely), `PostJob.tsx`
+step-indicator direction (undecided), `JobDetail.tsx` owner
+ledger-connector/worker attachments (undecided), the
+`--cream`/`--line`/`--mist`/`--sand` near-white gray merge question
+(open design question), and the two documentation-only naming
+mismatches (non-urgent). See session-90.md for full detail.
