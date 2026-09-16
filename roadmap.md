@@ -6167,3 +6167,41 @@ removed). No backend, no index.css changes.
 **Status: closed.** Next in the dark-mode sweep queue: HistoryWork.tsx
 (style-block name/line-count check queued), then
 Help.tsx/Landing.tsx/NotFound.tsx.
+
+## Section 101 — Dark mode sweep: HistoryWork.tsx (tokenized) (2026-09-16, session 88)
+
+Continuing the Section 97/98/99/100 dark-mode sweep queue. Found via
+`grep -n "_STYLES\|<style"` → inline block at line 50. File is short
+(81 lines total), pulled in full via `sed -n '1,81p'`.
+
+Findings: no Pattern-2 (missing explicit `color`) bugs — `.hw-loadmore`,
+the only native `<button>`, already sets `color:var(--ink)` explicitly.
+Pattern 1 (hardcoded hex shadowing a token): 7 instances across 4
+distinct hex values, all mapping cleanly to existing dark-aware root
+tokens with no ambiguity:
+
+| Hex | Rule(s) | Token |
+|---|---|---|
+| `#5643D9` | `.page-head .kicker` color | `var(--violet-deep)` |
+| `#FFFFFF` | `.skel-card` background | `var(--card)` |
+| `#E7E3DA` | `.skel-card` border, `.skel-line` bg, `.skel-pill` bg, `.hist-row` border-bottom | `var(--line)` |
+| `#6B6874` | `.hist-sub`, `.hw-empty` color | `var(--ink-soft)` |
+
+Patched via `sed -i` (straightforward global swap, no anchor-based
+patch script needed given the unambiguous 1:1 mappings). Diff reviewed
+line-by-line before build — all 8 substitutions landed correctly, no
+stray or partial matches, confirmed via empty grep for all four hex
+values afterward.
+
+Built with the corrected routine established in Section 100
+(`cd frontend && npm run build`, not the root-level `npx tsc && npx
+vite build` shorthand that silently no-ops) — genuine `tsc && vite
+build` run this time, clean: `✓ 65 modules transformed`,
+`✓ built in 21.58s`.
+
+**Files:** `frontend/src/pages/HistoryWork.tsx`. No backend, no
+index.css changes (all hex mapped to existing tokens).
+
+**Status: closed.** Next in the dark-mode sweep queue: Help.tsx
+(style-block name/line-count check queued), then
+Landing.tsx/NotFound.tsx.
