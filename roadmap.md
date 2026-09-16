@@ -6051,7 +6051,57 @@ CSS rule instead, since presentation attributes don't take `var()`.
 Built clean, pushed. Live dark-mode screenshot of the expanded KYC pill
 still pending to fully close this file out.
 
-**Status: open** — fix built and pushed, live-verification screenshot
-outstanding. Dark-mode sweep continues: Settings.tsx next, then
-HistoryJobs.tsx/HistoryWithdrawals.tsx/HistoryWork.tsx/Help.tsx/
+**Status: closed** — live dark-mode screenshot confirmed the expanded
+KYC pill renders correctly; user reported "Kyc pill looks ok" (session 86).
+Dark-mode sweep continues: Settings.tsx and HistoryJobs.tsx done next
+(Section 99), then HistoryWithdrawals.tsx/HistoryWork.tsx/Help.tsx/
 Landing.tsx/NotFound.tsx.
+
+## Section 99 — Dark mode sweep: Settings.tsx (clean) + HistoryJobs.tsx (tokenized) (2026-09-16, session 86)
+
+Continuing the Section 97/98 dark-mode sweep queue.
+
+**Settings.tsx** — swept its inline `<style>` block (lines 34–46, no
+named `_STYLES` constant like other files) against the two established
+patterns. Pattern 2 (missing explicit `color`): none — `.hw-back-btn`
+is the only native `<button>` and already sets `color:var(--ink-soft)`.
+Pattern 1: everything tokenized except one flat `background:#fff` on
+`.hw-toggle-knob.on .hw-toggle-knob` (the toggle's knob accent, sitting
+on the saturated `var(--violet)` track when on). Flagged as ambiguous
+rather than an automatic bug — same shape as the `chip-expert`/
+`chip-verified` fixed-white-on-saturated-surface case from Section 97.
+Verified via light-mode and dark-mode screenshots: white knob reads
+cleanly against the violet track in both states, no wash-out or clash.
+**Verdict: left as-is, intentional.** Settings.tsx closed clean, no
+patch needed.
+
+**HistoryJobs.tsx** — found more extensive drift than Onboarding or
+Settings: `.kicker`/`.jp-amt` hardcoded `color:#5643D9`; `.skel-card`/
+`.job-post-row` hardcoded `background:#FFFFFF;border:1px solid
+#E7E3DA`; `.skel-line`/`.skel-pill` hardcoded `background:#E7E3DA`;
+`.hw-empty`/`.jp-applicants` hardcoded `color:#6B6874`. Notably
+inconsistent with itself — `.jp-refund-badge`/`.status-pill` variants
+further down the same style block already correctly reference
+`var(--violet-deep)`, `var(--cream)`, `var(--pi-gold-tint)`,
+`var(--teal-tint)`, `var(--mist)`, `var(--ink-soft)` — the skeleton
+loader/job-post-row/kicker section predates that tokenization pass.
+Pattern 2: none, `.hw-loadmore` already sets `color:var(--ink)`
+explicitly. Confirmed all three hex values match existing dark-aware
+root tokens exactly (`#5643D9`→`--violet-deep`, `#E7E3DA`→`--line`,
+`#6B6874`→`--ink-soft`, each with separate `[data-theme="dark"]`
+overrides) — no new tokens needed. Patched via `sed`, verified empty
+grep for all four hex values, built clean (`npx tsc && npx vite
+build`), pushed. **Closed.**
+
+**Files:** `frontend/src/pages/Settings.tsx` (no change),
+`frontend/src/pages/HistoryJobs.tsx`. No backend, no index.css changes
+this section (all hex mapped to existing tokens).
+
+**Aside logged, not yet actioned:** `index.css` line 102,
+`.badge-purple { background: #EDE9FE; ... }`, is another hardcoded hex
+not going through a token — out of scope for this page-file sweep, but
+worth a follow-up note.
+
+**Status: closed.** Next in the dark-mode sweep queue:
+HistoryWithdrawals.tsx (style-block name/line-count check already
+queued), then HistoryWork.tsx/Help.tsx/Landing.tsx/NotFound.tsx.
