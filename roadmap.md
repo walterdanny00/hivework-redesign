@@ -79,12 +79,12 @@ Section 6/7/8's findings surfaced in the first place.
 | Landing | `/` (logged out) | ✅ Done · ✅ Recompiled (JSX) | Nav "Get started" + hero CTAs route into the Wallet Connect flow with intent (`find`/`post`/`none`). Testnet badge added. Canonical: `HiveworkLanding.jsx` + `hivework-landing.html` (ported 1:1, verified via structural diff). In `HiveworkApp.jsx`, this is now the shell's actual entry screen (`screen="landing"` default), rendered full-page without the persistent header/segnav. |
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
-| Home | `/` | ✅ Done | |
+| Home | `/` | ✅ Done | **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (`.hw-eyebrow`, `.hw-status-pill.paid`) repointed to `var(--violet-tint)`. |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
-| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
-| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". |
-| Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. |
-| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added and jobs-posted-count comment corrected in both shells to match Section 43's real shipped fields (Sections 88–89).** |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; dark mode bugs (hardcoded `--cream-deep`, white backgrounds, missing text colors, submission-report paper palette) — **closed session 84**, see Section 97; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
+| Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (chip-outline, selected deadline option) repointed to `var(--violet-tint)`. |
+| Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. **Dark mode fix + regression (Section 97):** `chip-expert`/`chip-silver`/`chip-bronze`/`chip-outline` hardcoded hex repointed to tokens; `chip-silver`/`chip-bronze` got new `--silver-tint`/`--bronze-tint` tokens. Pointing `chip-expert` at `--violet-tint` initially broke it (invisible against the fixed violet cover) — fixed, along with `chip-verified` proactively, with fixed white-glass styling matching `chip-pioneer`/`chip-validator` in the same spot. |
+| Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added and jobs-posted-count comment corrected in both shells to match Section 43's real shipped fields (Sections 88–89).** **Dark mode fix (Section 97):** hardcoded `#EFEAFB` nudge-banner background repointed to `var(--violet-tint)`. |
 | Settings | `settings` | ✅ Done · ✅ **Built directly into real `Settings.tsx` and live-verified** (Section 83) | No standalone shell/HTML canonical file — sourced 1:1 from the shell's inline Appearance section (`applyTheme()`/`toggleTheme()`/`syncThemeToggleUI()`, `.toggle-switch`/`.knob`). Real app already had a working `ThemeContext` (`useTheme()` hook, persists to `localStorage['hw-theme']`), so `Settings.tsx` calls that instead of reimplementing the shell's vanilla JS. Structural template matched to `Help.tsx` (back-button + component-scoped `<style>`). Route + side-drawer nav entry added. Click-testing the toggle is what surfaced the theme-fixed token bugs fixed the same session — see Section 83. |
 | History → Work | `history/work` | ✅ Done · ✅ **Patched into real `HistoryWork.tsx` and live-verified** (Section 44) | Drill-in from Dashboard ("See all →"), not a nav-level screen. Page chrome restyled to tokens; list itself reuses the already-restyled `ApplicationCard`. **Bug fixed (Section 52):** shipped with no local CSS for `ApplicationCard`'s own classes (`.hist-row` etc.) — unstyled on every visit since those classes only existed in `Dashboard.tsx`'s unmounted `<style>` block. Fixed by redeclaring locally, per `HistoryWithdrawals.tsx`'s existing pattern. |
 | History → Jobs | `history/jobs` | ✅ Done · ✅ **Patched into real `HistoryJobs.tsx` and live-verified** (Section 44) | Same — drill-in from Dashboard. Backend `/api/history/jobs` gained a computed `refunded` field (summed from `balance_transactions`, verified directly against Supabase) so `JobCard`'s refund badge works here too, matching Dashboard. **Bug fixed (Section 52):** same missing-local-CSS bug as History → Work, affecting `JobCard`'s classes — fixed the same way. Hardcoded hex literals **tokenized to `:root` vars in Section 55**. |
@@ -5887,12 +5887,19 @@ Section 93's throwaway Pi Browser prototype.
 
 ## Open items carried forward
 
-As of session 83 (2026-09-13):
+As of session 84 (2026-09-14):
 
 1. JobDetail token-redeclaration removal (`bd53c30`, reverted as
    `5b13ca8`, session 71) — investigated in depth session 75 (see
    Section 87), no code-level cause found; parked, no retry planned
    unless a concrete symptom resurfaces.
+2. Dark mode sweep (Section 97) only covered Dashboard, Home, PostJob,
+   Profile, and JobDetail — Onboarding.tsx, Settings.tsx,
+   HistoryJobs.tsx, HistoryWithdrawals.tsx, HistoryWork.tsx, Help.tsx,
+   Landing.tsx, and NotFound.tsx have not been checked for the same two
+   bug patterns (hardcoded hex/white shadowing theme tokens; text with
+   no explicit color inside native elements). No known issues reported
+   there yet — listed for awareness, not urgency.
 
 Submission-display redesign (Sections 93-96) — **closed session 83**,
 see Section 96. Design, visual identity, `composeSubmission()` refactor,
@@ -5957,3 +5964,60 @@ changes needed, since `attachmentsMeta` support already existed
 server-side from session 82. Three separate pushes this session
 (feature patch, error-surfacing patch, figure-numbering patch), each
 built clean with `npx tsc && npx vite build` before push.
+
+## Section 97 — Dark mode bug sweep: JobDetail, Dashboard, Home, PostJob, Profile (2026-09-14)
+
+User had already built a light/dark toggle (`[data-theme="dark"]`
+attribute, root tokens redefined in `index.css`) before this session.
+Reported symptom: worker submission composer rendered dark at the page
+level, but textareas and the native file-picker button stayed light.
+
+Two repeating root causes, not one: (1) hardcoded hex/white values
+shadowing the theme token system — most critically `--cream-deep`
+redeclared as a *local* custom property inside both `.hw-jdw` and
+`.jdo` style blocks instead of inheriting the root token, plus the same
+literal-hex-instead-of-token pattern (`#EFEAFB` for violet-tint)
+repeated across Dashboard, Home, PostJob, and Profile, plus several
+flat `background:#fff` declarations; (2) text elements with no
+explicit `color`, riding on a `<button>`'s UA-default text color —
+found in the applicant username (both Applicants and Overview tabs)
+and the worker's own rating stars.
+
+Fixed in `index.css`: `--cream-deep` promoted to a real root token
+(light/dark), new `--report-*` tokens for the submission-report's
+paper palette (now themed rather than fixed-light, kept as its own
+distinct scope per Section 94), and new `--silver-tint`/`--bronze-tint`
+tokens. Fixed across `JobDetail.tsx`, `Dashboard.tsx`, `Home.tsx`,
+`PostJob.tsx`, `Profile.tsx`: all hardcoded-hex/white instances
+repointed to tokens, all four missing-color text bugs given explicit
+`color`, and `JobDetail.tsx`'s `TRUST_COLOR` map's hardcoded
+`Silver`/`Bronze` hex repointed to the already-correct
+`--trust-silver`/`--trust-bronze` root tokens it wasn't using.
+
+**Regression found and fixed within the same session**: pointing
+`chip-expert` (Profile.tsx) at `--violet-tint` broke it — that chip
+sits on the profile's fixed violet gradient cover, the same context as
+`chip-pioneer`/`chip-validator` right next to it, which already use
+fixed (non-theme) styling for exactly that reason. `--violet-tint`'s
+translucent dark value disappears against an already-violet backdrop.
+Fixed by giving `chip-expert` and (proactively, same latent risk)
+`chip-verified` fixed white-glass styling instead of a theme-flipping
+token. **Lesson generalized from this**: a chip/badge sitting on a
+fixed-color hero needs fixed styling regardless of theme — the same
+rule `.job-head` already followed, now recognized as a pattern rather
+than a one-off.
+
+Live-verified via screenshots at each step: composer textareas/caption
+input, owner verified banner, both tabs' usernames, worker rating
+stars, Dashboard nudge banner, Profile trust chips and skill chips —
+all confirmed correct after the regression fix.
+
+**Not exhaustively swept**: only Dashboard, Home, PostJob, Profile, and
+JobDetail were checked. Onboarding, Settings, History screens, Help,
+Landing, and NotFound have not been checked for the same two patterns
+— see Open items carried forward, item 2.
+
+**Files:** `frontend/src/index.css`, `frontend/src/pages/JobDetail.tsx`,
+`Dashboard.tsx`, `Home.tsx`, `PostJob.tsx`, `Profile.tsx`. No backend
+changes. Five separate pushes this session, each built clean with
+`npx tsc && npx vite build` before push.
