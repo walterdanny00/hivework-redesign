@@ -122,11 +122,17 @@ comparison closed 2026-08-07), `hivework-post-job.html` /
 `HiveworkPostJob.jsx` (canonical, done), `hivework-profile-complete.html` /
 `HiveworkProfileComplete.jsx` (canonical, done — real `/onboarding` route,
 reached only from Dashboard's nudge), `HiveworkContactSupport.jsx`
-(canonical, done — reusable component, not yet wired into shell),
+(canonical, done — reusable component; wired into both shells as of the
+step-6 recompile pass, see Section 7 and the Screen Inventory row above —
+**corrected session 92**, this note previously read "not yet wired into
+shell" and was stale dead text),
 `HiveworkNotificationBell.jsx` (canonical, done — reusable component;
 shell approximates its behavior with inline sample data rather than this
 file verbatim), `HiveworkRangeFilter.jsx` (canonical, done — reusable
-component, not yet wired into shell), `hivework-job-detail-worker.html` /
+component; wired into all 3 History screens as of the step-6 recompile
+pass, see Section 7 and the Screen Inventory row above — **corrected
+session 92**, same stale-note fix as Contact Support above),
+`hivework-job-detail-worker.html` /
 `HiveworkJobDetailWorker.jsx` (canonical, done — Job Detail worker/non-owner
 view).
 
@@ -6409,3 +6415,79 @@ open. Corrected below.
 session: `JobDetail.tsx` token-redeclaration removal — parked
 indefinitely, no retry planned unless a concrete symptom resurfaces.
 See session-91.md for full detail.
+
+## Section 107 — Session 92 (2026-09-18): `.cat-empty` confirmed gone, stale baseline-files note fixed, "blocked, waiting on backend/content" section logged
+
+Picked up two loose ends carried over from session 91, then did a full
+build-items pass (screens/features scoped but never finished, distinct
+from bug fixes) to answer a direct question about what's still
+unbuilt.
+
+**`Jobs.tsx` `.cat-empty` — confirmed gone, now logged as closed.**
+Flagged as dead CSS back in Section 54; `grep -rn "cat-empty"
+frontend/src/pages/Jobs.tsx` returned zero matches (checked session 91,
+folded into this write-up as agreed rather than patched in isolation).
+No code change needed — the rule no longer exists anywhere in the file.
+
+**Stale "Current baseline files" note fixed.** That list (Section 1)
+still read `HiveworkContactSupport.jsx` / `HiveworkRangeFilter.jsx` as
+"not yet wired into shell" — but both the Screen Inventory rows and
+Section 7 itself confirm both were wired into both shells back at the
+step-6 recompile pass (2026-08-09). The note was dead text left over
+from before that pass, never updated. Corrected in place (see Section 1
+above).
+
+**Full build-items sweep — nothing new found.** Re-checked the roadmap
+specifically for scoped-but-unfinished screens/features (not bugs).
+Confirmed still explicitly deferred, not pending: the multi-worker
+"slots still open after first approval" gap (Section 35/36) — a real
+backend/product bug (`Apply` button disables on `job.status !== 'open'`
+instead of checking `unfilledSlots`), knowingly skipped for the pilot
+and logged out of scope for this redesign project. File-upload
+attachments, deferred from that same session, are separately confirmed
+closed (session 79, built for real). The "Not Yet Started" section
+(Section 5) is fully checked off, and the Screen Inventory shows every
+screen Done. No other unbuilt screen or feature found.
+
+**New consolidated section — "Coming soon" / backend-and-content-blocked
+items.** These were previously scattered across several sections
+without one place tying them together; logged here so they don't go
+stale the way the old open-items recap did.
+
+"Coming soon" / disabled in the real app:
+- **Browse (`Jobs.tsx`) tile grid** — 4 of 7 category tiles disabled.
+  Only `bug-testing`/`translation`/`ui-feedback` are real server-side
+  (`GET /api/jobs/stats` only counts those 3); the other 4 render as
+  visible-but-inert "Coming soon" tiles.
+- **Post Job wizard (`PostJob.tsx`)** — same 4 categories, same backend
+  limit; not selectable, shown disabled.
+- Both wired as a data-driven `real: true/false` flag per category
+  (session 42 decision) — flipping one on later is a one-line change,
+  but it's genuinely blocked on backend work, not something this
+  redesign project can finish alone.
+- (File-upload attachments used to sit in this same bucket; closed for
+  real in session 79 — no longer blocked.)
+
+Features not wired to real data yet (`Home.tsx`, Section 40):
+- **Activity ticker** — no real "recent platform activity" endpoint on
+  the backend; shipped as clearly-flagged demo content.
+- **"Recommended for you"** — no real backing either. Showing the most
+  recent open job here was considered and ruled out — real
+  personalization needs to key off the user's skills/devices/
+  application history, not recency. Left as flagged demo content; the
+  recommendation logic itself hasn't been designed yet.
+- **Help screen FAQ** — flagged placeholder copy; no real support-content
+  source to pull from yet.
+
+All of the above are frontend-complete but backend/content-blocked —
+same shape as the category expansion: design and plumbing exist, just
+waiting on something outside this project's scope (a real endpoint, a
+recommendation algorithm, or real FAQ content) before going live.
+
+**Files:** `roadmap.md` only (baseline-files note fix + this section).
+No frontend/backend code changes this session.
+
+**Status: closed.** Only genuinely remaining open item after this
+session: `JobDetail.tsx` token-redeclaration removal — parked
+indefinitely, no retry planned unless a concrete symptom resurfaces.
+See session-92.md for full detail.
