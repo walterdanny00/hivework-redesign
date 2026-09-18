@@ -6342,3 +6342,70 @@ ledger-connector/worker attachments (undecided), the
 `--cream`/`--line`/`--mist`/`--sand` near-white gray merge question
 (open design question), and the two documentation-only naming
 mismatches (non-urgent). See session-90.md for full detail.
+
+## Section 106 — Session 91 (2026-09-18): `--sand` merged into `--mist`; stale open-items summary corrected
+
+Picked up open item #4 (`--cream`/`--line`/`--mist`/`--sand` near-white
+gray merge question) via a chat session.
+
+**`--sand` merged into `--mist` — closed.** Grep of actual usage
+showed `--line` (border color) and `--cream` (base page/surface
+background) serve clearly distinct roles and aren't part of this
+question at all. `--sand` was only used as pill-track background
+(`.hw-segnav`, `.toggle-row`, `.app-chip`, decline buttons); `--mist`
+was only used for closed/muted state (`.status-pill.closed`,
+`.chip-unverified`, `.close-slots-card`) — conceptually different
+roles, but the values collapse: byte-identical in dark mode
+(`#1E1D18` both), barely distinguishable in light mode (`#F1EFEA` vs
+`#EFECE5`). Confirmed visually against the user's own light/dark
+screenshots of Dashboard — the segnav track and "Completed" pills
+were indistinguishable in both modes, identical in dark mode.
+
+**Decision:** merge `--sand` into `--mist`. Two tokens producing a
+difference nobody can see (and that dark mode already collapsed by
+accident) isn't worth the ongoing upkeep.
+
+**Patch, applied:** repointed call sites via `sed` in `Layout.tsx`,
+`JobDetail.tsx`, `Dashboard.tsx` (5 occurrences total); removed the
+`--sand` token declarations from `index.css` (light + dark); confirmed
+zero remaining `var(--sand)` references in live code (only `.bak`
+files retain it, expected). Build clean: 65 modules, 12.44s. Committed
+and pushed to `Piwork` alone (real-code patch, not a
+`hivework-redesign` doc change).
+
+**Also caught: the end-of-file open-items summary had gone stale.**
+Tracing each carried-forward item back through this roadmap (rather
+than trusting the summary at face value) found that three of the five
+items listed above as still-open had actually been resolved
+sessions ago:
+
+- **`PostJob.tsx` wizard step-indicator direction** — resolved
+  session 47 (Section 58): trimmed `WIZARD_STEPS` to 3 entries,
+  Review/Paying/Done/Error treated as a distinct no-indicator phase.
+  Patched, pushed, live-tested and confirmed good.
+- **`JobDetail.tsx` owner ledger-connector / worker attachments** —
+  resolved session 48 (Section 59): missing `.jdo .ledger:before`
+  connector rule restored (a dropped rule from an earlier port, not a
+  design gap); attachments item resolved in the same section.
+- **Doc-naming mismatches** (profile-menu vs. hamburger,
+  `ui-ux-feedback` vs. `ui-feedback`) — resolved session 50
+  (Section 61): the category-value naming mismatch was confirmed
+  intentional/documentation-only (real backend enum is fixed, already
+  flagged in code); the profile-menu-vs-hamburger question had a real
+  decision made — canonical shell updated to match the real app's
+  hamburger + side-drawer pattern, patched and pushed.
+
+All three closed correctly at the time, but this file's end-of-session
+"open items" line kept getting copy-pasted forward into each new
+session's recap without being pruned, so they've read as unresolved
+since roughly session 50 even though nothing about them was actually
+open. Corrected below.
+
+**Files:** `frontend/src/components/Layout.tsx`,
+`frontend/src/pages/JobDetail.tsx`, `frontend/src/pages/Dashboard.tsx`,
+`frontend/src/index.css`. No backend changes.
+
+**Status: closed.** Only genuinely remaining open item after this
+session: `JobDetail.tsx` token-redeclaration removal — parked
+indefinitely, no retry planned unless a concrete symptom resurfaces.
+See session-91.md for full detail.
