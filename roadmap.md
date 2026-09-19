@@ -80,7 +80,7 @@ Section 6/7/8's findings surfaced in the first place.
 | "Wallet Connect" flow (proposed pattern — see Section 3) | *(not `/onboarding` — see below)* | ✅ Built, reclassified · ✅ Recompiled (JSX) | Originally built as "Onboarding," but `Onboarding.tsx` turned out to be something else entirely (see next row). Kept as a proposed new consent/KYC-disclosure pattern, since no equivalent exists in the real app today — just not a redesign of the real `/onboarding` route. In `HiveworkApp.jsx`, wired as the `welcome` screen — this is what Landing's CTAs actually open (**not** Profile Complete; that mix-up was caught and fixed, see Bug Fix Log #10). **Returning-user gap fixed (session 16, Section 18):** every shell previously ran every wallet connect through connect→profile→notify unconditionally, with no branch for a returning user with an already-complete profile — contradicted the real app's confirmed pattern (`Dashboard.tsx` soft inline nudge banner, no forced walkthrough at all). All 5 files (2 shells + standalone `HiveworkOnboarding.jsx`/`-0.jsx`/`.html`) now branch straight to `routing` for a returning/complete user, each via that file's own existing convention for demo-state props (inline demo link in the shells, `PreviewControls`/preview-row toggle in the standalone files). |
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) · **Dark mode fix** (Section 98) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (`.hw-eyebrow`, `.hw-status-pill.paid`) repointed to `var(--violet-tint)`. |
-| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` still open.
+| Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` **confirmed gone, closed (Section 107)**.
 | Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; dark mode bugs (hardcoded `--cream-deep`, white backgrounds, missing text colors, submission-report paper palette) — **closed session 84**, see Section 97; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (chip-outline, selected deadline option) repointed to `var(--violet-tint)`. |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. **Dark mode fix + regression (Section 97):** `chip-expert`/`chip-silver`/`chip-bronze`/`chip-outline` hardcoded hex repointed to tokens; `chip-silver`/`chip-bronze` got new `--silver-tint`/`--bronze-tint` tokens. Pointing `chip-expert` at `--violet-tint` initially broke it (invisible against the fixed violet cover) — fixed, along with `chip-verified` proactively, with fixed white-glass styling matching `chip-pioneer`/`chip-validator` in the same spot. |
@@ -6491,3 +6491,88 @@ No frontend/backend code changes this session.
 session: `JobDetail.tsx` token-redeclaration removal — parked
 indefinitely, no retry planned unless a concrete symptom resurfaces.
 See session-92.md for full detail.
+
+**Update (session 93, see Section 108):** the multi-worker "slots still open
+after first approval" gap is now root-caused (backend `approve-application` and
+`/apply`, not just the button) with a fix shape assessed but not built, and the
+category expansion and Home ticker / recommendation items were sized against
+the real backend. A separate filled-slots count bug found during that sweep was
+fixed and pushed.
+
+## Section 108 — Session 93 (2026-09-19): backend-blocked sweep, filled-slots count bug fixed, multi-worker Apply gap root-caused, submit-work upload failure diagnosed
+
+Started from Section 107's "Coming soon" list and checked what the backend
+actually has. Repo state going in: `~/Piwork` at `cfcc764`, both repos
+`git pull` clean, `diff -rq` between the two docs copies silent.
+
+**Backend sweep (read-only).**
+- **Activity ticker:** no activity/feed route exists among the 10 mounted
+  routers. Would need a new read-only anonymized route over existing tables
+  (`jobs`, `applications`, `balance_transactions`, `ratings`, ...).
+- **Categories:** live `jobs_category_check` (queried in Supabase) matches the
+  migrations exactly, only the 3 real values. Unblock = new migration widening
+  the constraint + 4 keys in the hardcoded `counts` in `GET /stats` + the
+  `real:` flips in `Jobs.tsx`/`PostJob.tsx` (`Home.tsx`/`Landing.tsx` also
+  reference `ui-feedback`). Still an open **product** decision whether the 4
+  shell-only categories are wanted at all.
+- **"Recommended for you":** partly feasible. `users.skills/devices/languages`
+  arrays exist; jobs have `device_required`/`language_required` (single text),
+  no skills column. Logic still undesigned.
+- **Help FAQ:** a content gap, not backend (`support.ts` only accepts
+  submissions).
+
+**Multi-worker "slots still open after first approval" gap: root cause.**
+`approve-application` sets `jobs.status = 'in_progress'` unconditionally after
+any approval; `POST /:id/apply` rejects `status !== 'open'`; Browse (`GET /`)
+and `/stats` also filter `status = 'open'`; the Apply button's
+`disabled={job.status !== 'open'}` is downstream. Two fix shapes assessed.
+**B (hold the job `open` until all slots fill) rejected:** `POST /:id/cancel`
+claims atomically from `open` and relies on any approval leaving `open`;
+holding it open would allow cancel + full refund with an approved worker, and
+`complete-slot` also filters `in_progress`. **A (keep `in_progress`; `/apply`
+accepts `in_progress` multi-worker jobs with unfilled slots; Browse/stats
+include them; Apply button keys off `slotsAvailable`; `JobCard` shows slots
+left)** assessed as the better fit and touches no payment code. **Not built, no
+go-ahead given.**
+
+**Filled-slots count bug: fixed and pushed.** `close-slots`,
+`approve-application` and `undo-decline-application` counted filled slots as
+`status = 'approved'` only, but `complete-slot` flips a paid worker to
+`completed`, so paid workers fell out of the count; `approve-application` also
+ignored `slots_closed`. On paper: over-refund via `close-slots`, and approving
+more workers than slots. UI counts correctly, so it needed a direct API call or
+stale page. **Not triggered in practice:** a Supabase query for jobs where
+filled + `slots_closed` > `worker_slots` returned no rows. Fix: a
+`countFilledSlots(jobId)` helper (`approved` + `completed`) used in all three
+routes, and `filled + (slots_closed || 0) >= slots` on approve/undo-decline.
+`complete-slot`, the completion checks and the `approved`-only "in progress"
+counts were left alone (already correct). `tsc --noEmit` clean, commit
+`e919ce7` pushed. **Deploy confirmed and tested live:** the user confirmed the
+Render deploy finished and reported the live app worked fine afterwards (which
+specific flows were exercised wasn't recorded, so smoke-tested, not
+exhaustively tested).
+
+**submit-work "Failed to fetch": network, not code.** A worker submission with
+2 videos + 2 inline images failed with "Failed to fetch", then succeeded after
+switching to a better network; no code defect confirmed (video sizes and
+Render logs were never checked). Separately confirmed: the 4-file cap is shared
+between loose attachments and inline figure images (`JobDetail.tsx` lines
+852/875/1523, matching multer `files: 4`); working as designed, but the
+message doesn't say inline images count. Seen, not fixed: raw "Failed to
+fetch" text is unhelpful, no upload progress, `submit-work` handler has no
+try/catch.
+
+**Doc fix:** Screen Inventory Browse row corrected (`.cat-empty` closed).
+
+**Files:** `backend/src/routes/jobs.ts` (`~/Piwork`, `e919ce7`); `roadmap.md`;
+`sessions/session-93.md`. No frontend changes.
+
+**Status:** code shipped, docs updated. Open: `JobDetail.tsx`
+token-redeclaration removal (parked). Queued, none started (upload progress was
+explicitly asked to be tracked; the rest are undecided): Option A for the Apply
+gap; friendlier submit-work network-error text + clearer file-cap message
+(frontend only); **upload progress on the submit-work file upload** (requested;
+frontend only, `handleSubmitWork` would move from `fetch` to `XMLHttpRequest`
+since `fetch` can't report upload progress); try/catch hardening on
+`submit-work`; category expansion (pending product decision). See
+session-93.md for full detail.
