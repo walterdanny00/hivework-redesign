@@ -6576,3 +6576,57 @@ frontend only, `handleSubmitWork` would move from `fetch` to `XMLHttpRequest`
 since `fetch` can't report upload progress); try/catch hardening on
 `submit-work`; category expansion (pending product decision). See
 session-93.md for full detail.
+
+**Update (session 94, see Section 109):** upload progress on submit-work was
+built, deployed, and live-confirmed; a Vercel deploy-blocking GitHub auth
+issue was found and fixed along the way.
+
+## Section 109 — Session 94 (2026-09-25): upload progress on submit-work shipped; Vercel deploy-block found and fixed
+
+Built queued candidate (3) from Section 108: upload progress on submit-work,
+explicitly requested by the user. Repo state going in: `~/Piwork` at
+`ac3f3dd`, both repos `git pull` clean, `diff -rq` between the two docs
+copies silent.
+
+**Upload progress: built, pushed.** `handleSubmitWork`
+(`frontend/src/pages/JobDetail.tsx`) moved from `apiFetch` (plain `fetch`) to
+a new `apiFetchWithProgress` (`frontend/src/lib/api.ts`), since `fetch` can't
+report upload progress. Built on `XMLHttpRequest`, matching `apiFetch`'s URL
+base and `x-session-token` header, returning a `fetch`-`Response`-shaped
+object (`{ ok, status, json() }`) so no downstream logic needed
+restructuring. New `uploadProgress` state drives a progress bar (shown while
+`submitting`) and a `Submitting... X%` button label. CSS
+(`.attach-progress-track`/`.attach-progress-fill`) ports the class names
+already used as a fixed-width decoration in the design shell
+(`HiveworkJobDetailWorker.jsx`, per session 48 a pure visual motif never
+wired to data) but drops the fixed width for a dynamic inline `style`, using
+the existing `--violet`/`--line` theme variables. `tsc --noEmit` clean,
+diffs reviewed per file, commit `8554b5f` pushed to `origin/main`.
+
+**Deploy blocked, cause found, fixed.** Vercel showed `8554b5f` as
+**Blocked**: commit author lacked contributing access on the Hobby plan.
+User owns both the GitHub account and Vercel project; local git config
+matched correctly; no prior deploy had ever been blocked. `8554b5f` was the
+first frontend-touching push since session 92, so a stale Vercel↔GitHub
+connection could have gone unnoticed for a while — plausibly linked to a
+GitHub personal access token rotation a few weeks earlier, though that token
+isn't the one Vercel's GitHub App uses internally. **Fix:**
+reconnected/reauthorized the GitHub integration under Vercel Project
+Settings → Git; deploy then succeeded.
+
+**Live-tested and confirmed.** Screenshots of a real submit-work upload (2
+`.mp4` + 1 `.jpg`) show the progress bar and button label advancing
+32% → 93% → 100% as expected.
+
+**Files:** `frontend/src/lib/api.ts`, `frontend/src/pages/JobDetail.tsx`,
+`frontend/src/index.css` (`~/Piwork`, `8554b5f`); `roadmap.md`;
+`sessions/session-94.md`. No backend changes.
+
+**Status:** code shipped, deployed, live-confirmed. Open:
+`JobDetail.tsx` token-redeclaration removal (parked). Queued, upload progress
+now done; remaining, none started: Option A for the multi-worker Apply gap
+(no go-ahead given); friendlier submit-work network-error text + clearer
+file-cap message; try/catch hardening on `submit-work`; category expansion
+(pending product decision). Worth a standing note: spot-check Vercel deploy
+status after frontend pushes for a while, since this auth issue was silent
+until a build was actually triggered.
