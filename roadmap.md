@@ -6630,3 +6630,104 @@ file-cap message; try/catch hardening on `submit-work`; category expansion
 (pending product decision). Worth a standing note: spot-check Vercel deploy
 status after frontend pushes for a while, since this auth issue was silent
 until a build was actually triggered.
+
+**Update (session 95, see Section 110):** two live bugs reported by the user
+(failed-payment draft jobs mislabeled "Open" on Dashboard; 500pi withdrawals
+failing) were investigated and fixed, both deployed and live-confirmed.
+
+## Section 110 — Session 95 (2026-09-27): draft-job mislabeling fixed; withdrawal per-tx cap surfaced honestly
+
+User reported two live bugs via screenshots, unrelated to the session 94
+queue. Both investigated from first principles (code read before any fix
+proposed) and resolved same session.
+
+**Bug: failed-payment draft jobs shown as "Open."** User posted a job, the
+escrow payment failed (insufficient balance), and the job still appeared in
+Dashboard's "Jobs you've posted" as green "Open" with 0 applicants, while
+Browse correctly showed nothing. Traced via code, not assumption: the
+payment flow itself was fine — `/api/jobs/draft` creates the job as
+`status: 'draft'`, and only `payments/complete` (gated on `payments/approve`
+having stamped a `payment_id` on a still-`'draft'` job) flips it to `'open'`.
+A failed payment correctly leaves the job in `'draft'`. The actual bug:
+`JobCard.tsx`'s `statusPillClass`/`statusLabel` had no `'draft'` case and
+fell through to `'open'`/"Open" for any unrecognized status. Compounding
+issues found while investigating: `dashboard.ts`'s client-tab query pulled
+every job with no status filter (so drafts appeared at all) and its
+`totalPosted` sum included unpaid drafts' budgets, inflating the dashboard's
+"Posted" stat; and no UI existed to delete a draft, despite the backend
+already supporting `DELETE /:id/draft`.
+
+**Fix (commit "fix: mislabeled draft jobs shown as Open on Dashboard; add
+draft delete + exclude drafts from budget/job-posted totals"):**
+`JobCard.tsx` gained a real `'draft'` case (gold pill, "Draft (unpaid)"
+label, not clickable into job detail) and an optional `onDeleteDraft` button;
+`dashboard.ts`'s client-tab query now excludes `status: 'draft'` from the
+jobs list, `totalPosted`, and `jobs_posted_count`, returning drafts
+separately as their own `drafts` array; `Dashboard.tsx`'s `ClientView` renders
+an "Unpaid drafts" section above "Jobs you've posted," wired to
+`DELETE /api/jobs/:id/draft` and a refresh via the existing `retryLoad`.
+`tsc --noEmit` clean. **Live-tested and confirmed** by the user: drafts show
+correctly labeled with working delete buttons, "Posted" stat dropped as
+expected. Not built (out of scope, not requested): editing/resuming a draft's
+payment from the UI — backend supports `PATCH /:id/draft`, only delete was
+added.
+
+**Bug: 500pi withdrawals failing ("This withdrawal didn't complete").** User
+saw two 500pi withdrawal attempts fail with a generic error and wasn't sure
+if their balance was restored. Investigated via direct SQL against the app's
+Supabase (through the SQL editor, guided step by step): first ruled out fund
+loss by confirming `withdrawalDrainer.ts`'s `failAndReverse` writes a
+compensating `withdrawal_reversal` credit and calls
+`recompute_worker_balance` for clean, pre-broadcast failures — confirmed this
+ran correctly (an initial username-based query missed the real failed rows
+because they belonged to a different account, `Olawalt`, not
+`walterdanny00` — resolved and confirmed unrelated by the user). The actual
+failed rows' `notes` column read `"Signing failed:
+{"error":"Exceeds per-tx limit of 100"}"` — a real, deliberate limit, not a
+reversal-logic bug. Traced the limit's source: `callSigningService`
+(`piPayments.ts`) calls an external `${SIGNING_SERVICE_URL}/payout` — a
+separate service from Pi's own API (used read-only via `getPayment` only).
+`SIGNING_SERVICE_URL` resolved to `https://piwork.onrender.com` — the user's
+own Render-hosted signing service, not third-party custodial infra. Found the
+actual cap on that service's own Render Environment tab:
+`MAX_PAYOUT_PER_TX` (approx. name, truncated in the UI) = `100`; a separate
+`MAX_DAILY_OUT...` env var also exists (a distinct daily cap, unexamined —
+worth checking before ever raising the per-tx cap so the two don't
+conflict). **User decision: leave the 100pi cap as-is for now** — the fix
+scope was to stop the app lying about it, not to raise it.
+
+**Fix (commit "fix: validate withdrawal amount against signing service's
+100pi per-tx cap up front, instead of a false processing/failed round trip;
+cap quick-fill button and surface real max in placeholder"):**
+`withdrawals.ts` gained `MAX_WITHDRAWAL` (env `MAX_WITHDRAWAL_PI`, defaults
+`100`, mirroring the existing `MIN_WITHDRAWAL` pattern), validated up front in
+`POST /` with an honest `"Maximum withdrawal is 100 Pi per request."` error
+before any processing/drainer round trip; `GET /` now also returns
+`maxWithdrawal` so the frontend never hardcodes/guesses it.
+`WithdrawPanel.tsx` reads it, adds `amt <= max` to `canSubmit`, updates the
+input placeholder to show both min and max, and changes the quick-fill
+button from "Withdraw all" (which could silently queue a doomed amount) to
+"Withdraw max" — capped at `min(balance, max)` — whenever balance exceeds the
+limit. `tsc --noEmit` clean. **Live-tested and confirmed** by the user:
+inputting a value over 100pi now disables the withdraw button immediately
+(the button-disable path, via the new `canSubmit` check, rather than the
+error-message path — both are correct outcomes of the same fix; the quick-fill
+"Withdraw max" capping specifically wasn't separately confirmed).
+
+**Files:** `backend/src/routes/dashboard.ts`,
+`frontend/src/components/JobCard.tsx`, `frontend/src/pages/Dashboard.tsx`,
+`backend/src/routes/withdrawals.ts`,
+`frontend/src/components/WithdrawPanel.tsx` (`~/Piwork`, two commits, hashes
+not recorded in this session); `roadmap.md`; `sessions/session-95.md`.
+
+**Status:** both fixes shipped, deployed, live-confirmed (draft-job fix fully;
+withdrawal-cap fix's core behavior confirmed, quick-fill button not
+separately verified). Open, carried forward unchanged from session 94: Option
+A for the multi-worker Apply gap (no go-ahead given); friendlier submit-work
+network-error text + clearer file-cap message; try/catch hardening on
+`submit-work`; category expansion (pending product decision); `JobDetail.tsx`
+token-redeclaration removal (parked); standing note to spot-check Vercel
+deploy status after frontend pushes. New from this session: draft
+edit/resume-payment UI is a known gap, not requested/built; verify the
+`MAX_DAILY_OUT...` cap's value and relationship to `MAX_PAYOUT_PER_TX` before
+ever considering raising the per-tx limit.
