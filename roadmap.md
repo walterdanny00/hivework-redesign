@@ -6804,3 +6804,71 @@ per-tx limit. Residual from "try/catch hardening": only the multer/upload
 layer was hardened — the rest of the `submit-work` route body (storage upload
 and DB write, past ~line 484) was not read this session, so its error
 handling remains unexamined.
+
+## Section 112 — Session 97 (2026-09-28): submit-work route hardened (try/catch, DB error checks, orphan cleanup, approved-only gate)
+
+Opened by closing session 96's residual: only the multer/upload layer of
+`submit-work` had been hardened; the rest of the handler was unread.
+
+**Sweep.** `grep -n` on `backend/src/routes/jobs.ts`: wrapper
+`handleSubmitWorkUpload` at line 19, handler at line 459. `express` is
+`^4.19.2`, so an async throw in a handler never reaches error middleware —
+the request hangs, and the unhandled rejection can crash the process unless
+a global handler exists.
+
+**Findings (real code).** (1) No try/catch around the handler body. (2) The
+`jobs` fetch error was ignored, so a failed lookup silently made
+`isMultiSlot` false and a multi-slot submission would write `status` instead
+of `slot_status` — a silent wrong write. (3) Files already uploaded were left
+orphaned in `work-submissions` if a later upload or the DB update failed; each
+retry added fresh copies. (4) The notify lookup ran after the save, so a
+throw there could fail a submission that had already saved. (5) No status
+gate: `app.status` was selected but never checked, so at the server level any
+applicant (pending, rejected, or on a completed job) could submit.
+
+**Status vocabulary (established this session).** Applications: `pending`,
+`approved`, `rejected`, `submitted`, `completed`. Jobs: `draft`, `cancelled`,
+`in_progress`, `completed`. Multi-slot applications keep `status: 'approved'`
+until their slot completes and track progress via a parallel `slot_status`
+(`submitted`, `completed`). No worker-resubmission or "request revision"
+route exists (lines 455/708/743 are undo-decline and complete-slot
+claim-releases).
+
+**Fix (commit "fix: harden submit-work (try/catch, DB error checks, orphan
+cleanup, approved-only gate)"), `jobs.ts` only:** handler wrapped in
+try/catch (any throw becomes a clean 500); `jobs`/`applications` lookup
+errors checked, with only PGRST116 ("no rows") treated as not-found;
+uploaded paths tracked and removed on upload/DB failure, with a `saved` flag
+so the catch block never deletes files the row already references; raw
+Supabase messages now logged server-side and replaced with plain text for the
+user; notify reuses the job row fetched at the top (select widened to
+`worker_slots, title, client_id`) instead of a second lookup; **new gate:**
+only `approved` or `submitted` applications may submit (others get a 400) —
+`submitted` kept so an already-submitted worker's behaviour is unchanged,
+and multi-slot rows stay `approved` until completion so one check covers both
+modes. Applied via an exact-match Python script that aborts unless its
+markers match once; tested first on a reconstruction of the handler and the
+new handler typechecked in isolation. Real repo: 68 lines replaced with 112,
+`tsc --noEmit` clean in `backend/`.
+
+**Resubmit behaviour (discussed, no change).** No resubmit UI exists. If a
+second submit does reach the server, it overwrites `submission` and
+`attachments` on the same row — no history. Earlier files stay in the bucket
+unreferenced, the employer is notified again, and on multi-slot the gate
+cannot distinguish a first submit from a resubmit. Left as-is; blocking
+accidental double submits is a possible later patch, not requested.
+
+**Files:** `backend/src/routes/jobs.ts` (`~/Piwork`, one commit, hash not
+recorded); `roadmap.md`; `sessions/session-97.md`.
+
+**Status:** committed, pushed, user reports tested (specific checks not
+itemised). Not separately confirmed: the new 400 gate, the multi-slot
+`slot_status` path, and how `JobDetail.tsx` displays the new server error
+messages. Open, carried forward: live tests owed from session 96 (50-150MB
+video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item;
+files from overwritten submissions never deleted; multi-worker Apply gap
+(Option A, no go-ahead); category expansion (product decision); draft
+edit/resume-payment UI (known gap, not requested); `JobDetail.tsx`
+token-redeclaration removal (parked); standing Vercel deploy spot-check;
+verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before ever raising the
+per-tx limit. Session 96's residual ("try/catch hardening") is closed.
