@@ -6731,3 +6731,76 @@ deploy status after frontend pushes. New from this session: draft
 edit/resume-payment UI is a known gap, not requested/built; verify the
 `MAX_DAILY_OUT...` cap's value and relationship to `MAX_PAYOUT_PER_TX` before
 ever considering raising the per-tx limit.
+
+## Section 111 — Session 96 (2026-09-28): session-95 verification closed; submit-work caps raised, combined-size pre-check, upload error handling
+
+Opened by closing session 95's two verification gaps, then worked the
+submit-work polish items carried forward since session 93/94.
+
+**Session 95 verification (closed).** Both session-95 commits confirmed
+deployed cleanly on Vercel and Render. The "Withdraw max" quick-fill button,
+previously unverified, was live-tested: it fills exactly 100 (not the full
+balance) and the placeholder shows both min and max.
+
+**Submit-work polish.** Swept the real code first: no file has "submit-work"
+in its name; a content grep found the frontend side embedded in
+`JobDetail.tsx` (no separate component) and the route in
+`backend/src/routes/jobs.ts`. Three gaps found by reading the code: (1) the
+client checked per-file size (10MB image / 50MB video) and the 4-file count
+but never the combined total, while the server's 100MB combined check only
+runs after the full upload completes — so a doomed batch was rejected at the
+end of a slow upload; (2) the `handleSubmitWork` catch block surfaced raw
+`err.message` (e.g. "Failed to fetch"); (3) multer's own rejections had no
+dedicated handling on the route.
+
+**Cap decision.** User asked whether 100MB combined is enough. The first
+answer (text plus screenshots, so yes) missed that video size varies with
+device and recording quality: iOS screen recordings at default quality can be
+much larger than Android's for the same duration, so a normal short iOS
+repro could exceed the old 50MB per-file cap alone. Options weighed: raise
+caps; in-UI tip to lower recording quality; client-side video compression
+(real engineering, own failure modes). **User decision: raise caps alongside
+the fixes** — video per-file 50 → 150MB, combined 100 → 200MB, images stay
+10MB.
+
+**Fix (commit "feat: raise submit-work caps to 150MB/file (video), 200MB
+combined; add client-side combined-size pre-check; friendlier network-error
+text; proper multer error handling"):** `jobs.ts` — multer `fileSize` to
+150MB; new `handleSubmitWorkUpload` wrapper maps `LIMIT_FILE_SIZE`,
+`LIMIT_FILE_COUNT`, and other multer errors to clean 400 JSON; route uses the
+wrapper; combined check to 200MB. `JobDetail.tsx` — `handleFilesSelected`
+video limit 150MB plus a running combined check (200MB, across loose
+attachments and inline figures); `handleFieldAttachClick` gets the same
+combined check; catch block now shows "Upload failed — check your connection
+and try again." Applied via an exact-match Python patch script (fails unless
+each block matches exactly once); `tsc --noEmit` clean both sides; diff
+reviewed before commit.
+
+**Follow-up fix (commit "fix: update attachments label to match new upload
+limits"):** live testing showed the picker label still read "(optional, up to
+4, 50MB each)". A grep for stale limit strings found only that one. Now
+"(optional, up to 4 files · images 10MB, videos 150MB · 200MB total)";
+verified on phone that it wraps cleanly onto two lines.
+
+**New watch item.** `multer.memoryStorage()` holds uploads in server RAM, so
+worst-case memory per submit-work request is now ~200MB (was ~100MB). On a
+small instance, several concurrent large submissions could pressure memory.
+Not observed or tested — flagged only; if it appears, move to disk/streaming
+or direct-to-storage upload.
+
+**Files:** `backend/src/routes/jobs.ts`, `frontend/src/pages/JobDetail.tsx`
+(`~/Piwork`, two commits, hashes not recorded in this session);
+`roadmap.md`; `sessions/session-96.md`.
+
+**Status:** shipped, deployed, live-confirmed in part: an over-150MB video is
+skipped with the new "(over 150MB)" message and the new label renders
+cleanly. Not separately confirmed: a 50–150MB video uploading end-to-end, and
+the 200MB combined pre-check tripping. Open, carried forward: multi-worker
+Apply gap (Option A, no go-ahead); category expansion (product decision);
+draft edit/resume-payment UI (known gap, not requested); `JobDetail.tsx`
+token-redeclaration removal (parked); standing Vercel deploy spot-check;
+verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before ever raising the
+per-tx limit. Residual from "try/catch hardening": only the multer/upload
+layer was hardened — the rest of the `submit-work` route body (storage upload
+and DB write, past ~line 484) was not read this session, so its error
+handling remains unexamined.
