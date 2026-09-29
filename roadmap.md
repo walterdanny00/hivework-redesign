@@ -81,7 +81,7 @@ Section 6/7/8's findings surfaced in the first place.
 | Real `onboarding` (profile-completion form) | `onboarding` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `Onboarding.tsx` and live-verified** (Section 47) · **Dark mode fix** (Section 98) | Single reactive form, triggered when a worker tries to apply without skills. Required skills field (chip input), optional devices/languages (searchable combobox, shared with Post Job) + bio (200-char limit), `returnTo` redirect. Canonical: `hivework-profile-complete.html` + `HiveworkProfileComplete.jsx`. See Section 3. In `HiveworkApp.jsx`, reached only via Dashboard's "Finish →" nudge, which was previously bugged to route to `profile` instead — fixed (Bug Fix Log #9 area). Real-code patch note (Section 47): `Profile.tsx` imports `ProfileForm` directly from this file — the form is defined and exported here, not a separate file — so the two screens share one patch target. Rebuilt to the canonical design (chip-input skills, shared `Combobox` for devices/languages, bio counter); page chrome (`Onboarding()` wrapper) finished in the same pass to avoid shipping half-styled classes with no matching `<style>` block (Section 43 pattern). |
 | Home | `/` | ✅ Done | **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (`.hw-eyebrow`, `.hw-status-pill.paid`) repointed to `var(--violet-tint)`. |
 | Browse | `jobs` | ✅ Done · ✅ **Patched into real `Jobs.tsx` and live-verified** (Section 42) · ✅ **Re-verified, clean** (Section 54) | Category tile grid replaces real code's pill filter row (visual only, same `useSearchParams`/`category` filter underneath). 3 real categories (`bug-testing`/`translation`/`ui-feedback`) show live counts from `GET /api/jobs/stats`; 4 shell-only categories render as disabled "Coming soon" tiles — see Section 42 for why. Cards restored the description snippet + applicant count the shell's `rec-item` style had dropped. Section 54: dead `.cat-empty` CSS and hardcoded tile-row hex both flagged; tile-row hex **tokenized in Section 55** (`--coral-tint`/`--pi-gold-tint`/`--teal-tint`/`--violet-tint`/`--sky-tint`), `.cat-empty` **confirmed gone, closed (Section 107)**.
-| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; dark mode bugs (hardcoded `--cream-deep`, white backgrounds, missing text colors, submission-report paper palette) — **closed session 84**, see Section 97; multi-worker "slots still open after first approval" gap remains logged, not designed for (Section 35). |
+| Job Detail | `jobs/:id` | ✅ Done, both views · ✅ Recompiled (JSX) · ✅ **Patched into real `JobDetail.tsx` and live-verified** (worker: Section 36, session 30; owner: Section 37, session 31) | Owner view: comparison closed 2026-08-07 — user's own re-upload confirmed identical to the already-reconciled canonical pair (tabbed Overview/Applicants/Slots, trust badges, ledger, Close-unfilled-slots, inline rating). Applicants confirmed to live inline on this screen, not a separate route — matches how `JobDetail.tsx` actually works in code; the shell's old standalone Applicants screen was removed. Worker (non-owner) view: ✅ done, see Section 11 — canonical: `hivework-job-detail-worker.html`/`HiveworkJobDetailWorker.jsx`. In `HiveworkApp.jsx`, both views are wired in, branching on a new `isOwner` flag added to the shell's job data. Real-code patch note: decline button — **closed session 78**, see Section 90; real file-upload attachments — **closed session 79**, see Section 91; submission-report feature (design + schema + renderer + composer token/caption insertion) — **closed session 83**, see Sections 93-96; dark mode bugs (hardcoded `--cream-deep`, white backgrounds, missing text colors, submission-report paper palette) — **closed session 84**, see Section 97; multi-worker "slots still open after first approval" gap — root-caused session 93 (Section 108), **shipped session 98** (Section 113): Apply/Browse/stats now key off unfilled slots, not job status. |
 | Post Job | `post-job` | ✅ Done · ✅ Recompiled (JSX) · ✅ **Patched into real `PostJob.tsx` and live-verified** (Section 42) · ✅ **Step-indicator fixed** (Section 58) | 3-step wizard (Basics/Details/Workers) followed by a separate no-indicator Review/Pay phase, SVG icons (not emoji), Device/Language as searchable multi-select comboboxes. Canonical shell version (Section 9) shows all 7 categories functionally; **real-code patch does not** — only 3 are real server-side (Section 42), the other 4 ship visible-but-disabled ("Coming soon"). Device/Language selections join into one comma string on change to match the real single-string `device_required`/`language_required` fields. Per-step validation added (stricter than real code's single Review-time check, same underlying rules). Real `connected` gate and all four full-screen payment states (locked/paying/done/error) plus `handlePayAndPost` and its Pi callbacks are byte-identical to real code — restyle only. **Step-indicator fixed (Section 58):** `WIZARD_STEPS` had a dead 4th "Review" dot that was never actually reachable (Review is a separate early-return with no wizard-track); trimmed to 3 entries, Review/Pay now intentionally has no indicator, step-3 CTA retitled "Review job →". **Dark mode fix (Section 97):** two hardcoded `#EFEAFB` instances (chip-outline, selected deadline option) repointed to `var(--violet-tint)`. |
 | Profile | `profile/:username` | ✅ Done · ✅ **Patched into real `Profile.tsx` and live-verified** (Section 47) · ✅ **Re-verified, token bug fixed** (Section 53) | Reached via avatar menu, not segnav (intentional). Full restyle: violet-gradient cover, big avatar, stat-pills, level/trust chip pills (Dashboard's chip convention), edit toggle wired to the shared `ProfileForm` (see `onboarding` row above), skills/devices/languages tag display, reviews wired to real `ratings` fetch data. **Bug fixed (Section 53):** `PROFILE_STYLES` had 3 background tokens (`.pf-field textarea`, `.pf-skills-box`, `.pf-chip`) inverted relative to `ONBOARDING_STYLES` and canonical (`.hwpc-*`) — same shared `ProfileForm` rendered with different shades depending on entry point. Fixed to match canonical/Onboarding. `.pj-combo input` background question **resolved (Section 56):** `PostJob.tsx` had no background rule at all (bare unstyled input); fixed to `--card` there and swapped `Profile.tsx`'s `--cream` to match, per Onboarding/canonical field-surface convention. **Dark mode fix + regression (Section 97):** `chip-expert`/`chip-silver`/`chip-bronze`/`chip-outline` hardcoded hex repointed to tokens; `chip-silver`/`chip-bronze` got new `--silver-tint`/`--bronze-tint` tokens. Pointing `chip-expert` at `--violet-tint` initially broke it (invisible against the fixed violet cover) — fixed, along with `chip-verified` proactively, with fixed white-glass styling matching `chip-pioneer`/`chip-validator` in the same spot. |
 | Dashboard | `dashboard` | ✅ Done | This **is** the mockup's old "Earnings" screen — same screen, correct name now. Worker/Client tab toggle, balance, withdraw, active applications/jobs. Runs a `profileComplete` nudge on mount — **this nudge is the real trigger to the required profile-completion form** (the real `/onboarding`, Section 3); the Wallet Connect flow's Quick Profile step stays purely optional. Fixed a component-duplication bug: "Your work" and "Withdrawals" used two different list styles for the same kind of content — consolidated to one (`.hist-row`). Identity block (avatar/username/level chip) — Section 33. Client-tab budget tracker (posted/refunded/net committed) + jobs-posted count + tab-aware first stat-pill — Section 34. **Worker-tab "Pending" stat pill added and jobs-posted-count comment corrected in both shells to match Section 43's real shipped fields (Sections 88–89).** **Dark mode fix (Section 97):** hardcoded `#EFEAFB` nudge-banner background repointed to `var(--violet-tint)`. |
@@ -6872,3 +6872,107 @@ edit/resume-payment UI (known gap, not requested); `JobDetail.tsx`
 token-redeclaration removal (parked); standing Vercel deploy spot-check;
 verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before ever raising the
 per-tx limit. Session 96's residual ("try/catch hardening") is closed.
+
+**Update (session 98, see Section 113):** Option A for the multi-worker Apply
+gap was built, deployed, and live-confirmed; live testing surfaced and fixed
+two legacy application rows left over from a bug this section's vocabulary
+list didn't cover (`slot_status: 'active'`), plus a suspected bug in the
+deadline checker's success count that this section's `submitted`/`completed`
+vocabulary also missed.
+
+## Section 113 — Session 98 (2026-09-29): multi-worker Apply gap shipped (Option A); legacy application rows found and repaired; deadline-checker success-count bug suspected
+
+Built Section 108's Option A, the multi-worker Apply gap fix that had been
+queued with no go-ahead since session 93.
+
+**Fix (two commits, `jobs.ts` backend + `JobDetail.tsx`/`Jobs.tsx`
+frontend).** Backend: `POST /:id/apply`, Browse (`GET /`), and `/stats` now
+key off unfilled slots (`worker_slots - slots_closed - filled`) instead of
+`job.status === 'open'`, using the same `countFilledSlots` helper
+session 93 added. `git diff --stat`: 71 lines changed in one file (60
+insertions, 11 deletions), 901 → 950 lines. Frontend: `JobDetail.tsx` gained
+`canApplyNow` (true when `open`, or `in_progress` with `slotsAvailable`); the
+Apply button uses it and reads "All slots are filled" when a multi-worker
+job is genuinely full. `Jobs.tsx`'s `Job` type gained `worker_slots`/
+`slots_available`; the Browse card appends "· N of M slots open" for
+multi-worker jobs. Both applied via exact-match Python patch scripts (abort
+unless every block matches exactly once, writing nothing on a partial
+match); tested first on a reconstruction of the pasted code. `tsc --noEmit`
+clean on both backend and frontend. Deployed (Vercel + Render) and
+committed/pushed as two commits, backend then frontend.
+
+**Live-tested and confirmed, 3 of 3 checks:** an in-progress multi-worker job
+showed its slots-left label on Browse; a second worker's Apply button was
+enabled; after the last slot filled the job left Browse and the button read
+"All slots are filled."
+
+**Bug found live: two legacy application rows undercounted as unfilled.**
+Two in-progress multi-worker jobs (posted ~2 months earlier, before session
+93's fix) kept showing available slots on Browse and an enabled Apply
+button despite having no real capacity left. Root-caused via a Supabase
+query across every in-progress multi-worker job: `countFilledSlots` (and the
+owner page's own count) treat an application as filled only at
+`status ∈ {approved, completed}`; these two rows instead had
+`status: 'submitted'`, `slot_status: 'active'` — the shape a multi-worker
+submission had *before* commit `4f7cb83` (2026-08-01, "submit-work never set
+slot_status..."), never since. Confirmed via `grep -rn "'submitted'"` across
+`backend/src` that no current code path can write that shape again (today's
+multi-slot submit-work only ever writes `slot_status: 'submitted'`, leaving
+`status: 'approved'`); confirmed via the deadline checker's slot-closing
+queries (all three filter on both `status = 'approved'` AND
+`slot_status = 'active'`) that repairing the rows to today's shape
+(`status: 'approved'`, `slot_status: 'submitted'`) could not retroactively
+mark them missed/refunded, since the checker had already been skipping them
+on `status` alone the whole time. **Fix: two-row SQL repair, no code
+change** — `update applications set status = 'approved',
+slot_status = 'submitted' where status = 'submitted' and
+slot_status = 'active' and job worker_slots > 1 and job status =
+'in_progress'`, previewed against the same WHERE as a SELECT first. User
+confirmed the repair checked out; both jobs correctly left Browse afterward.
+
+**Status/slot_status vocabulary — Section 112's list was incomplete.**
+Jobs can also reach `partially_complete` and `expired` (both already
+excluded from Browse/Apply, so no behavior change, doc-only gap). Multi-slot
+`slot_status` also reaches `active` (default, no submission yet) and
+`missed` (deadline passed unresolved), both used throughout
+`slotDeadlineChecker.ts` and not previously listed.
+
+**Suspected bug, not fixed this session — deadline-checker success count.**
+`reevaluateJobs`' success count (`slotDeadlineChecker.ts:199`) checks
+application `status ∈ {submitted, completed}`, but every multi-slot
+submission since session 93's fix (`4f7cb83`) is `status: 'approved'` with
+`slot_status: 'submitted'` — so a submitted-but-unreviewed multi-slot worker
+is never counted as a success. Scenario: worker A submits and awaits review,
+worker B on the same job misses their deadline, the checker sees zero
+active slots and zero counted successes, and finalizes the job `expired`
+instead of `partially_complete` — potentially blocking A's slot from ever
+being completed/paid if `complete-slot` gates on `job.status === 'in_progress'`
+(stated in Section 108, not re-verified this session). Only line 199 and its
+callers were read; `complete-slot`'s own status gate was not re-checked
+against this specific path. Logged as a suspected bug for a future session,
+not designed for or built.
+
+**Stray file found, not resolved.** `backend/src/routes/jobs.ts.bak` exists
+in the source tree (a stale duplicate of `jobs.ts` as of session 90 or so,
+predating the session 93/97/98 patches — matched a `grep` for `'submitted'`
+alongside the real file, which is how it surfaced). Not confirmed whether
+it's git-tracked; harmless to the build either way. Flagged for the user to
+delete if untracked.
+
+**Files:** `backend/src/routes/jobs.ts` (two commits: Section 108's Option
+A backend patch, this session), `frontend/src/pages/JobDetail.tsx`,
+`frontend/src/pages/Jobs.tsx` (`~/Piwork`, hashes not recorded this
+session); Supabase `applications` table (2-row data repair, no migration);
+`roadmap.md`; `sessions/session-98.md`.
+
+**Status:** both patches shipped, deployed, live-confirmed (3/3 checks); the
+legacy-row bug found live was root-caused and repaired, user-confirmed.
+Open, carried forward: suspected deadline-checker success-count bug (new
+this session, not designed for); `jobs.ts.bak` stray file (new this
+session, not resolved); live tests owed from session 96 (50–150MB video
+upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files
+from overwritten submissions never deleted; category expansion (product
+decision); draft edit/resume-payment UI (known gap, not requested);
+`JobDetail.tsx` token-redeclaration removal (parked); standing Vercel
+deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX`
+before ever raising the per-tx limit.
