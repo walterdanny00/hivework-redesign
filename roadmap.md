@@ -6976,3 +6976,79 @@ decision); draft edit/resume-payment UI (known gap, not requested);
 `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel
 deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX`
 before ever raising the per-tx limit.
+
+## Section 114 — Session 99 (2026-09-29): deadline-checker success-count bug fixed; related `complete-slot` finalization bug found and fixed; `jobs.ts.bak` deleted
+
+Closed the suspected bug logged in Section 113, after verifying it from the
+code.
+
+**Payout risk ruled out.** Read `complete-slot` (`jobs.ts`, ~745–835): it
+does not gate on `job.status`. It resolves the job by id + owner and claims
+payout by flipping the application's `slot_status` `submitted` → `completed`.
+A job wrongly finalized `expired` therefore cannot block a submitted
+worker's payment, and missed-slot refunds run independently
+(`closeSlotAndRefund`, `reconcileMissingRefunds` in
+`backend/src/lib/slotDeadlineChecker.ts` — the file is under `lib/`, not
+`services/`).
+
+**Bug 1 (checker) confirmed.** A missed slot keeps `status: 'approved'`;
+only `slot_status` becomes `missed`. Worker A submitted-and-unreviewed plus
+worker B missing their deadline gives `pending` = 0 and `succeeded` = 0, so
+`reevaluateJobs` finalized the job `expired` instead of `partially_complete`,
+and `expired` is in the checker's terminal skip list.
+
+**Bug 2 (new, `complete-slot`).** Finalization used
+`inProgress = count(status = 'approved')`, which still counts missed rows,
+so a job with any missed slot could never finalize through `complete-slot`.
+Scenario: B misses first while A is active (checker skips the job, a slot is
+in flight); A submits and is completed by the owner; `inProgress` still
+counts B, so the job stays `in_progress` indefinitely. Inferred from code,
+never observed in data.
+
+**No existing damage.** A Supabase query over every multi-worker job with
+any `slot_status = 'missed'` row returned no rows: neither bug has fired on
+live data. A grep of `JobDetail.tsx` for `in_progress`/`partially_complete`
+showed no match gating the owner's review/complete controls (grep lines
+only, file not read in full).
+
+**Design decision.** Finalize `partially_complete` immediately when the only
+unresolved worker is submitted-and-awaiting-review, rather than waiting for
+review. Job status does not affect payment, and it matches how the checker
+already treats resolved slots. Trade-off: the job reads `partially_complete`
+while A is still awaiting review.
+
+**Fix (one commit, `7ecb7c9`, exact-match Python patch, tested first on a
+reconstruction of the pasted code).** `slotDeadlineChecker.ts`: the
+`succeeded` query uses
+`.or('status.in.(submitted,completed),slot_status.in.(submitted,completed)')`
+(the `status` clause keeps single-slot rows working). `jobs.ts`
+`complete-slot`: `inProgress` adds `.or('slot_status.is.null,slot_status.neq.missed')`,
+and the final flip counts `slot_status = 'missed'` rows and sets
+`partially_complete` if any exist, else `completed`. `git diff --stat`: two
+files, 17 insertions / 2 deletions. `tsc --noEmit` clean. Pushed; Render
+deploy confirmed.
+
+**Not live-tested.** Both paths only run once a slot is actually missed,
+which would also trigger a real refund. Verification is `tsc` plus code
+read-through. A throwaway short-deadline test job remains an option.
+
+**`jobs.ts.bak` resolved.** `git ls-files` returned nothing (untracked);
+deleted with `rm`.
+
+**Observation, not investigated.** `complete-slot`'s final `jobs` update has
+no status guard, so it would overwrite a `cancelled` job's status if a slot
+were completed on one. Whether that path is reachable was not checked.
+
+**Files:** `backend/src/lib/slotDeadlineChecker.ts`,
+`backend/src/routes/jobs.ts` (`~/Piwork`, commit `7ecb7c9`); `roadmap.md`;
+`sessions/session-99.md`.
+
+**Status:** both fixes shipped and deployed, not live-exercisable. Open,
+carried forward: live tests owed from session 96 (50–150MB video upload;
+200MB combined pre-check); `memoryStorage()` RAM watch item; files from
+overwritten submissions never deleted; category expansion (product
+decision); draft edit/resume-payment UI (known gap, not requested);
+`JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render
+deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX`
+before ever raising the per-tx limit; unguarded `complete-slot` final
+job-status update (new); optional live test of the deadline-checker fix.
