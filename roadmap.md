@@ -7163,3 +7163,65 @@ failure pattern, unreachable via normal UI now); `approve-application` does not
 allow approvals on `partially_complete` jobs — confirm the checker never
 finalizes a job that still has open slots; stale comment above
 `handleApprove` (~line 782) should be reworded.
+
+## Section 116 — Session 101 (2026-10-01): deadline checker no longer finalizes jobs with unfilled slots; `close-slots` double-refund on cancelled jobs closed
+
+Started from Section 115's open item (can the checker finalize a job that
+still has open slots?) and followed it into the cancel/close-slots refund
+path. Deadline modes, for reference: `per_worker` (each worker's clock
+starts at their own approval) and `fixed` (one shared `deadline_at`).
+Single-slot jobs have `deadline_mode = null`, so the checker never touches
+them; everything here affects multi-slot jobs only.
+
+**Checker gap.** `reevaluateJobs` only checked that no `approved` + `active`
+rows remained, with no comparison against `worker_slots`. On a 3-slot job
+with one approved worker who misses, the job was written `expired` and the
+other 2 slots became unapprovable. Money was not at risk: the checker only
+refunds approved-then-missed slots, and unfilled slots are refunded by
+`close-slots`, which had no status check. The cost was lost hiring.
+Supabase check (multi-slot jobs finalized with unfilled, unclosed slots):
+**no rows**, latent.
+
+**Double-refund hole.** `cancel` refunds the full budget but does not touch
+`slots_closed`. `close-slots` had no status check, so on a cancelled
+multi-slot job it saw every slot as unfilled and credited `budget / slots`
+per slot again (`application_id = null`, so no unique index blocked it),
+repeatable until `slots_closed = worker_slots`. Found by code read, not
+reproduced. Supabase check (cancelled jobs refunded more than their
+budget): **no rows**, latent.
+
+**Fixes (commit `d6923e0`).**
+- `close-slots` selects `status` and returns 409 for `cancelled`. Only
+  `cancelled` is blocked on purpose, so unfilled slots on a job the checker
+  already finalized can still be closed and refunded.
+- `reevaluateJobs` selects `worker_slots` / `slots_closed` and skips the job
+  while `everFilled + slots_closed < worker_slots` (same rule as
+  `complete-slot` / `close-slots`, both deadline modes). Its final update is
+  now `.neq('status', 'cancelled')`.
+- Side effect (cosmetic): if every approved worker misses and the client
+  later closes the empty slots, the job ends `partially_complete`, not
+  `expired`.
+
+**Open product question (not patched).** In `fixed` mode nothing in
+`jobs.ts` stops approving a worker after the shared deadline, and nothing
+auto-closes and refunds empty slots at deadline + grace; with this fix such
+a job stays open until the client closes the slots. Decide whether to block
+late approvals and/or automate the close.
+
+**Not live-exercised (tsc + code read only):** `close-slots` 409 on a
+cancelled job; checker leaving a job open with unfilled slots. Suggested
+throwaway tests: cancel a 2-slot job then call `close-slots` (expect 409, no
+second refund row); 3-slot `per_worker` job with a short deadline and one
+approved worker who misses (job stays open, other slots approvable).
+
+**Files:** `backend/src/lib/slotDeadlineChecker.ts`,
+`backend/src/routes/jobs.ts` (`~/Piwork`, commit `d6923e0`); `roadmap.md`;
+`sessions/session-101.md`.
+
+**Status:** fixes shipped. Section 115's carried-forward list still applies,
+minus the `partially_complete` / checker-finalization item (closed here) and
+with these changes: the optional deadline-checker / `close-slots` live test
+is replaced by the two throwaway scenarios above; new product question on
+`fixed`-mode late approvals and empty-slot auto-close; `handleUndoDecline`
+non-ok handling and the stale comment above `handleApprove` (~line 782) were
+not done this session.
