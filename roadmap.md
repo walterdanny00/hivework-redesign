@@ -7225,3 +7225,39 @@ is replaced by the two throwaway scenarios above; new product question on
 `fixed`-mode late approvals and empty-slot auto-close; `handleUndoDecline`
 non-ok handling and the stale comment above `handleApprove` (~line 782) were
 not done this session.
+
+## Section 117 — Session 102 (2026-10-01): session 101 fixes live-verified
+
+No code changes. Exercised the two fixes from commit `d6923e0` against the
+deployed backend, using curl from Termux (auth is a plain `x-session-token`
+lookup against `sessions.token`; base URL from `VITE_BACKEND_URL`; there is
+no UI for cancelling jobs, so `/cancel` was called directly).
+
+**`close-slots` on a cancelled job: pass.** Posted a 2-slot job, cancelled it
+(one refund row, 2.0000, `application_id` null), then called `close-slots`:
+HTTP 409 "This job was cancelled and already refunded.", and the refund rows
+were unchanged. The `/cancel` curl response came back empty (reply dropped,
+cause unknown) but the cancel itself succeeded.
+
+**Deadline checker with an unfilled slot: pass.** 3-slot `per_worker` job,
+one worker approved, `slot_deadline_at` backdated 25 hours in SQL to clear the
+24h grace window. After the next 5-minute poll the slot was `missed`, one
+1.0000 refund row was written against that application, and the job stayed
+`in_progress` with `slots_closed = 0` rather than flipping to `expired`. A
+second worker was then approved on the same job (`approved` + `active`),
+confirming the remaining slots stayed hireable. Cleanup `close-slots` with
+`count = 1` returned `{"ok":true,"closed":1,"refunded":1}`.
+
+**Files:** `roadmap.md`; `sessions/session-102.md`. No `~/Piwork` code
+commits.
+
+**Status:** Section 116's "not live-exercised" caveat is closed. Section 116's
+carried-forward list still applies minus the optional live-test item: `fixed`-mode
+late-approval / empty-slot auto-close product decision; live tests owed from
+session 96 (50–150MB video upload; 200MB combined pre-check);
+`memoryStorage()` RAM watch item; files from overwritten submissions never
+deleted; category expansion (product decision); draft edit/resume-payment UI;
+`JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render
+deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before
+raising the per-tx limit; `handleUndoDecline` non-ok handling; stale comment
+above `handleApprove` (~line 782).
