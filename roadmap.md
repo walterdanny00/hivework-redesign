@@ -7283,3 +7283,17 @@ Session 102's live tests passed on the backend, but the UI mislabelled the resul
 **Files:** `frontend/src/pages/JobDetail.tsx`, `frontend/src/components/JobCard.tsx`, `frontend/src/components/ApplicationCard.tsx`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts` (`~/Piwork`); `roadmap.md`; `sessions/session-103.md`.
 
 **Status:** shipped. Section 117's carried-forward list still applies unchanged: `fixed`-mode late-approval / empty-slot auto-close product decision; live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; `handleUndoDecline` non-ok handling; stale comment above `handleApprove` (line number shifted by this session's edits). Also noted: stray `pages/HistoryJobs.tsx.bak`.
+
+## Section 119 — Session 104 (2026-10-01): `JobDetail.tsx` cleanup (undo-decline errors, stale comment)
+
+Small pass over two carried-forward items. No backend changes.
+
+**`handleUndoDecline` failure handling.** A non-ok response from `undo-decline-application` was silently ignored and the handler had no `catch`. It now sets an `undoError` (cleared at the start of each attempt): the server's `error` message with a "Could not undo the decline." fallback, or "Network error, please try again." on a thrown fetch. Rendered above the "Declined" toggle with the existing `.cs-err` class (`.jdo .cs-err`, owner-view scoped, already reused for `completeErrors`). Same pattern as `handleCloseSlots`.
+
+**Stale comment above `handleApprove`.** The old "Step 9" comment claimed the server keeps a single-worker job in `open` until approved, contradicting the `in_progress` update directly below it. Reworded to describe only the client behaviour: single-worker approval fills the only slot and marks other applicants rejected; multi-worker approval leaves the rest pending. No behaviour change.
+
+**Verification:** both patches applied with match-exactly-once scripts (aborting on any mismatch); tsc clean after each. On-device Undo happy-path check after deploy still to do; the error path was not live-exercised (code read and tsc only).
+
+**Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`); `roadmap.md`; `sessions/session-104.md`.
+
+**Status:** shipped, pending on-device spot-check. Section 118's carried-forward list still applies minus the two items closed here (`handleUndoDecline` non-ok handling; stale comment above `handleApprove`): `fixed`-mode late-approval / empty-slot auto-close product decision; live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit. Also noted: stray `pages/HistoryJobs.tsx.bak`.
