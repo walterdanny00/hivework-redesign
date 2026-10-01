@@ -7261,3 +7261,25 @@ deleted; category expansion (product decision); draft edit/resume-payment UI;
 deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before
 raising the per-tx limit; `handleUndoDecline` non-ok handling; stale comment
 above `handleApprove` (~line 782).
+
+## Section 118 — Session 103 (2026-10-01): status display fixes after session 102 live tests
+
+Session 102's live tests passed on the backend, but the UI mislabelled the results. Root cause throughout: the frontend only mapped a few statuses and let everything else fall through to a default ("In progress" / raw string). No backend behaviour changed except the worker-list routes noted below.
+
+**Owner view (`JobDetail.tsx`).**
+- Header badge (`jdoHeaderStatus`) treated every non-`completed` status as "in progress"; `cancelled`, `expired` and `partially_complete` now get their own labels.
+- Slots ledger had no `missed` branch; a missed slot now shows "Missed deadline" (grey avatar, grey bar segment). `.ledger-dot.approved` had no CSS, which left in-progress avatars blank; fixed.
+- Cancelled jobs hide the open-slot placeholders and the "slots still open" hint. A missed slot still counts in "N of M slots filled", matching the backend rule that missed slots are not re-opened.
+- `.jdo .submission-report` had a leftover `-22px` left margin / `+22px` width that bled past the card and over the timeline rail; removed.
+
+**Worker view (`JobDetail.tsx`).** The `my-application` fetch only fired for `open` / `in_progress` / `completed` jobs, so on `partially_complete` (and `expired` / `cancelled`) workers looked like they had never applied and the timeline stalled at Application. It now fetches for any status. New `missed` slot state reuses the `rejected` timeline styling (stops at Work submission) with a "Deadline passed" panel; button text no longer prints raw underscores.
+
+**Shared cards.** `JobCard.tsx` (owner Dashboard + `HistoryJobs`) gained Cancelled / Expired / Partially complete labels and pill classes. `ApplicationCard.tsx` shows "missed deadline" and strips underscores.
+
+**Worker-list routes (`backend/src/routes/dashboard.ts`, `history.ts`).** Both now select `slot_status` and `jobs.worker_slots`; `budget` is the worker's per-slot amount (`budget / worker_slots`, 4 dp) rather than the job's full budget; a `missed` flag is returned; `earnings_pending` no longer counts missed slots.
+
+**Verification:** tsc clean after each patch; every behaviour above confirmed on device after Vercel/Render deploys (owner and worker views, both Dashboards).
+
+**Files:** `frontend/src/pages/JobDetail.tsx`, `frontend/src/components/JobCard.tsx`, `frontend/src/components/ApplicationCard.tsx`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts` (`~/Piwork`); `roadmap.md`; `sessions/session-103.md`.
+
+**Status:** shipped. Section 117's carried-forward list still applies unchanged: `fixed`-mode late-approval / empty-slot auto-close product decision; live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; `handleUndoDecline` non-ok handling; stale comment above `handleApprove` (line number shifted by this session's edits). Also noted: stray `pages/HistoryJobs.tsx.bak`.
