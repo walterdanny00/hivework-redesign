@@ -7052,3 +7052,114 @@ decision); draft edit/resume-payment UI (known gap, not requested);
 deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX`
 before ever raising the per-tx limit; unguarded `complete-slot` final
 job-status update (new); optional live test of the deadline-checker fix.
+
+## Section 115 — Session 100 (2026-10-01): `approve-application` hardened; `close-slots` / `complete-slot` finalization gaps closed; single-slot approval now rejects + notifies the other pending applicants; ratings unique constraint fixed; worker-side `my-rating` fixed
+
+Started from Section 114's open item (does `complete-slot`'s unguarded final
+job-status update matter?) and followed it into the approve path.
+
+**Cancel path is safe on its own.** `POST /:id/cancel` claims atomically from
+`status = 'open'` only. The hole was elsewhere: `approve-application`
+selected the job without `status`, ran its job update unconditionally, and
+never checked the application against the job or its own status. Cancel does
+not reject pending applicants, so an owner could cancel (refund credited),
+then approve a pending applicant, reviving the job to `in_progress`. A
+subsequent payout would likely pay the budget a second time (not confirmed;
+payout path not re-read). Also: an owner of job X could approve an
+application belonging to another job, re-approve rejected/completed rows, and
+approve a second applicant on a single-slot job. Supabase check (cancelled
+jobs with approved/submitted/completed applications) returned **no rows**:
+latent, never fired.
+
+**Fix 1 — `approve-application` guards (`jobs.ts`).** Job `status` selected;
+approvals allowed only when the job is `open`, or multi-slot and
+`in_progress` (409 otherwise). The application update is now atomic and
+scoped: `.eq('job_id', job.id).eq('status', 'pending')`, 409 if no row.
+The `in_progress` job update is conditional on `status in (open, in_progress)`.
+The 409 path was observed live (see UI finding below).
+
+**Fix 2 — `close-slots` (`jobs.ts`).** Same bug class as Section 114's
+`complete-slot` fix, missed there: `inProgress` counted missed rows (still
+`status: 'approved'`), and finalization always wrote `completed`. Now
+excludes `slot_status = 'missed'` from `inProgress` and writes
+`partially_complete` if any missed rows exist. Inferred from code; no live
+data affected.
+
+**Fix 3 — cancelled jobs are never overwritten.** Final job-status updates in
+`complete-slot` and `close-slots` now `.neq('status', 'cancelled')`. Closes
+Section 114's "unguarded final update" item.
+
+**UI finding — frontend faked a server behavior.** `handleApprove` in
+`JobDetail.tsx` (~line 787) marked every other applicant `rejected` in local
+state on a single-slot approval, with a comment claiming the server did the
+same. It never did: others stayed `pending` in the DB, reappeared as pending on
+refresh, Undo failed (nothing to restore), and Approve on them hit the new 409
+and failed silently (`handleApprove` only acted on `res.ok`).
+
+**Decision (user): option 1 — backend rejects + notifies.** On single-slot
+approval, `approve-application` now sets all other `pending` applications on
+the job to `rejected` and calls `notifyApplicationRejected` for each
+(fire-and-forget). Rationale: rejected applicants get feedback instead of
+waiting indefinitely. Multi-slot behavior unchanged.
+
+**Frontend (`JobDetail.tsx`).** `approveError` state surfaces the server's
+error text in the Applicants tab. On a single-slot job that is no longer
+`open` (`singleSlotFilled`): Approve is disabled and relabeled "Slot filled",
+and the Declined row shows a "Slot filled" note instead of Undo.
+`undo-decline-application` already refused this server-side (400); the UI now
+doesn't offer it.
+
+**Process slip, caught.** The first backend auto-reject patch never landed:
+the pushed commit (`a0b7e87`) contained only `JobDetail.tsx` despite a message
+describing both. Surfaced because refresh showed the applicant back as
+pending; `git show --stat HEAD` + `grep autoRejected` confirmed it. Reapplied
+and pushed; live test then passed. Lesson: confirm each patch script printed
+`OK` and read `git diff --stat` before committing.
+
+**Ratings — unique constraint.** Rating the second completed worker on a
+multi-slot job failed with "You already rated this job". Route and frontend
+were already per-slot; the DB rule was `UNIQUE (job_id, rater_id)`
+(`ratings_job_id_rater_id_key`). Migration run in the Supabase SQL editor:
+dropped it and added `UNIQUE (job_id, rater_id, ratee_id)`
+(`ratings_job_id_rater_id_ratee_id_key`). No `application_id` column added;
+`ratee_id` identifies the worker. Looser than before, so no existing rows are
+affected.
+
+**Ratings — worker-side `my-rating` (commit `f8b064a`).** For a worker on a
+multi-slot job the frontend sends their own `application_id`; the route
+resolved `ratee_id` to that application's worker (the worker themselves), but
+a worker's rating has the client as ratee, so the lookup never matched. Fixed:
+the route now loads the job's client; client callers resolve the ratee from
+the application as before; worker callers must own the application and the
+ratee is the client.
+
+**Live-verified:** single-slot approve (Test 1); multi-worker second approve
+(Test 3); single-slot auto-reject + notification + "Slot filled" state,
+persisting across refresh; rating the second completed worker (owner side);
+worker rating the client and seeing it after refresh. **Not live-exercised
+(tsc + code read only):** cancel-then-approve 409; `close-slots` /
+`complete-slot` missed-slot finalization (needs a real missed slot and
+refund).
+
+**Termux note:** no writable `/tmp`; keep patch scripts in `~/` and `rm` after
+use.
+
+**Files:** `backend/src/routes/jobs.ts`, `frontend/src/pages/JobDetail.tsx`
+(`~/Piwork`; commit hashes: `a0b7e87` frontend, `f8b064a` my-rating; the
+guards and auto-reject backend commits' hashes were not captured);
+Supabase `ratings` constraint migration; `roadmap.md`;
+`sessions/session-100.md`.
+
+**Status:** all fixes shipped and deployed. Open, carried forward: live tests
+owed from session 96 (50–150MB video upload; 200MB combined pre-check);
+`memoryStorage()` RAM watch item; files from overwritten submissions never
+deleted; category expansion (product decision); draft edit/resume-payment UI
+(known gap, not requested); `JobDetail.tsx` token-redeclaration removal
+(parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...`
+cap vs `MAX_PAYOUT_PER_TX` before ever raising the per-tx limit; optional live
+test of the deadline-checker and `close-slots` fixes with a short-deadline
+throwaway job; `handleUndoDecline` still ignores non-ok responses (same silent
+failure pattern, unreachable via normal UI now); `approve-application` does not
+allow approvals on `partially_complete` jobs — confirm the checker never
+finalizes a job that still has open slots; stale comment above
+`handleApprove` (~line 782) should be reworded.
