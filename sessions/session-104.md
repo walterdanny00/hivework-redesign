@@ -21,7 +21,7 @@ Small cleanup pass on `JobDetail.tsx`, taken from session 103's carried-forward 
 - Both patches applied with a match-exactly-once script that aborts on any mismatch (the undo patch checks four spots; all matched).
 - `git diff --stat` after each: comment patch 3 insertions / 5 deletions; combined diff 11 insertions / 5 deletions in the one file.
 - `tsc --noEmit` clean after each patch.
-- **Not yet done:** on-device check after the Vercel deploy (open an owner job with a declined applicant, expand Declined, tap Undo, confirm the applicant returns to pending with no error line). The failure path was not live-exercised (hard to trigger by hand; tsc and code read only).
+- On-device check after the Vercel deploy: passed (owner job with a declined applicant, expand Declined, tap Undo; the applicant returned to pending with no error line). The failure path was not live-exercised (hard to trigger by hand; tsc and code read only).
 
 ## Files touched
 `~/Piwork`: `frontend/src/pages/JobDetail.tsx`. Docs: `roadmap.md` (Section 119), `sessions/session-104.md`.
@@ -38,7 +38,7 @@ Small cleanup pass on `JobDetail.tsx`, taken from session 103's carried-forward 
 - Category expansion: pending product decision on the 4 shell-only categories.
 - Draft edit/resume-payment UI: `PATCH /:id/draft` exists, no UI; not requested.
 - `JobDetail.tsx` token-redeclaration cleanup (parked).
-- Standing: spot-check Vercel/Render deploys after pushes (includes this session's on-device Undo check).
+- Standing: spot-check Vercel/Render deploys after pushes (this session's Undo check passed).
 - Verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit (100pi left as-is by user decision).
 - Cosmetic: if every approved worker misses and the client later closes the empty slots, the job ends `partially_complete` rather than `expired` (now at least displayed correctly).
 - Remove the stray `HistoryJobs.tsx.bak`.
