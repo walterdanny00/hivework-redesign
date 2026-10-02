@@ -7320,3 +7320,23 @@ Product decision taken at the start of the session for the `fixed`-mode item car
 - Test job `4ca119ab-...` now has one approved worker (@Olawalt, testnet). Once `2026-10-03 00:00 UTC` plus the 24h grace has passed without a submission, the checker will mark that slot `missed` and refund it. Harmless on testnet; left to run.
 
 **Status:** shipped and verified on device. Section 119's carried-forward list still applies, with these changes: the `fixed`-mode item is half closed (late approvals blocked; auto-close and refund of empty slots at deadline + grace is still open, deferred); the stray `HistoryJobs.tsx.bak` is still there, untouched; plus the two new findings above. Remaining: live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active).
+
+---
+
+## Section 121 — Session 106 (2026-10-02): owner header shows Open for `open` jobs
+
+Followed up the unverified finding from Section 120: the `JobDetail` owner header showed **In Progress** for a multi-slot job whose DB status was `open`.
+
+**Root cause (confirmed by code read).** `jdoHeaderStatus` in `JobDetail.tsx` (~line 1064) special-cases `cancelled`, `expired`, `partially_complete` and `completed`; every other status fell through `job?.status !== 'completed' ? 'in progress'`. That included `open`. Section 118 added the missing terminal labels but never an `open` branch.
+
+**Why a plain `open` label is always correct.** `approve-application` flips the job to `in_progress` on the first approval (`jobs.ts` ~line 488), so a job that is still `open` always has 0 approved workers. No fill-count logic is needed, and the Slots tab already shows fill progress.
+
+**Fix (`frontend/src/pages/JobDetail.tsx`, +2 lines).** One branch added to the `jdoHeaderStatus` chain: `job?.status === 'open' ? 'open'`. One CSS rule added after `.jdo .status-chip.completed`: `.jdo .status-chip.open{background:var(--teal-tint);color:var(--teal);}`, matching the Open pill on Dashboard, Home and HistoryJobs.
+
+**Verification.** Patches applied with match-exactly-once scripts; `tsc --noEmit` clean. After the Vercel deploy, an `open` job with 0 applicants showed a teal "Open" chip in the owner header, matching its dashboard card. **Pass.**
+
+**Not changed.** `JobDetail.tsx` has no handling of `draft` status (grep found only unrelated rating-draft code), so drafts probably never reach this header; not verified further. Any other unlisted status would still fall through to "in progress".
+
+**Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`, commit `70ed8b0`); `roadmap.md`; `sessions/session-106.md`.
+
+**Status:** shipped and verified on device. Section 120's carried-forward list still applies minus the header finding closed here: `fixed`-mode option C (auto-close and refund of empty slots at deadline + grace); live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; stray `HistoryJobs.tsx.bak`; session 102's throwaway job (account C's slot still active); session 105's throwaway job `4ca119ab-...` (one approved worker, testnet; checker will mark the slot `missed` and refund after `2026-10-03 00:00 UTC` + 24h grace).
