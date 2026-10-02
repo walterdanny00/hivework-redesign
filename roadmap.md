@@ -7340,3 +7340,33 @@ Followed up the unverified finding from Section 120: the `JobDetail` owner heade
 **Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`, commit `70ed8b0`); `roadmap.md`; `sessions/session-106.md`.
 
 **Status:** shipped and verified on device. Section 120's carried-forward list still applies minus the header finding closed here: `fixed`-mode option C (auto-close and refund of empty slots at deadline + grace); live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; stray `HistoryJobs.tsx.bak`; session 102's throwaway job (account C's slot still active); session 105's throwaway job `4ca119ab-...` (one approved worker, testnet; checker will mark the slot `missed` and refund after `2026-10-03 00:00 UTC` + 24h grace).
+
+---
+
+## Section 122 — Session 107 (2026-10-03): `fixed`-mode option C, auto-close and refund never-filled slots
+
+Closed the carried-forward `fixed`-mode item left half open by Section 120: empty slots are now closed and refunded automatically at deadline + grace.
+
+**Gap.** Passes A and B of `slotDeadlineChecker.ts` only handle approved + active slots (mark `missed`, per-slot refund, finalize via `reevaluateJobs`). A slot nobody was ever approved into had no automatic path; a `fixed` job with no approvals stayed `open` forever, and nothing outside the checker sets `expired`.
+
+**Fix (`backend/src/lib/slotDeadlineChecker.ts`, +63 / -1).** New Pass C, `closeUnfilledFixedDeadlineSlots()`: for `fixed` jobs that are `open` or `in_progress` with `deadline_at` + `GRACE_MS` passed, compute `unfilled = worker_slots - filled - slots_closed` (`filled` counts `approved` + `completed`, same as `countFilledSlots`; missed slots count as filled). Claims the slots with the same compare-and-swap on `jobs.slots_closed` as `close-slots`, credits one job-level refund of `unfilled × budget / worker_slots` (`application_id` null), recomputes balance and sends `notifyRefundCredited`. If the credit insert fails, `slots_closed` is rolled back so the next 5-minute cycle retries. `checkSlotDeadlines` runs Pass C after Pass B and passes its job ids to `reevaluateJobs`, so the job lands on `expired` / `completed` / `partially_complete` as before.
+
+**Scope.** `fixed` mode only. `per_worker` jobs and single-slot jobs have no job-level `deadline_at`, so Pass C does not apply. Pending applicants are left untouched.
+
+**Verification.** Patch applied with a Python match-exactly-once script; `tsc --noEmit` clean; one file, +63 / -1. After the Render deploy, on testnet 2-slot `fixed` jobs (budget 2) with `deadline_at` backdated 26h in SQL:
+- No approvals (`25f0fc08-ec71-485c-91f3-5fc2e4a66bb6`): job `expired`, `slots_closed = 2`, one `refund` of 2.0000 with `application_id` null. **Pass.**
+- One approved worker, no submission (`5eb5cb01-82aa-452c-96d5-e60436c042b5`): slot `missed` with a 1.0000 refund tied to its application (Pass B), plus a 1.0000 refund with `application_id` null for the empty slot (Pass C); `slots_closed = 1`, job `expired`; total 2.0000, no double-count. **Pass.**
+
+The first test attempt showed no change because the commit had not been pushed yet; the checker ran after the deploy (it also runs once at startup).
+
+**Known risk.** A crash between the `slots_closed` update and the refund insert would leave slots closed with no refund and no retry; `close-slots` has the same exposure. Accepted for now.
+
+**New findings (not fixed):**
+- Never-approved applicants on a closed job still show Approve & Assign / Decline (owner) and "pending" (worker), seen in screenshots on the expired test job. Proposed: frontend only, hide controls and show "Job closed"; applies to both deadline modes.
+- No cancel-job UI; backend `/cancel` exists but only for open jobs with zero slots filled, so an owner with no applicants cannot recover the escrow from the app.
+- Single-slot jobs have no deadline; an approved worker who never submits never releases the escrow (from the code read; `complete-slot` exits not checked). Likely fix: let single-slot jobs use `fixed` + `deadline_at`. Product decision.
+- `per_worker` jobs never auto-close unfilled slots; product decision whether they need a hiring window.
+
+**Files:** `backend/src/lib/slotDeadlineChecker.ts` (`~/Piwork`, commit `51fb4ba`); `roadmap.md`; `sessions/session-107.md`.
+
+**Status:** shipped and verified. Section 121's carried-forward list still applies minus option C: live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; stray `HistoryJobs.tsx.bak`; session 102's throwaway job (account C's slot still active); session 105's throwaway job `4ca119ab-...` (now also a live check of Pass C after `2026-10-03 00:00 UTC` + 24h grace); plus the four new findings above and the crash-window note.
