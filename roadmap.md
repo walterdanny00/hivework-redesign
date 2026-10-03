@@ -7394,3 +7394,39 @@ Closed three items carried forward from Section 122: pending applicants on close
 **Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/pages/JobDetail.tsx`, `frontend/src/components/ApplicationCard.tsx` (`~/Piwork`, commits `9dd9805` and `4894765`); `roadmap.md`; `sessions/session-108.md`.
 
 **Status:** shipped and verified on device. Section 122's carried-forward list still applies minus the three items closed here: single-slot jobs have no deadline (product decision; `complete-slot` exits not checked); `per_worker` jobs never auto-close unfilled slots (product decision); crash window between the `slots_closed` update and the refund insert (consider a reconcile pass for job-level refunds); live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active); session 105's throwaway job `4ca119ab-...` (not checked this session); new throwaway `6e7e9809-951f-4cc7-8877-7172084827ae` (cancelled, one pending applicant, testnet).
+
+---
+
+## Section 124 — Session 109 (2026-10-03): Pass D, job-level refund reconcile
+
+Closed the carried-forward crash-window item from Sections 122 and 123.
+
+**Gap.** `close-slots`, `/cancel` and Pass C each (1) move the job (`slots_closed` or `status`) and then (2) insert a refund row with `application_id` null. A crash or failed insert between the two leaves money owed with no retry. `reconcileMissingRefunds` only covers per-application refunds for `missed` slots, and job-level refunds have no unique index (`uq_baltx_slot_refund` only covers rows with a non-null `application_id`), so a blind retry could double-credit.
+
+**Fix (`backend/src/lib/slotDeadlineChecker.ts`, +134 then +8 / -3).** New Pass D, `reconcileJobLevelRefunds()`, runs last in `checkSlotDeadlines`. For every job with `slots_closed > 0` or `status = 'cancelled'` it compares the sum of `kind = 'refund'` rows with `application_id` null against the expected total, and credits only a shortfall:
+- cancelled job: expected = full `budget` (`/cancel` refunds the unclosed slots; closed slots were refunded earlier)
+- any other job: expected = `slots_closed × budget / worker_slots`
+
+Safety measures:
+- **Dry-run by default.** Credits only when `JOB_REFUND_RECONCILE_LIVE === 'true'`; otherwise it logs `[DRY-RUN] would credit`.
+- **Two-cycle guard.** A shortfall must show the same amount on two consecutive 5-minute cycles before acting, so a live request between its job update and its refund insert is never mistaken for a crash. In-memory; a restart delays action by one cycle.
+- **Surplus is logged, never clawed back** (pre-session-108 `/cancel` could double-refund after a partial close).
+- **Rounding tolerance.** Refunds are stored to 4 dp, so closing slots one at a time can drift by up to ~0.00005 per row. Tolerance = `min(slots × 0.0001, share / 2)`: absorbs that drift but never a real missing refund (at least one slot's share).
+- Candidate jobs and refund sums are fetched in two queries (refund lookup chunked by 100 job ids), not one query per job.
+
+**Verification.**
+- `tsc --noEmit` clean after each patch; patches applied with match-exactly-once scripts.
+- First dry-run deploy (2026-10-03 06:52 UTC) logged one surplus: job `37301bfd-b0b0-480f-8f95-c1487d132721`, expected 1.3333, actual 1.3334. Two refunds of 0.6667 (2026-09-05) confirmed it as rounding drift, which is why the tolerance was added.
+- Second deploy (commit `fe75592`, build 07:09 UTC): no `Job refund reconcile` lines through the 07:15 cycle, so no job has a shortfall and the surplus is absorbed.
+- `JOB_REFUND_RECONCILE_LIVE=true` set on Render and redeployed (07:23 UTC, same commit `fe75592`). Clean startup. Live mode has not fired on a real shortfall.
+
+**Also checked.** Session 105's throwaway job `4ca119ab-1ea2-45e7-96af-2c364b94250d` is already `completed` (`fixed`, 2 slots, `slots_closed = 1`): one worker payout and one 1.0000 job-level refund 92 seconds later, so no crash. Pass C does not apply to it; dropped from the list below.
+
+**Known limits (accepted).**
+- The candidate query uses Supabase's default 1000-row cap; needs paging if jobs with closed slots or a cancelled status ever pass that.
+- Nothing at database level stops two backend instances from reconciling at once; fine on the single Render instance.
+- Pass D has never credited a real shortfall; an end-to-end test (a testnet job with `slots_closed` set in SQL and no matching refund) is optional.
+
+**Files:** `backend/src/lib/slotDeadlineChecker.ts` (`~/Piwork`, commits `d849b00` and `fe75592`); `roadmap.md`; `sessions/session-109.md`.
+
+**Status:** shipped, dry-run clean, live mode enabled. Section 123's carried-forward list still applies minus the crash window and session 105's throwaway job: single-slot jobs have no deadline (product decision; `complete-slot` exits not checked); `per_worker` jobs never auto-close unfilled slots (product decision); live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active); throwaway `6e7e9809-951f-4cc7-8877-7172084827ae` (cancelled, one pending applicant, testnet); plus the Pass D row cap and the optional live-fire test above.
