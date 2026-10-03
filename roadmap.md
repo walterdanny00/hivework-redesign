@@ -7469,3 +7469,53 @@ Closed the carried-forward item "single-slot jobs have no deadline" from Section
 **Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/payments.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `frontend/src/pages/PostJob.tsx`, `frontend/src/pages/JobDetail.tsx` (`~/Piwork`, commits `f5c6252`, `a5cc13b`, `76acd8b`, `8b57d55`); `roadmap.md`; `sessions/session-110.md`.
 
 **Status:** shipped and verified on testnet, with the gaps above. Section 124's carried-forward list still applies minus the single-slot deadline item: `per_worker` jobs never auto-close unfilled slots (product decision); review window for submitted-but-uncompleted single-slot work (product decision); legacy single-slot jobs with no deadline; live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active); testnet throwaways `6e7e9809-951f-4cc7-8877-7172084827ae`, `fa0d4d5c-9a0a-4aab-8382-f586e646604b` (no-deadline control), `ded094fc-8451-42f4-a6fb-66389ee980f0`, `ac35bb37-32c4-46fe-ad95-0c25aa444c51`, `2c4b86b2-9ee6-4cc5-9623-f6ed35e92a56`; plus the Pass D row cap and the optional live-fire test.
+
+## Section 126 — Session 111 (2026-10-03): submit-work race closed, one payment-or-refund per slot, multi-slot "submitted" label; review / dispute / application-deadline design
+
+Session 110 left two product questions open (review window for submitted work, hiring window for `per_worker` jobs). Before designing either, this session read the real schema and money code, fixed three gaps that came up, and settled the model the next features will sit on.
+
+**Gaps fixed**
+
+1. **`submit-work` race (multi-slot).** The route checked the slot was not `missed`, then uploaded files (up to 200MB), then wrote with an unconditional `update ... where id = app.id`. If the checker closed the slot and refunded the client during the upload, the write flipped `slot_status` from `missed` back to `submitted`, so the owner could pay a slot that was already refunded. Reasoned from the code, not reproduced. Fix: the final write now requires `status in (approved, submitted)` and `slot_status in (active, submitted)`; zero rows updated means uploads are deleted and the route returns 409.
+2. **Paid and refunded were not mutually exclusive.** `uq_baltx_job_completion` (worker, job) and `uq_baltx_slot_refund` (application) were separate, and worker credits did not carry the slot id. Fix: migration `20261003000000_slot_settlement_unique.sql` adds `uq_baltx_slot_settlement`, unique on `application_id` where `kind in ('job_completion','refund')` and `application_id is not null`. `/complete` and `/complete-slot` now write `application_id` on the `job_completion` credit. Both routes used to treat Postgres 23505 as "already credited, carry on"; with the new index a duplicate can also mean "already refunded", so the shortcut now calls `slotAlreadyRefunded(applicationId)` and treats a refunded slot as a real failure. Credits written before this change have `application_id` null and are not covered by the index.
+3. **Multi-slot worker saw "approved" after submitting.** `submit-work` only changes `slot_status` for multi-slot jobs, and the worker lists sent only `status` and a `missed` flag. `dashboard.ts` and `history.ts` now also send `slot_status`; `ApplicationCard` shows "submitted" when `slot_status === 'submitted'`. Every other label is unchanged.
+
+**Verification (testnet)**
+- Pre-check before the index: no slot had both a refund row and a completed status (query returned no rows). Index created in the Supabase SQL editor without error.
+- `submit-work` smoke test after the conditional write: a normal submit still saved. **Pass.**
+- `/complete` (single-slot job `fe84ba63-eb25-41b8-9cc4-24afa2459a94`): `job_completion` credit written with `application_id` set. **Pass.**
+- `/complete-slot` (multi-slot job `685d4fe5-90d0-4581-8f41-8ce9fe34ac2e`): `job_completion` credit written with `application_id` set. **Pass.**
+- Worker lists: a submitted multi-slot application shows "submitted" on the Dashboard card. Checked on device. **Pass.**
+
+**Not verified**
+- The race itself (needs a slow upload colliding with the checker); verified by code read and `tsc` only.
+- The `slotAlreadyRefunded` branch (needs a slot with both a refund and a payment, which the guards now prevent); code read and `tsc` only.
+- Resubmission while `submitted`: the route allows it but there is no UI, so it was not exercised.
+
+**Findings that changed the plan**
+- The checker's `closeSlotAndRefund` already claims the slot with a conditional update (`status = approved`, `slot_status = active`), so only `submit-work` needed the fix.
+- Money movement is already a ledger credit, with Pi moving only at withdrawal. No settlement rewrite and no `payout_pending` state are needed.
+- Pass D is already guarded (dry-run unless `JOB_REFUND_RECONCILE_LIVE === 'true'`, a shortfall must repeat on two cycles). A unique index would be wrong there because job-level refunds legitimately repeat. Check whether the flag is set on Render.
+- The live database allows `submitted` in `applications.status`, but no migration in the repo adds it. It was changed by hand; a catch-up migration is owed.
+- Submitted multi-slot work is invisible to the checker (it only looks at `active` slots), so the hold-forever problem from Section 125 applies to multi-slot jobs too.
+- Job finalization logic is copied in `complete-slot` and the checker. A review timer would be a third copy.
+
+**Design (adopted as principles; no status rewrite)**
+- State changes are compare-and-set (`update ... where status = expected`); the database picks the winner.
+- Money keeps moving only through the ledger, now with one payment-or-refund per slot.
+- Each wait gets its own absolute-timestamp column, written when the state starts. Old jobs get no new timers.
+- New columns, states and tables are additions only. A read-only `slotState()` helper combines `status` and `slot_status` for new code (first use: the worker list label).
+
+**Decided:** `per_worker` jobs get an application deadline (hiring window), mirroring the session 110 rule for single-slot jobs.
+
+**Proposed, awaiting your decision:**
+- The owner picks a review window per submission when posting; the clock starts at each submission. What happens when it runs out is open; the proposed default is to pay the worker, so workers are not held hostage, with reject and dispute available inside the window.
+- No final "reject and refund" for owners. Instead: request changes (capped rounds, with its own revision due date that Passes A and B respect), or open a dispute.
+- Submissions become immutable versions, so a dispute has evidence (also resolves "overwritten files never deleted").
+- Disputes need an admin flag; the project owner acts as admin first. Chat comes after the dispute record exists.
+- Team review: reviewers get their own accounts via a per-job reviewer role (`job_reviewers`). They can approve, reject and request changes, but cannot cancel, change the budget or receive funds, and every action is logged. Separate later section, because it touches every owner-only guard.
+- Build order: `per_worker` application deadline; review window, request-changes, versions, disputes, admin flag; reviewer delegation; dispute chat. Also owed: `finalizeJobIfDone()` shared helper and the `applications.status` catch-up migration.
+
+**Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/ApplicationCard.tsx`, `supabase/migrations/20261003000000_slot_settlement_unique.sql` (`~/Piwork`; commits `4cd6b68` ledger index and completion routes, `1224a87` `slot_status` in worker lists, `ab39485` card label; the `submit-work` commit is findable with `git log --grep "submit-work: conditional write"`); `roadmap.md`; `sessions/session-111.md`.
+
+**Status:** three fixes shipped and verified on testnet, with the gaps above. Section 125's carried-forward list still applies, plus: `JOB_REFUND_RECONCILE_LIVE` check on Render; `applications.status` catch-up migration; multi-slot submitted work has no exit if the owner never reviews; testnet jobs `fe84ba63-...` (completed) and `685d4fe5-...` (multi-slot, one slot completed).
