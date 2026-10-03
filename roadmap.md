@@ -7430,3 +7430,42 @@ Safety measures:
 **Files:** `backend/src/lib/slotDeadlineChecker.ts` (`~/Piwork`, commits `d849b00` and `fe75592`); `roadmap.md`; `sessions/session-109.md`.
 
 **Status:** shipped, dry-run clean, live mode enabled. Section 123's carried-forward list still applies minus the crash window and session 105's throwaway job: single-slot jobs have no deadline (product decision; `complete-slot` exits not checked); `per_worker` jobs never auto-close unfilled slots (product decision); live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active); throwaway `6e7e9809-951f-4cc7-8877-7172084827ae` (cancelled, one pending applicant, testnet); plus the Pass D row cap and the optional live-fire test above.
+
+---
+
+## Section 125 — Session 110 (2026-10-03): Single-slot jobs get a required fixed deadline
+
+Closed the carried-forward item "single-slot jobs have no deadline" from Sections 122–124, plus two gaps found while testing it.
+
+**Gap.** Create and `PATCH /draft` stored `deadline_mode: null` for single-slot jobs, and the approve-time late-approval block was gated on `slots > 1`, so no checker pass ever saw a single-slot job. An approved worker who never submitted held the escrow forever (`complete-slot` rejects single-slot jobs; `/complete` and `/cancel` don't cover it).
+
+**Product rule.** Every single-slot job requires a fixed `deadline_at` date, future at posting time. No per-worker days for single-slot jobs. Jobs posted before this change keep their old behavior (the checker only acts on `deadline_mode = 'fixed'`).
+
+**Fix.**
+- `jobs.ts`: `singleSlotDeadlineError()` on create and `PATCH /draft` for `slots <= 1`; single-slot jobs store `deadline_mode: 'fixed'` and the date, `slot_duration_days` only for multi-slot `per_worker`. Approve's late-approval block now covers single-slot jobs (message points at cancel).
+- `payments.ts` `/approve`: refuses a draft whose fixed deadline already passed, before Pi approves any payment (checking in `completePayment` would charge, then refuse).
+- `PostJob.tsx`: required deadline on step 3 for one-worker jobs with a tomorrow-UTC minimum; Review shows it; `goReview` returns to the first failing step instead of step 1.
+- `JobDetail.tsx`: "Finish by" for one-worker jobs.
+- Existing passes now serve single-slot jobs: Pass B closes a missed approved slot and refunds the full budget tied to the application; Pass C closes a never-approved job with a null-`application_id` refund; Pass D agrees with both.
+
+**Pass C bug found before shipping.** Pass C counted only `approved` / `completed` applications as filling the slot. A submitted single-slot application sits at `status = 'submitted'`, so after deadline + grace the checker would have refunded the full budget while the worker's submission awaited review. Fix: `submitted` counts as filled. (`submitted` single-slot work has one exit, `/complete`; Pass B ignores it because it only targets `approved`.)
+
+**Gap found in testing: submissions after a miss.** `submit-work` only checked that the application was `approved` or `submitted`. A missed single-slot worker could submit (application `submitted`, `slot_status` still `missed`, job `expired`) and the owner saw Mark complete. `/complete` refused it (requires `in_progress`), so no money moved. A missed multi-slot worker would have passed every check: `status` stays `approved`, a submit flips `slot_status` back to `submitted`, and `complete-slot` could pay them on top of the client's refund (reasoned from the code, not run). `submit-work` now refuses (409) when the slot is `missed` or the job is `expired` / `cancelled` / `completed` / `partially_complete`; the job page treats a missed single-slot worker as `missed` (shows "Deadline passed") and hides Mark complete for a missed slot.
+
+**Verification.** Patches applied with match-exactly-once scripts; `tsc --noEmit` clean on backend and frontend after each. On testnet, deadlines backdated 26h in SQL:
+- Never approved (`ded094fc-8451-42f4-a6fb-66389ee980f0`, one pending applicant left pending): job `expired`, `slots_closed = 1`, one 1.0000 refund with `application_id` null. **Pass.**
+- Approved, never submitted (`ac35bb37-32c4-46fe-ad95-0c25aa444c51`): job `expired`, `slots_closed = 0`, application `approved` / `missed`, one 1.0000 refund tied to the application, no null-id refund. **Pass.**
+- Submitted before the deadline (`2c4b86b2-9ee6-4cc5-9623-f6ed35e92a56`): still `in_progress`, `slots_closed = 0`, application `submitted`, no refund after about four cycles; Mark complete then credited one `job_completion` of 1.0000 and the job went `completed`. **Pass** (the Pass C fix).
+- `/complete` on the expired `ac35bb37` returned "Job is not ready to be completed" and wrote no `job_completion` row. **Pass.**
+
+**Deploy-order note.** Job `fa0d4d5c-...` was created at 08:10:59 UTC with null deadline fields: Vercel's new form was live before Render's new backend (build 08:03, new process 08:16:09, live 08:18:27). Wait for Render's "Your service is live" line before testing backend changes.
+
+**Checked on device after `8b57d55`.** The `JobDetail` missed-state UI (worker "Deadline passed" panel, no Mark complete for the owner) and "Job closed" for the pending applicant in the never-approved test both displayed correctly.
+
+**Not verified.** The `submit-work` guard against a real missed slot after deploy (code read and tsc only); the `payments.ts` expired-draft refusal and `PATCH /draft` single-slot validation (no UI).
+
+**Known limits (accepted).** Submissions are still accepted during the 24h grace (the slot is `active` until Pass B runs); the deadline is not enforced at submit time. A submitted single-slot job the client never completes still holds the escrow (needs a review-window decision). The picker sends a bare date, read as 00:00 UTC.
+
+**Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/payments.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `frontend/src/pages/PostJob.tsx`, `frontend/src/pages/JobDetail.tsx` (`~/Piwork`, commits `f5c6252`, `a5cc13b`, `76acd8b`, `8b57d55`); `roadmap.md`; `sessions/session-110.md`.
+
+**Status:** shipped and verified on testnet, with the gaps above. Section 124's carried-forward list still applies minus the single-slot deadline item: `per_worker` jobs never auto-close unfilled slots (product decision); review window for submitted-but-uncompleted single-slot work (product decision); legacy single-slot jobs with no deadline; live tests owed from session 96 (50–150MB video upload; 200MB combined pre-check); `memoryStorage()` RAM watch item; files from overwritten submissions never deleted; category expansion (product decision); draft edit/resume-payment UI; `JobDetail.tsx` token-redeclaration removal (parked); standing Vercel/Render deploy spot-check; verify `MAX_DAILY_OUT...` cap vs `MAX_PAYOUT_PER_TX` before raising the per-tx limit; cosmetic `partially_complete` vs `expired` ending when every approved worker misses and the client later closes empty slots; session 102's throwaway job (account C's slot still active); testnet throwaways `6e7e9809-951f-4cc7-8877-7172084827ae`, `fa0d4d5c-9a0a-4aab-8382-f586e646604b` (no-deadline control), `ded094fc-8451-42f4-a6fb-66389ee980f0`, `ac35bb37-32c4-46fe-ad95-0c25aa444c51`, `2c4b86b2-9ee6-4cc5-9623-f6ed35e92a56`; plus the Pass D row cap and the optional live-fire test.
