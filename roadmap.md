@@ -7519,3 +7519,37 @@ Session 110 left two product questions open (review window for submitted work, h
 **Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/ApplicationCard.tsx`, `supabase/migrations/20261003000000_slot_settlement_unique.sql` (`~/Piwork`; commits `4cd6b68` ledger index and completion routes, `1224a87` `slot_status` in worker lists, `ab39485` card label; the `submit-work` commit is findable with `git log --grep "submit-work: conditional write"`); `roadmap.md`; `sessions/session-111.md`.
 
 **Status:** three fixes shipped and verified on testnet, with the gaps above. Section 125's carried-forward list still applies, plus: `JOB_REFUND_RECONCILE_LIVE` check on Render; `applications.status` catch-up migration; multi-slot submitted work has no exit if the owner never reviews; testnet jobs `fe84ba63-...` (completed) and `685d4fe5-...` (multi-slot, one slot completed).
+
+## Section 127 — Session 112 (2026-10-03): `per_worker` hiring window; review-window decisions
+
+Built the `per_worker` application deadline decided in Section 126, and settled the two product questions that blocked the review-window work.
+
+**Gap.** `per_worker` jobs had no end to hiring. `/apply` only checked job status and free slots; approve's late-approval block was gated on `deadline_mode = 'fixed'`; Pass C (never-filled slots) also only ran for fixed jobs. A `per_worker` job with an unfilled slot held that slot's escrow until the owner closed it by hand, and pending applicants stayed pending forever.
+
+**Product rule.** Every new `per_worker` multi-slot job requires a hiring-close date (`jobs.applications_close_at`), future at posting time. After it passes, no one can apply or be approved. After the close date plus the 24h grace, unfilled slots are refunded to the owner and applicants still pending are rejected and notified. Workers already approved keep their own per-slot clocks. Jobs posted before this change have a null date and no window.
+
+**Fix.**
+- Migration `20261003010000_jobs_applications_close_at.sql`: nullable `applications_close_at timestamptz`. Applied in the Supabase SQL editor before deploy.
+- `jobs.ts`: `applicationsCloseError()` on create and `PATCH /draft`; the column is written only for `per_worker` multi-slot jobs. `/apply` and approve return 409 after the date. `getApplyableJobs` hides closed-window jobs from the Jobs list and counts.
+- `payments.ts` `/approve`: refuses an unpaid draft whose window already passed, before Pi approves any payment.
+- `slotDeadlineChecker.ts`: **Pass E** (copy of Pass C for `per_worker` jobs: same `slots_closed` compare-and-set, null-`application_id` refund, notification, rollback on credit failure) and **Pass F** (pending applications on those jobs → `rejected`, conditional on `pending`, with `notifyApplicationRejected`). Run order: A, B, C, E, F, `reevaluateJobs`. `reevaluateJobs` is reused unchanged: no approvals → `expired`, active workers → stays `in_progress`. Pass D agrees because it is driven by `slots_closed`.
+- `PostJob.tsx`: "Hiring closes" field, step-3 validation, review card line. `JobDetail.tsx`: "Hiring closes" line; Apply button "Applications closed"; rejected card says hiring closed instead of "client chose another applicant" when the window has passed; slot bar shows closed slots hatched with "· N closed (refunded)".
+
+**Decisions (review window, for the next build).**
+- Expiry pays the worker. Guards: auto-pay pauses while a dispute is open; a request-changes resets the clock.
+- The owner sets the window once, at posting, within platform min/max (proposed 48h–14 days; presets 48h / 72h / 7d / 14d), shown to the worker before applying, with reminders to the owner. Clock starts at each submission.
+
+**Verification (testnet, job `0230b2ea-25f7-46bc-8657-05f901529a28`, 2 slots, one approved, one pending).**
+- Close date backdated 1h: approving the pending applicant refused with the hiring-closed message; application stayed `pending`. **Pass.**
+- Backdated 25h: `slots_closed = 1`, job stayed `in_progress`, one 1.0000 `refund` with `application_id` null. **Pass.**
+- Pass F: pending applicant became `rejected` and was notified; approved worker unchanged. Owner sees "Declined (1) · Job closed". **Pass.**
+- Finishing the job: the approved worker's slot completed in the app; ledger shows the earlier 1.0000 refund (null `application_id`) plus one 1.0000 `job_completion` tied to the worker's application, no second refund; final job status confirmed correct on device (the one-completed-one-closed mix). **Pass.**
+- Dashboard shows "1π refunded"; slot bar and "1 of 2 slots filled · 1 closed (refunded)" checked on device. **Pass.**
+
+**Not verified.** Worker-side Apply button and Jobs-list hiding (need a fresh job); the new rejected-card wording on device; wizard validation messages; the `payments.ts` expired-hiring-draft refusal; Pass E on a job with zero approvals (code read only).
+
+**Known limits (accepted).** Pending applicants cannot be approved after the close date but are only rejected after the 24h grace, so owners should review first. The Approve button still shows during the grace window and fails on tap. The picker sends a bare date, read as 00:00 UTC; the UI check uses the browser clock. The hiring-closed wording is inferred from dates, so a manual decline just before closing would show it too. Deploy order: migration, then backend; a backend that requires the date with the old form returns 400 on per-worker multi-slot posts.
+
+**Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/payments.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `frontend/src/pages/PostJob.tsx`, `frontend/src/pages/JobDetail.tsx`, `supabase/migrations/20261003010000_jobs_applications_close_at.sql` (`~/Piwork`; commit `cf8778f` for the last frontend polish, earlier ones via `git log --grep "Session 112"`); `roadmap.md`; `sessions/session-112.md`.
+
+**Status:** shipped and verified on testnet, with the gaps above. Section 126's carried-forward list still applies minus the `per_worker` application deadline, plus: disable Approve during the grace window; optional stored rejection reason; testnet throwaway `0230b2ea-25f7-46bc-8657-05f901529a28` (finished and paid); the missed-slot path on a job whose hiring window already closed is still untested. Next: review window (owner-chosen at posting, auto-pay on expiry, request-changes with capped rounds, pause on dispute), then submission versions, disputes, admin flag, reviewer delegation, dispute chat.
