@@ -7601,3 +7601,48 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/routes/jobs.ts`, `backend/src/routes/admin.ts`, `backend/src/index.ts`, `backend/src/lib/disputes.ts`, `backend/src/lib/settlement.ts`, `backend/src/lib/notifications.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `frontend/src/pages/PostJob.tsx`, `frontend/src/pages/JobDetail.tsx`, `supabase/migrations/20261004000000_review_window_and_disputes.sql`, `supabase/migrations/20261005000000_settlement_and_dispute_response.sql` (`~/Piwork`; commits `faddb5f`, `c887d77`, `ad9ee70`, deployed HEAD `584c8a6` when auto-pay went live, the rest via `git log --grep "Session 113"`); `roadmap.md`; `sessions/session-113.md`.
 
 **Status:** shipped and verified on testnet for single-slot jobs, with the gaps above. Section 127's carried-forward list still applies, plus: owner reminders before auto-pay; a catch-up migration (the `service_role` grant on `disputes`, revoke from `anon` / `authenticated`, the `applications.status` values added by hand); a shared finalization helper (finalization logic now lives in `complete-slot`, `reevaluateJobs` and the settlement helpers); the worker "dispute this request" link in the changes-requested banner; split outcomes; an admin page; testnet job `e9db14bf-49fe-4287-9e36-e6949d162a3d` (pending offer, still open). Next: run the unverified items (multi-slot first), then reminders, submission versions, an admin page, reviewer delegation (`job_reviewers`), dispute chat.
+
+## Section 129 — Session 114 (2026-10-09 to 2026-10-11): multi-slot and dispute paths verified, catch-up migration, worker work-list label fix
+
+**What this section is.** Session 113 shipped the review window, request changes, disputes, release offers and auto-pay, verified on single-slot jobs only. This session ran what was left unverified, closed the catch-up migration and fixed the one bug the checks turned up. Deployed HEAD: `386c36b`.
+
+**Behavior decisions confirmed.**
+- Requesting changes cancels a pending release offer: the route clears both offer columns and the review clock in the same claim. The owner UI keeps the Request changes button visible while an offer is pending, which is how an owner withdraws an offer.
+- A declined offer and a worker-opened dispute both set `review_due_at` to null and leave the slot `submitted`, so auto-pay cannot pay a slot that is in dispute.
+- The worker's work list labels a closed slot by `closed_reason`: `released` shows "released", `dispute_refund` shows "refunded after dispute", null or `deadline` still shows "missed deadline".
+
+**Changes.**
+- `dashboard.ts` and `history.ts` select and return `closed_reason` next to `missed`; `ApplicationCard.tsx` takes it in its type and uses it in the label. Found because the worker's "Your work" list said "missed deadline" for a slot refunded after a dispute while `JobDetail.tsx` was already correct. Commit `386c36b`.
+- Catch-up migration `supabase/migrations/20261009000000_disputes_grants.sql` (idempotent): row-level security on `disputes`, revoke from `anon` and `authenticated`, grant to `service_role`, and the `applications_status_check` constraint with `pending, approved, rejected, submitted, completed`. Run once in the SQL editor ("Success, no rows"), then committed as `cfa5b1c`. This closes the catch-up item from Section 128.
+
+**Findings.**
+- `settlement.ts` claims each slot with a compare-and-set (`slot_status = 'submitted'` for multi-slot, `status = 'submitted'` for single-slot) before any money moves; pay and refund are mutually exclusive through `uq_baltx_slot_settlement`.
+- `submit-work` marks a multi-slot submission as `status = 'approved'` + `slot_status = 'submitted'`, which `reevaluateJobs` and the credit-failure reopen in `paySubmittedSlot` both assume.
+- `paySubmittedSlot` treats a duplicate-key credit error as success, so in an odd state `increment_worker_stats` could run twice for one slot. Low priority, not changed.
+- The live database already had `anon` and `authenticated` locked out of `disputes` with row-level security on; the migration only records that state in the repo.
+
+**Verification (testnet).**
+- Multi-slot, one slot auto-paid then the other refunded through a dispute (job `a5dec4fb-807b-439b-8400-7fa224a3e059`, 2 slots, 1π each): backdating one clock paid only that slot (one `job_completion` credit, job still `in_progress`, sibling untouched); Reject opened a dispute; admin `refund_owner` returned 200; slot `approved` / `missed` / `dispute_refund`, job `partially_complete`, exactly one 1.0000 `refund` credit with that application id. **Pass.**
+- Second `resolve` on the same dispute returned 409 "This dispute is already resolved." with no money moved. **Pass.**
+- Both slots auto-paid in the same cycle (job `e328b8a9-1a38-4e51-a484-1d63f19eea31`): two `Review auto-pay: paid.` lines 7 seconds apart; both applications `completed` / `completed`, job `completed`, exactly two 1.0000 `job_completion` credits, no refunds. **Pass.**
+- `disputes` lockdown: `has_table_privilege` false for `anon` and `authenticated`, `relrowsecurity` true. **Pass.**
+- On-device labels and notifications (job `a5dec4fb-…`): owner Slots tab "Refunded after dispute" with the explanation; worker timeline "Dispute decided"; owner notifications "Dispute resolved", "Refund available" and "Review window ended"; worker notifications "Work rejected" and "Dispute resolved"; worker "Payment sent" after auto-pay. **Pass.** The work-list label bug above was found here; after deploy the list reads "refunded after dispute · 10/9/2026".
+- Worker declines a release offer (job `f4788a7d-f256-47e4-be37-e81b8928ecc4`, single-slot): offer columns cleared, `review_due_at` null, slot still `submitted`, dispute with role `worker`, source `offer_declined`, reason saved. Admin `pay_worker` then returned 200: application `completed`, job `completed` with `payout_claimed = true`, exactly one 1.0000 `job_completion` credit, no refund row. **Pass.**
+- Request changes while an offer is pending (job `722fb8d7-9616-453c-ac45-f558e71786e5`): application `approved`, `revision_round` 1, `revision_due_at` set, note saved, both offer columns and `review_due_at` null; the worker page replaced the offer card with the changes banner and countdown. **Pass.**
+- Countdown after a resubmit without a reload: the worker's countdown appeared immediately; `status` `submitted`, `revision_due_at` null, `review_due_at` restarted. **Pass.**
+- Worker "Open a dispute" button (same job): `review_due_at` null, slot still `submitted`, dispute with role `worker`, source `worker_opened`; worker sees "An admin is reviewing this submission" and the response box; owner sees "In dispute" and the action buttons are gone. **Pass.**
+
+**Not verified.** Two settlements racing in parallel (for example an admin resolve and an auto-pay on sibling slots at the same instant); the checker settles slots one at a time, and the compare-and-set claims plus `uq_baltx_slot_settlement` are expected to make it safe. The database-error paths of `hasOpenDispute` failing closed and of the admin routes' try/catch. Olawalt's own notifications after the multi-slot auto-pay were not looked at; the same path paid and notified the other worker correctly.
+
+**Known limits (accepted).** Jobs and submissions from before Section 128 have no review window and still hold forever. The open worker-opened dispute on job `722fb8d7-…` is left as a fixture.
+
+**Polish list (not blocking).**
+- The owner's "Review window ended" message names no worker, so on a multi-slot job the owner cannot tell which worker was auto-paid.
+- The "Changes requested" notification does not say a pending release offer was withdrawn.
+- The owner card still shows the green "Submitted" pill next to the "Refunded after dispute" badge.
+- Owner ("1d 23h left") and worker ("2d 0h left") countdowns round the same deadline differently; one shared helper would fix it.
+- `paySubmittedSlot` runs `increment_worker_stats` even when the credit insert hit a duplicate key.
+
+**Files:** `supabase/migrations/20261009000000_disputes_grants.sql`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/ApplicationCard.tsx`.
+
+**Status:** every item on Section 128's unverified list is verified except the database-error paths, and the catch-up migration is done. Section 128's carried-forward list still applies, minus the catch-up migration, plus the polish list above. Next: owner reminders at 24h and 6h before auto-pay (per-application reminder tracking), then submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
