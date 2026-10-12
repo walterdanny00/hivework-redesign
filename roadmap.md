@@ -7646,3 +7646,34 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `supabase/migrations/20261009000000_disputes_grants.sql`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/ApplicationCard.tsx`.
 
 **Status:** every item on Section 128's unverified list is verified except the database-error paths, and the catch-up migration is done. Section 128's carried-forward list still applies, minus the catch-up migration, plus the polish list above. Next: owner reminders at 24h and 6h before auto-pay (per-application reminder tracking), then submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 130 — Session 115 (2026-10-11 to 2026-10-12): owner reminders before review auto-pay
+
+**What this section is.** Session 114 verified the review window, disputes and auto-pay. This session adds the first thing on its next-session list: the owner is warned at 24h and at 6h before a submitted slot is paid automatically, and the "Review window ended" notice now names the worker. Deployed HEAD: `d53393a`.
+
+**Design.**
+- Two nullable columns on `applications`, `review_reminded_24h_for` and `review_reminded_6h_for`, each holding the `review_due_at` value the reminder was sent for. A reminder is due only when its column differs from the current `review_due_at`, so any new review window (resubmit, return from changes) re-arms both without touching the code paths that set `review_due_at`.
+- New pass `remindOwnersBeforeAutoPay()` in `slotDeadlineChecker.ts`, run just before `autoPayExpiredReviews()`. It looks at submitted slots whose review clock is under 24h away, with no live revision and no pending release offer, skips any slot with an open dispute (`hasOpenDispute`, fails closed), and sends only the tightest crossed threshold, so a checker outage gives one reminder.
+- The sent-state column is written before the notification is queued: a failed notification is never repeated every cycle, and also never retried.
+- Dry-run (`REVIEW_AUTOPAY_LIVE` not `true`) only logs once per application, tier and window, because a reminder would promise a payment that will not happen.
+- New notification type `review_reminder`, "Review window closing", naming the worker. The live `notifications` table has no check constraint on `type`, and the frontend has no per-type mapping, so the change is backend-only.
+
+**Changes.** `supabase/migrations/20261011000000_review_reminders.sql` (idempotent, run once in the SQL editor), `notifications.ts` (type added), `slotDeadlineChecker.ts` (new pass; Pass G selects `worker_username` and its owner message names the worker). Commit `d53393a`.
+
+**Findings.** The review window is at least 48 hours, so a 24h reminder cannot fire right after a submit. Because the sent-state is keyed to the exact `review_due_at` value, running the same backdating statement twice (so `now()` moves) re-arms the reminder and sends a second one; in normal use the value only changes on a resubmit.
+
+**Verification (testnet; job `c645b230-2a06-4916-a254-b710623d1ce9`, application `67790a12-2024-4dec-b8da-433743eaab14`, one slot, 1π, 48h window).**
+- 24h tier at now + 20h: one reminder, column equal to `review_due_at`, notification text and in-app card correct. **Pass.** No repeat over about 8 further cycles. **Pass.**
+- 6h tier at now + 5h: one reminder, 6h column set. **Pass.**
+- Request changes, resubmit, then jump straight to now + 5h: a 6h reminder only, 24h column unchanged. **Pass.**
+- Auto-pay left to expire: paid about 3 minutes after the due time, owner notice names `@Olawalt`, worker "Payment sent 1π", application and job `completed`, `payout_claimed = true`, exactly one 1.0000 `job_completion` credit. **Pass.**
+
+**Not verified.** Multi-slot jobs (code read and `tsc` only). The dry-run branch (auto-pay is live on testnet). The live-revision, pending-offer and open-dispute exclusions against real rows, and `hasOpenDispute` failing closed inside the new pass. The sent-state write failing.
+
+**Known limits (accepted).** Jobs and submissions from before Section 128 have no review window and get no reminders. The reminder has no link, and the worker is not reminded of anything. A failed notification is not retried. The "about N hours" figure rounds up, which is a third rounding rule next to the owner and worker countdown labels.
+
+**Polish list (not blocking).** The first item from Section 129 is closed. Still open: the "Changes requested" notification does not say a pending release offer was withdrawn; the owner card still shows the green "Submitted" pill next to the "Refunded after dispute" badge; owner and worker countdowns (and now the reminder text) round the same deadline differently, one shared helper would fix it; `paySubmittedSlot` runs `increment_worker_stats` even when the credit insert hit a duplicate key.
+
+**Files:** `supabase/migrations/20261011000000_review_reminders.sql`, `backend/src/lib/notifications.ts`, `backend/src/lib/slotDeadlineChecker.ts` (`~/Piwork`; commit `d53393a`); `roadmap.md`; `sessions/session-115.md`.
+
+**Status:** shipped and verified on testnet for single-slot jobs. Section 129's carried-forward list still applies, minus the owner reminders and the worker-naming polish item. Next: the polish list (shared countdown helper first), then submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
