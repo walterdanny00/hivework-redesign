@@ -7677,3 +7677,34 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `supabase/migrations/20261011000000_review_reminders.sql`, `backend/src/lib/notifications.ts`, `backend/src/lib/slotDeadlineChecker.ts` (`~/Piwork`; commit `d53393a`); `roadmap.md`; `sessions/session-115.md`.
 
 **Status:** shipped and verified on testnet for single-slot jobs. Section 129's carried-forward list still applies, minus the owner reminders and the worker-naming polish item. Next: the polish list (shared countdown helper first), then submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 131 — Session 116 (2026-10-13): polish pass — countdown misdiagnosis closed, report stamp follows the slot outcome, worker stats no longer double-count, changes-requested notice names a withdrawn offer
+
+**What this section is.** Session 115 left a polish list. This session works through it. One item turned out not to be a bug, and three were fixed and verified on testnet. Deployed HEAD: `32daa13`.
+
+**Findings.**
+- The shared countdown helper is not needed. Owner and worker both use `timeLeftLabel` in `JobDetail.tsx` (floor to whole minutes). The only other rounding site is the backend reminder text, a snapshot at send time. Section 129 and Section 130 said the owner and worker labels use different rules; that was wrong. The Session 114 "1d 23h vs 2d 0h" gap came from the two screens rendering a minute apart. Screenshots of one deadline on both screens showed the same value.
+- The green "Submitted" pill beside the "Refunded after dispute" badge was `SubmissionReport`'s `stamp-chip`, hard-coded to "Submitted". The ledger label logic was already correct.
+- `increment_worker_stats` is not idempotent, and all three call sites (`paySubmittedSlot`, the slot-completion route, the single-worker approve route) ran it after a tolerated duplicate credit. The approve route is the live case: its own comment describes a retry after a partial failure.
+- The request-changes route did not read the release-offer fields before clearing them, and the owner's Request changes button stays visible while an offer is pending, so the path is reachable from the UI.
+
+**Changes.**
+- `JobDetail.tsx`: `SubmissionReport` takes an optional `stampLabel`; the call site passes the card's label ("In progress" shown as "Submitted").
+- `settlement.ts`, `routes/jobs.ts`: `increment_worker_stats` runs only when the credit insert was fresh (`if (!creditError)`), at all three call sites.
+- `routes/jobs.ts`, `notifications.ts`: request-changes reads `release_offer_at` and `release_offer_expires_at` before the update and sets `offerWithdrawn` when an offer was live (both set, expiry in the future). `notifyChangesRequested` appends one sentence saying the earlier refund offer was withdrawn and needs no answer. Title unchanged; a request with no live offer reads as before.
+- Commits `cafd7d5`, `eb27106`, `32daa13`. No migration.
+
+**Verification (testnet).**
+- Chip matches the badge on a completed slot (`f4788a7d-…`), a refunded slot (`a5dec4fb-…`), an open dispute (`722fb8d7-…`) and a submitted slot with an offer pending (`5465cd16-…`). **Pass.**
+- A normal completion moved the worker's stats as before. **Pass.**
+- Release offer, then Request changes (`5465cd16-…`): worker notification carries the withdrawn-offer sentence. Request changes with no offer (`2bc3ce19-…`): text unchanged. **Pass.**
+
+**Not verified.** The duplicate-credit branch of the stats guard (needs a retry after a partial failure). An offer that had already expired before the request. Request changes with a pending offer on a multi-slot job.
+
+**Known limits (accepted).** If an earlier attempt crashed between the credit and the stats call, those stats stay missed; the long-term fix is deriving `jobs_completed` and `total_earned` from the ledger. After changes are requested, the report chip still reads "Submitted". Notification deadline text is in GMT while the app shows local time. The chip keeps its teal outline on refunded and missed slots.
+
+**Polish list (not blocking).** Chip reads "Changes requested" while the slot is back with the worker. Notification deadlines in the user's time zone or as a relative time. Neutral chip colour for refunded, released and missed slots. Derive worker stats from the ledger. Section 130's other items are closed.
+
+**Files:** `frontend/src/pages/JobDetail.tsx`, `backend/src/lib/settlement.ts`, `backend/src/routes/jobs.ts`, `backend/src/lib/notifications.ts` (`~/Piwork`; commits `cafd7d5`, `eb27106`, `32daa13`); `roadmap.md`; `sessions/session-116.md`.
+
+**Status:** shipped and verified on testnet. Section 129's carried-forward list still applies, minus the four items closed here. Next: submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
