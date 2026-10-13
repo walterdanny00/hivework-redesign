@@ -7747,3 +7747,44 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `supabase/migrations/20261013000000_submission_versions.sql`, `backend/src/routes/jobs.ts`, `backend/src/routes/admin.ts` (`~/Piwork`; commit `d4c9f52`); `roadmap.md`; `sessions/session-117.md`.
 
 **Status:** backend shipped and partly verified on testnet (table, backfill, submit path). UI not started. Section 131's carried-forward list still applies, plus the three small polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour) and the items above. Next: the "Earlier rounds" UI on the owner slot card and the worker changes banner (sweep `SubmissionReport`, the owner card around `JobDetail.tsx` lines 1485-1535 and the worker banner near line 1881 first), run the unverified checks above, then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 133 — Session 118 (2026-10-13): submission versions, UI half — earlier rounds shown to owner and worker
+
+**What this section is.** Section 132 shipped the `submission_versions` history; this session shows it. The owner sees earlier rounds folded under the current report, and the worker sees them in the changes banner. The backend needed no change. Deployed HEAD: `ba75fc8`.
+
+**Findings.**
+- `SubmissionReport` had one call site (the owner's slot card). The worker never saw a rendered report of their own submission, only a changes banner with the latest note.
+- `revision_round` cannot signal whether earlier versions exist (a resubmit during review adds a version without changing it, and the backfilled v1 carries round 1), so each slot card fetches `/versions` instead of inferring.
+- The worker's `myApp` keeps `submission` and `attachments` while changes are requested, so the banner has data to show.
+- The owner and worker pages use separate style strings (`HW_JDO_STYLES` under `.jdo`, owner branch only; `HW_JDW_STYLES` under `.hw-jdw`, worker branch only). The report CSS lived under `.jdo` only, which is why the first worker deploy rendered an unstyled fold.
+
+**Changes** (all in `frontend/src/pages/JobDetail.tsx`).
+- New `SubmissionVersion` type and `EarlierRounds` component: fetches `/api/jobs/:id/applications/:appId/versions` on mount (keyed on `submitted_at`), renders a folded read-only list "Earlier rounds (N)". Each round is a `SubmissionReport` built from that version, with a grey "Round N" stamp (labelled by `version_no`, never `revision_round`) and the owner's note and date underneath (date hidden when null). Images load only when the fold is open. Commit `a58e8ee`.
+- Owner slot card: placed under the slot's `SubmissionReport`; drops the latest version when it matches the live submission, shows every row when it does not (the version-insert-failed case).
+- Worker changes banner: `EarlierRounds` with `showLatest`, a worker `warn` line and note label "Client note"; the latest version's note is skipped when it equals the banner's note. Commit `d357efe`, which also indents the toggle and warning 50px on the owner card to clear the ledger connector line.
+- `HW_JDW_REPORT_STYLES`, derived from `HW_JDO_STYLES` (every `.submission-report`, `.earlier-rounds` and `.er-` line, `.jdo ` swapped for `.hw-jdw `) and appended to the worker `<style>`, so the two cannot drift. Commit `ba75fc8`.
+- Patches applied with match-exactly-once Python scripts (assert guard, `.bak` in the home folder); `tsc --noEmit` clean after each.
+
+**Verification (testnet).**
+- Request-changes note write (Section 132's unverified item): v2 on `2bc3ce19-…` holds the note and a non-null `changes_requested_at`, v1 untouched. **Pass.**
+- Versions endpoint, owner path (fold loads Round 1 and its note) and worker path (banner shows "Earlier rounds (2)", Round 1 with its client note, Round 2 without). **Pass.**
+- Connector-line collision on the owner card fixed; worker fold styled after the mirror commit. **Pass.**
+
+**Not verified.**
+- The admin dispute list with embedded versions (if the nested select errors, `notify pgrst, 'reload schema';`).
+- The versions endpoint's 403 path for a non-participant.
+- The version-insert failure branch and the `23505` retry.
+- Light theme on the worker changes banner (the owner fold was checked in light and passes).
+
+**Known limits (accepted).**
+- One `/versions` request per slot card with a submission. If multi-worker jobs make that noisy, add `version_count` to the applications list.
+- The worker `submitted` panel shows no history; the fold is only in the changes banner.
+- The fold reuses `SubmissionReport`, so changes to that component show in both live and historical rounds.
+
+**Decisions.** The folded read-only list (current work on top, the owner's note between rounds) is what ships. The worker view uses `showLatest` because there is no live report to duplicate. After comparing it with a standalone mockup of a round switcher, the **switcher is now the preferred pattern** and the fold stays live until it is built. Requirements: tabs above `SubmissionReport` (one per version, labelled by `version_no`, newest selected by default, teal dot on the current round) with no change inside the report component; when an old round is open, a grey "Round N" stamp, an amber "Earlier round. Not the current work" bar with a "Back to Round N" button, and the owner's note shown under the tabs; Offer release, Reject and Mark complete disabled while an old round is open, with a hint; reuse the `/versions` fetch and the drop-the-latest logic; the worker banner can reuse it with `showLatest`. Tradeoff accepted: older rounds are less discoverable behind tabs than in a list.
+
+**Layout polish (new, independent of the switcher).** In the live app the action row and review line are indented 50px (to clear the ledger's vertical connector line), so the four actions wrap into three rows with Mark complete alone on the last; the mockup's full-width arrangement looked better. Plan: drop the 50px indent on the review text, action row and the Earlier-rounds toggle and warning, stop the connector line behind the buttons (or give the row a solid card-colour background), put Mark complete on its own full-width row under the other three, and check the worker side for the same indent. Sweep first: `grep -n "ledger-item\|ledger-row\|ledger-dot\|ledger-cta\|ledger-info" frontend/src/pages/JobDetail.tsx | head -30` and `grep -n -A45 'className="ledger-cta"' frontend/src/pages/JobDetail.tsx | head -80`.
+
+**Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`; commits `a58e8ee`, `d357efe`, `ba75fc8`); `roadmap.md`; `sessions/session-118.md`.
+
+**Status:** submission versions shipped end to end (backend Section 132, UI here). Section 132's carried-forward list still applies, minus the UI item and the two checks closed above. Next: the action-row layout polish, then the round switcher, then the admin dispute-embed check and the Session 116 polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour), then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
