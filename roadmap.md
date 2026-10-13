@@ -7708,3 +7708,42 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `frontend/src/pages/JobDetail.tsx`, `backend/src/lib/settlement.ts`, `backend/src/routes/jobs.ts`, `backend/src/lib/notifications.ts` (`~/Piwork`; commits `cafd7d5`, `eb27106`, `32daa13`); `roadmap.md`; `sessions/session-116.md`.
 
 **Status:** shipped and verified on testnet. Section 129's carried-forward list still applies, minus the four items closed here. Next: submission versions, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 132 — Session 117 (2026-10-13): submission versions, backend half — every submission round is now kept
+
+**What this section is.** Until now a resubmission overwrote `applications.submission` and `attachments`, and the next change request overwrote `changes_note`, so a dispute (and the admin list) saw only the latest round. This session adds a `submission_versions` history and writes it from the submit and request-changes routes. The backend half is shipped; the UI that shows earlier rounds is not built yet. Deployed HEAD: `d4c9f52`.
+
+**Findings.**
+- `submit-work` ran one `update` on the application row, replacing `submission` and `attachments`. A worker can also resubmit while the slot is still awaiting review (the status gate allows `submitted`), so a new version is not only a post-changes event.
+- Files from earlier rounds were never deleted: each upload gets a unique path `<appId>/<timestamp>-name`, and only the `attachments` array on the row was replaced. `GET /attachment-url` authorizes by the application id in the path prefix, so recording those paths in a table makes old files servable with no storage change. This closes the old "files from overwritten submissions never deleted" item as a data-loss risk (the files are now referenced).
+- Request-changes kept a single `changes_note` on the row, so the owner's earlier feedback was lost on the next round.
+- The `disputes` table was set up by hand in the SQL editor and recorded afterwards (`20261009000000_disputes_grants.sql`), so the new table ships with RLS and grants in its own migration.
+
+**Changes.**
+- Migration `20261013000000_submission_versions.sql` (applied in the Supabase SQL editor before the deploy): table `submission_versions` (`application_id`, `version_no`, `submission`, `attachments` jsonb, `submitted_at`, `revision_round`, `changes_note`, `changes_requested_at`), unique on `(application_id, version_no)`, RLS on, revoked from `anon` and `authenticated`, granted to `service_role`. Idempotent backfill of one v1 per existing application that has a submission (110 rows on testnet). Rounds overwritten before this session are not recoverable.
+- `routes/jobs.ts`, `submit-work`: also selects `revision_round`; after the conditional update lands, inserts the next version (max `version_no` + 1, one retry on a `23505` race). A failure is logged and never fails the submit, because the live row is already saved.
+- `routes/jobs.ts`, request-changes: after the optimistic-lock update succeeds, writes `changes_note` and `changes_requested_at` onto the latest version. Logged on failure, never blocks the request.
+- `routes/jobs.ts`: new `GET /:id/applications/:appId/versions`, oldest first, for the job's owner and that application's worker only.
+- `routes/admin.ts`: the dispute list embeds `submission_versions` under `applications`, sorted by `version_no`.
+- Commit `d4c9f52`. All patches applied with match-exactly-once Python scripts (assert guard, `.bak` in the home folder); `tsc --noEmit` clean after each.
+
+**Verification (testnet).**
+- Backfill: `select count(*)` returned 110. **Pass.**
+- Submit path: on job `2bc3ce19-…` the resubmission at 14:23 UTC was saved as version 2 with the new text. **Pass.**
+
+**Not verified.**
+- The request-changes note write. Version 1 on `2bc3ce19-…` already carried its note because the backfill copied it from the live row; the new code path has not run. Test: Request changes (one left on that job), worker resubmits, rerun the versions query, expect version 2 to hold the note.
+- `GET /:id/applications/:appId/versions` (not called yet).
+- The admin dispute list with embedded versions (not called; if the nested select errors, reload the PostgREST schema cache with `notify pgrst, 'reload schema';`).
+- The version-insert failure branch and the `23505` retry.
+
+**Known limits (accepted).**
+- The backfilled v1 stores the live row's `revision_round` (1 on `2bc3ce19-…`), not the round it was submitted in (0). The UI must label rounds by `version_no`, not `revision_round`.
+- A submit whose version insert fails leaves no history row for that round; the live row is still correct. The UI and admin view should fall back to the live row when the latest version is missing.
+- Rounds overwritten before this session cannot be recovered; applications submitted before it start at v1 = their current submission.
+
+**Decisions.** "Earlier rounds" will be a folded, read-only list under the current report (the current work stays on top and untouched), with the owner's note between rounds. A round switcher on the report is a possible later change and needs no backend change; if chosen, label an old round clearly as not the current work.
+
+**Files:** `supabase/migrations/20261013000000_submission_versions.sql`, `backend/src/routes/jobs.ts`, `backend/src/routes/admin.ts` (`~/Piwork`; commit `d4c9f52`); `roadmap.md`; `sessions/session-117.md`.
+
+**Status:** backend shipped and partly verified on testnet (table, backfill, submit path). UI not started. Section 131's carried-forward list still applies, plus the three small polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour) and the items above. Next: the "Earlier rounds" UI on the owner slot card and the worker changes banner (sweep `SubmissionReport`, the owner card around `JobDetail.tsx` lines 1485-1535 and the worker banner near line 1881 first), run the unverified checks above, then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
