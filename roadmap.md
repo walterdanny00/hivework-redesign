@@ -7788,3 +7788,30 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`; commits `a58e8ee`, `d357efe`, `ba75fc8`); `roadmap.md`; `sessions/session-118.md`.
 
 **Status:** submission versions shipped end to end (backend Section 132, UI here). Section 132's carried-forward list still applies, minus the UI item and the two checks closed above. Next: the action-row layout polish, then the round switcher, then the admin dispute-embed check and the Session 116 polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour), then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 134 — Session 119 (2026-10-13): owner action-row layout polish, ledger connector drawn between slots only
+
+**What this section is.** The layout polish planned in Section 133, shipped. No behaviour change: CSS plus two class names in `JobDetail.tsx`. Deployed HEAD: `8809e2e`.
+
+**Findings.**
+- The 50px indent was owner-only (every rule under `.jdo`: `.ledger-cta`, the three `er-*` margins, `.rating-given`, `.rate-widget`). The worker stylesheet has no matching indent and a different ledger structure, so it needed no change.
+- The connector was one whole-ledger line (`.jdo .ledger:before`), hidden behind dots by `z-index` and a cream border. The 50px margins existed only to keep content clear of it.
+- The action row wrapped into three rows because Request changes was a lone inline button, Offer release and Reject sat in their own flex row, and Mark complete was a bare button after them.
+
+**Changes** (all in `frontend/src/pages/JobDetail.tsx`).
+- `f1fe0ba`: indent removed; `.ledger-cta` is a wrapping flex row; `cta-row` on the Offer release / Reject wrapper; `cta-main` (full width) on Mark complete. A cream background hid the old line.
+- `8bff493`: the cream background mismatched the card surface in both themes; swapped to `var(--card)`.
+- `8809e2e`: remaining line stubs in the gaps led to a different approach. The whole-ledger rule is replaced by `.jdo .ledger-item:not(:last-child):after` (a 2px segment from the end of one slot to the next dot), and both masking backgrounds are removed.
+
+**Verification (testnet).** Single-slot job in light, and a two-slot job in light and dark: no stubs, no patches, one segment linking the slots with no gap or overlap, Mark complete full width on its own row. **Pass.**
+
+**Not verified.** The open Request changes form and the Reject / Offer release panels inside the new flex row; connector segments beside completed slots (rating widget) and open slots; the worker side was not re-checked visually.
+
+**Known limits (accepted).**
+- The 33px segment assumes the item's current padding (16px) and 1px divider; adjust if `.ledger-item` padding changes.
+- The segment crosses the item divider line (cosmetic).
+- `.rating-given` and `.rate-widget` still carry the old 50px margin (no longer needed).
+
+**Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`; commits `f1fe0ba`, `8bff493`, `8809e2e`); `roadmap.md`; `sessions/session-119.md`.
+
+**Status:** the action-row layout item from Section 133 is closed. Section 133's other carried-forward items still apply. Next: the round switcher, then the admin dispute-embed check and the Session 116 polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour), then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
