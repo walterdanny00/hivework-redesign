@@ -7888,3 +7888,43 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/lib/notifications.ts`, `backend/src/routes/notifications.ts`, `backend/src/routes/jobs.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `backend/src/lib/disputes.ts`, `frontend/src/components/NotificationBell.tsx`, new `supabase/migrations/20261016000000_notification_application_link.sql` (`~/Piwork`; commit `585d094`); `roadmap.md`; `sessions/session-121.md`.
 
 **Status:** step 5 is closed. Next: the unverified checks (starting with the review page from `release_accepted` and `dispute_opened`), then the worker `submitted` panel history, the admin dispute-embed check, the Session 116 polish items still open (GMT versus local time in notifications, neutral chip colour for refunded, released and missed slots), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 137 — Session 122 (2026-10-16): verification pass on the review page and notification links, no code changes
+
+**What this section is.** A testing session, no commits. It works through the unverified list from Sections 135 and 136 for the states a tester could reach on testnet. Deployed HEAD is unchanged: `585d094`.
+
+**Findings (read from code).**
+- A released or refunded slot is not a separate state. `refundSubmittedSlot` (`backend/src/lib/settlement.ts`) writes `slot_status = 'missed'` plus `closed_reason` (`released` or `dispute_refund`), clears the review, revision and release-offer deadlines, and on a single-slot job also sets `status` back to `approved`. It never touches the submission row, so the review page still has the report to show.
+- `slotStatus.ts` turns that into the labels "Released" and "Refunded after dispute" and gives the chip the `missed` class. A slot with an open dispute keeps its `submitted` or `approved` class and the label "In dispute".
+- `SubmissionReview.tsx` shows the actions only when `canAct` holds: the slot is submitted, `slot_status` is not `missed`, it is not completed, and it has no open dispute. So a released, refunded or disputed slot never shows Approve, Request changes, Offer release or Reject.
+- The pager list filters on `status` (approved, submitted, completed) and a submission, not on `slot_status`, so a released slot stays in it. Only the single-slot case was exercised.
+- Notification text is built on the backend and prints deadlines in GMT, while the pages print local time for the same moment.
+
+**Verification (testnet).**
+- Review page for a released slot (single-slot job, from the owner's "Release accepted" notification): "Released" chip, report renders, no actions, pager hidden. **Pass.**
+- Review page for a disputed slot (from the owner's "Release offer declined" notification): "In dispute" chip, the "payment is on hold" notice with the worker's reason, report renders, no actions. **Pass.**
+- Request changes from the review page: chip reads "Changes requested", the notice shows "round 1 of 2" with the worker's deadline and countdown, the actions are gone, the report stamp stays "Submitted". **Pass.**
+- After the worker resubmits: chip back to "Submitted", actions return, "Request changes (1 left)", "Earlier rounds (1)" closed by default; opened, it reads "Read-only history" and shows round 1's content, not the current text. **Pass.**
+- Slots-tab summary row while changes are requested: chip "Changes requested", line "Changes requested (round 2 of 2). Waiting for the worker, due …" with the countdown, and an outlined "View submission" button. While awaiting review it shows the review-by line and the purple "Review submission" button. **Pass.**
+- Dark theme on the review page (released, disputed, changes requested, awaiting review) and on the summary rows. **Pass.**
+- Worker views: while changes are requested, the submit form shows the round, the resubmit deadline, the client note and an "Earlier rounds" fold; after an accepted release, "Job released" with "Browse more jobs"; during a dispute, "Awaiting payment release" and "Your side of the dispute". **Pass.**
+- Back link and pager. **Pass.**
+- Refresh in Pi Browser: the route persists (`RoutePersistence`). **Pass.**
+
+**Observations (not fixed).**
+- The report stamp is teal for "Released" and "In dispute" while the chip beside it is maroon or amber, so the stamp reads as positive. It belongs with the neutral-colour item from Session 116.
+- The owner dashboard labels an accepted-release job "Expired" next to its "1π refunded" chip.
+- The worker dashboard "Your work" list shows a disputed job as plain "submitted".
+- Notifications print deadlines in GMT while the pages use local time (Session 116 item, now seen on a real notification).
+
+**Not verified.**
+- The review page for a missed slot (deadline-driven).
+- The deadline-driven notifications `review_returned`, `review_auto_paid` and `review_reminder`.
+- A released or disputed slot on a multi-slot job, including its place in the pager.
+- Carried over from Session 120: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 136: notifications created before the migration open the job page; worker-side notifications, the owner's `dispute_resolved` notice (`admin.ts`), `slot_missed` and `refund_credited` carry no application id; the worker `submitted` panel still shows no history (the changes-requested form does).
+
+**Files:** no code changed (`~/Piwork` still at `585d094`); `roadmap.md`; `sessions/session-122.md`.
+
+**Status:** the Section 135 and 136 checks that a tester can trigger are closed (release, dispute, request changes, resubmission, summary rows, dark theme). Next: the missed-slot page and the deadline-driven notifications, then the worker `submitted` panel history, the admin dispute-embed check, the polish items (GMT versus local time in notifications, neutral chip and report-stamp colour for refunded, released and missed slots, the "Expired" label on the owner dashboard, the worker dashboard's disputed label), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
