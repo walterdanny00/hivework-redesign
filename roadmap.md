@@ -7815,3 +7815,48 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `frontend/src/pages/JobDetail.tsx` (`~/Piwork`; commits `f1fe0ba`, `8bff493`, `8809e2e`); `roadmap.md`; `sessions/session-119.md`.
 
 **Status:** the action-row layout item from Section 133 is closed. Section 133's other carried-forward items still apply. Next: the round switcher, then the admin dispute-embed check and the Session 116 polish items (chip reads "Changes requested", GMT in notifications, neutral chip colour), then an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 135 — Session 120 (2026-10-16): submission review moves to its own page; Slots tab shows compact summary rows
+
+**What this section is.** The owner's Slots tab used to render every slot's full report, Earlier-rounds fold and actions inline, so the page grew with slot count and rounds. This session extracts the shared pieces, adds a dedicated review route, and replaces the inline cards with summary rows. Notification deep links (step 5) are designed but not started.
+
+**Decisions.**
+- Reviewing a submission happens on its own route, `jobs/:id/review/:appId`, which must also be reachable from notifications.
+- The existing "Earlier rounds" fold is kept on that page (the current round and the actions stay on top; history sits below the actions, closed by default). The round switcher / timeline tabs from Section 133 are set aside, not discarded; they need no backend change.
+- Rating stays on the job page (single-worker rating belongs to the completed job; multi-slot rating sits on the completed slot's row).
+- Payment release is one hook, `useCompleteSlot`, shared by every page that can pay, so the BUG-100/109 handling exists once.
+
+**Findings.**
+- `RoutePersistence` (Pi Browser only) pushes the last saved route on top of Home at boot and saves path plus search on every navigation. So the review page loads from the URL alone, Back is an explicit link (never `navigate(-1)`), and the pager uses `replace`.
+- `RequireAuth` renders nothing until `ready`, so a returning owner is not bounced; the page still waits for its own job fetch before the ownership check.
+- There is no single-application endpoint; the page filters `GET /api/jobs/:id/applications`.
+- Notifications carry only `related_job_id` (single helper `insertNotification` in `backend/src/lib/notifications.ts`; `NotificationBell` links to `/jobs/:id`).
+- `.jdo` defines the local tokens plus `.detail-sub` and `.cs-err`, so the review page reuses the full owner stylesheet instead of a split copy.
+- `JobDetail` is wrapped in `div.container` (side padding, 100px bottom padding); the first review-page deploy lacked it and content touched the screen edges.
+- `SubmissionReport` printed the Environment field raw (a `{{fig:…}}` token showed as text and its image was never rendered).
+- The Pi Browser address bar does not refresh after a `replace` query-string change, but the app reads `?tab=` correctly.
+
+**Changes** (`~/Piwork/frontend/src`).
+- `fccf590`: `components/SubmissionReport.tsx` (`SubmissionReport`, `EarlierRounds`, parsing helpers, `downloadAttachment`), `lib/jobTypes.ts`, `lib/submissionReportStyles.ts` (`submissionReportCss(root)` replaces the line-filter that built `HW_JDW_REPORT_STYLES`).
+- `f94ac57`: `components/OwnerActions.tsx` (per-instance drafts), `lib/useCompleteSlot.ts`, `lib/time.ts`.
+- `0f941c1`: `lib/jobOwnerStyles.ts`, `components/SubmissionNotices.tsx`; the job tab now lives in the URL (`?tab=`, `replace`).
+- `fd67f7a`: the Environment line strips figure tokens and renders its figures.
+- 3b-1 (`4ec204a`): `lib/submissionKind.ts`, `lib/slotStatus.ts`; the chip reads "Changes requested" while the work is back with the worker (the report stamp stays "Submitted").
+- 3b-2 (`c56a2dd`): `pages/SubmissionReview.tsx` and the `jobs/:id/review/:appId` route in `App.tsx`, `lib/trustColors.ts`, and a temporary preview link on the card.
+- `868eef6`: the review page is wrapped in `div.container`.
+- Step 4 (`b634b45`): slot cards become summary rows (status line, "Review submission" or "View submission"); the report, actions and fold live only on the review page; rating stays on the card; dead code and the preview link removed.
+- Review page: back link and "n of N" pager (slots with a submission), title, header, notices, report, actions (only when awaiting review), "Payment released" note, closed Earlier-rounds fold. Non-owners are redirected; a missing submission shows a message.
+- Patches were match-exactly-once Python scripts with asserts; `tsc --noEmit` and the build were clean at each step.
+
+**Verification (testnet).** Steps 1, 2 and 3a: no visible change (owner card, fold, request changes, offer release and reject panels, worker fold and countdowns). `?tab=slots` typed into the address bar opens the Slots tab. The Environment figure renders. Review page: layout and order, side padding, pager between two slots, Back to the Slots tab, reload on the review URL, actions and panels, worker redirected away. Step 4: single-slot job and multi-slot job show compact rows, both jobs paid and completed, rating shown. **All pass.**
+
+**Not verified.** Request changes from the review page (the job page's summary line should then read "Changes requested…"); the worker views after step 4; dark theme on the review page and summary rows; the review page for a disputed slot, a missed slot, and a refresh restored by `RoutePersistence`; carried over: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).**
+- The pager steps only through slots that have a submission and are approved, submitted or completed.
+- The worker `submitted` panel still shows no history.
+- `.rating-given` and `.rate-widget` still carry the old 50px margin.
+
+**Files:** new `components/SubmissionReport.tsx`, `OwnerActions.tsx`, `SubmissionNotices.tsx`, `lib/jobTypes.ts`, `submissionReportStyles.ts`, `useCompleteSlot.ts`, `time.ts`, `jobOwnerStyles.ts`, `submissionKind.ts`, `slotStatus.ts`, `trustColors.ts`, `pages/SubmissionReview.tsx`; edited `pages/JobDetail.tsx`, `App.tsx` (`~/Piwork`; commits `fccf590`, `f94ac57`, `0f941c1`, `fd67f7a`, `868eef6`, `4ec204a`, `c56a2dd`, `b634b45`); `roadmap.md`; `sessions/session-120.md`.
+
+**Status:** the Slots-tab growth problem is closed. Next: step 5, notification deep links (migration adding a nullable `related_application_id`, a parameter on `insertNotification` and the call sites that have an application id, the notifications list returning it, and `NotificationBell` opening the review route; deploy order migration, backend, frontend), then the unverified checks above, then the worker `submitted` panel history, the admin dispute-embed check, the Session 116 polish items still open (GMT versus local time in notifications, neutral chip colour for refunded, released and missed slots), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
