@@ -7860,3 +7860,31 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** new `components/SubmissionReport.tsx`, `OwnerActions.tsx`, `SubmissionNotices.tsx`, `lib/jobTypes.ts`, `submissionReportStyles.ts`, `useCompleteSlot.ts`, `time.ts`, `jobOwnerStyles.ts`, `submissionKind.ts`, `slotStatus.ts`, `trustColors.ts`, `pages/SubmissionReview.tsx`; edited `pages/JobDetail.tsx`, `App.tsx` (`~/Piwork`; commits `fccf590`, `f94ac57`, `0f941c1`, `fd67f7a`, `868eef6`, `4ec204a`, `c56a2dd`, `b634b45`); `roadmap.md`; `sessions/session-120.md`.
 
 **Status:** the Slots-tab growth problem is closed. Next: step 5, notification deep links (migration adding a nullable `related_application_id`, a parameter on `insertNotification` and the call sites that have an application id, the notifications list returning it, and `NotificationBell` opening the review route; deploy order migration, backend, frontend), then the unverified checks above, then the worker `submitted` panel history, the admin dispute-embed check, the Session 116 polish items still open (GMT versus local time in notifications, neutral chip colour for refunded, released and missed slots), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 136 — Session 121 (2026-10-16): notification deep links, owner-side notifications open the review page
+
+**What this section is.** Step 5 from Section 135, shipped. Owner-side notifications now carry the application id and open `jobs/:id/review/:appId`; worker-side ones still open the job page. Deployed HEAD: `585d094`.
+
+**Findings.**
+- Migrations live in `supabase/migrations/`. Every owner-side call site already had the application id in scope.
+- If the backend deployed before the column existed, every notification insert would fail quietly (inserts swallow their errors by design), so the migration is applied by hand in the Supabase SQL editor before the push; deploys are automatic on push.
+- The review page redirects non-owners to the job page, so a mismatched link is harmless.
+
+**Changes** (commit `585d094`, Piwork repo only).
+- Migration `20261016000000_notification_application_link.sql`: nullable `notifications.related_application_id uuid references applications(id) on delete set null`. Confirmed as `uuid` in `information_schema.columns`.
+- `backend/src/lib/notifications.ts`: `insertNotification` takes `relatedApplicationId`; `notifyWorkSubmitted`, `notifyReviewReturned` and `notifyUser` take an optional `applicationId`. `routes/notifications.ts` returns the column.
+- Passing the id (owner-side only): `work_submitted` and `release_accepted` (`routes/jobs.ts`), `review_returned`, `review_auto_paid` and `review_reminder` (`slotDeadlineChecker.ts`), the owner copy of `dispute_opened` (`disputes.ts`).
+- `NotificationBell.tsx`: opens the review route when `related_application_id` is present, the job page otherwise.
+- Patched with a match-exactly-once script; `tsc --noEmit` clean in `backend` and `frontend`.
+
+**Verification (testnet).** Owner taps "Work submitted": opens the review page. A worker-side notification (changes requested) still opens the job page. **Pass.**
+
+**Not verified.** The other owner-side paths (`review_returned`, `review_auto_paid`, `review_reminder`, `release_accepted`, owner `dispute_opened`), especially how the review page behaves for a refunded slot and a frozen (disputed) slot. Section 135's unverified list still applies.
+
+**Known limits (accepted).**
+- Notifications created before this change have no application id and open the job page.
+- Not given an application id: worker-side notifications, the owner's `dispute_resolved` notice (`admin.ts`), `slot_missed`, `refund_credited`.
+
+**Files:** `backend/src/lib/notifications.ts`, `backend/src/routes/notifications.ts`, `backend/src/routes/jobs.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `backend/src/lib/disputes.ts`, `frontend/src/components/NotificationBell.tsx`, new `supabase/migrations/20261016000000_notification_application_link.sql` (`~/Piwork`; commit `585d094`); `roadmap.md`; `sessions/session-121.md`.
+
+**Status:** step 5 is closed. Next: the unverified checks (starting with the review page from `release_accepted` and `dispute_opened`), then the worker `submitted` panel history, the admin dispute-embed check, the Session 116 polish items still open (GMT versus local time in notifications, neutral chip colour for refunded, released and missed slots), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
