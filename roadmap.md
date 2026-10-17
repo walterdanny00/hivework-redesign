@@ -7983,3 +7983,41 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/lib/slotDeadlineChecker.ts`, `backend/src/routes/jobs.ts`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/SubmissionReport.tsx`, `frontend/src/lib/submissionReportStyles.ts`, `frontend/src/pages/SubmissionReview.tsx`, `frontend/src/components/ApplicationCard.tsx`, `frontend/src/components/JobCard.tsx`, `frontend/src/pages/JobDetail.tsx`; `roadmap.md`; `sessions/session-123.md`.
 
 **Status:** the neutral-colour, "Expired" and worker-dispute-label polish items are closed. Next: GMT versus local time in notifications (notification text is built on the backend), then the unverified checks above, the "Expired" regression glance, saving the `closed` migration under `supabase/migrations/` and refreshing `supabase_schema.sql`, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 139 — Session 124 (2026-10-17): notification deadlines in local time, `closed` migration saved, "Expired" regression checked
+
+**What this section is.** The last of the four polish items from Section 137 (GMT versus local time in notifications), plus two Section 138 carry-overs: the `closed` migration saved as a file and the "Expired" regression glance. Commits: `9602354` (notification time), `047d982` (migration file and base-schema sync). Deployed HEAD is `047d982`. No new database change.
+
+**1. Notification deadlines in the viewer's local time (`9602354`).**
+- Root cause: `notifyChangesRequested` (`notifications.ts`, line 196) put `new Date(input.dueAt).toUTCString()` into the stored body text, while every page prints deadlines with `toLocaleString()`. It was the only notification that carries a time; no other notice formats a date.
+- Fix: the backend writes a marker, `{{t:<ISO timestamp>}}`, in place of the GMT string. `NotificationBell.tsx` (the only place a notification body is rendered, line 187) replaces each marker with `new Date(iso).toLocaleString()` and falls back to the raw text if the timestamp is invalid. Chosen over a new `due_at` column (needs a migration, an `insertNotification` change and a list-endpoint change for one notice) and over dropping the time from the text (loses information).
+- Notifications sent before this change have no marker and keep their GMT text.
+- Convention: any future notification that carries a time uses the same `{{t:...}}` marker.
+
+**2. `closed` migration saved (`047d982`).**
+- `supabase/migrations/20261017000000_jobs_closed_status.sql` records the constraint applied by hand in Section 138 (drop and re-add `jobs_status_check` with `closed`; safe to re-run). Earlier status changes were already files (`20260706000000_multi_worker_job_pool.sql`, `20260706010000_jobs_expired_status.sql`).
+- `backend/supabase_schema.sql` (the original base file) now lists the live status set. Its `category` check still lists only three categories; not touched.
+
+**Verification (testnet).**
+- Changes requested on job "Djaopalaal": the worker bell ("Resubmit by 10/18/2026, 12:51:13 PM"), the worker job page (same time, 23h 59m left) and the owner slot card (same time) agree; no raw marker shown. **Pass.**
+- Regression, job "Fikjomvd" (missed deadline, no applicants): owner header still "Expired", slot "Missed deadline", worker panel "Deadline passed". **Pass.** Job "Oyeet" (accepted-release test job from Section 138) reads "Expired" as expected: it was finalized before `closed` existed and the checker skips finalized jobs.
+- `tsc --noEmit` clean on backend and frontend.
+
+**Observations (not fixed).**
+- A marker reaching a cached older frontend would show raw text. Deploys are automatic on push and Vercel has historically gone live before Render, so the order is normally safe.
+- No backfill has been run for pre-Section-138 jobs finalized `expired` that meet the `closed` rule.
+- Section 138's observations still apply: the header's two sources for "closed", the "Mark complete" button during a pending release offer, and which path set `closed` on "Olkh".
+
+**Not verified.**
+- An older changes-requested notification still showing its GMT text (reasoned from the code).
+- Multi-slot jobs ending `closed`, `completed` or `partially_complete` with a released slot (reasoned from the code, not run).
+- The review page for a refunded-after-dispute slot and for a missed-deadline slot.
+- The deadline-driven notifications `review_returned`, `review_auto_paid` and `review_reminder`.
+- A released or disputed slot on a multi-slot job, including its place in the pager.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 138, plus: pre-change notifications keep their GMT text.
+
+**Files:** `backend/src/lib/notifications.ts`, `frontend/src/components/NotificationBell.tsx`, `supabase/migrations/20261017000000_jobs_closed_status.sql`, `backend/supabase_schema.sql`; `roadmap.md`; `sessions/session-124.md`.
+
+**Status:** the four polish items from Section 137 are closed, and so are the migration-file and "Expired" regression carry-overs. Next: the unverified checks above (multi-slot released slot first), an optional backfill of old `expired` jobs, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
