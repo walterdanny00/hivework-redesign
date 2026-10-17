@@ -20,6 +20,13 @@ always reflect current state; `sessions/` holds one dated file per session,
 numbered (`session-01.md`, `session-02.md`, ...). Screen files
 (`.html`/`.jsx`) live in `screens/`.
 
+**Standing rule — roadmap delivery:** whenever a session updates
+`roadmap.md`, deliver the **complete, updated `roadmap.md`** as one
+downloadable file — never a section-only file, a snippet, or a `cat >>`
+append instruction. The file is edited in place and dropped whole; it is then
+copied over the repo copies by the push routine below. Session briefs are the
+separate per-session files in `sessions/` and are delivered alongside it.
+
 **Push workflow — two independent repos, no git-native sync:**
 `~/Piwork/hivework-redesign/` and `~/hivework-redesign/` are **not** a
 submodule and **not** two clones of the same repo — confirmed via
@@ -8021,3 +8028,44 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/lib/notifications.ts`, `frontend/src/components/NotificationBell.tsx`, `supabase/migrations/20261017000000_jobs_closed_status.sql`, `backend/supabase_schema.sql`; `roadmap.md`; `sessions/session-124.md`.
 
 **Status:** the four polish items from Section 137 are closed, and so are the migration-file and "Expired" regression carry-overs. Next: the unverified checks above (multi-slot released slot first), an optional backfill of old `expired` jobs, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 140 — Session 125 (2026-10-17): `close-slots` finalization fix, worker names in owner notifications
+
+**What this section is.** The first unverified check from Section 139 (a multi-slot job with a released slot) turned up a real status bug, fixed here, plus an owner-reported notification gap. Commits: `047f038` (`close-slots`), `8a41824` (notification names). Both are Piwork-repo-only backend changes. No database migration.
+
+**1. `close-slots` finalization (`047f038`).**
+- Root cause: `close-slots` (`backend/src/routes/jobs.ts`) finalized inline with `missedSlots > 0 ? 'partially_complete' : 'completed'`. It never counted successes or read `closed_reason`. A job with one released slot and one owner-closed slot, zero deliveries, ended `partially_complete`; `reevaluateJobs` gives `closed` for the same facts.
+- Fix: when `missedSlots > 0`, `close-slots` calls `reevaluateJobs(new Set([job.id]))`, so the outcome (`closed`, `expired`, `partially_complete`) follows the same rules as every other path. With no missed slots it still writes `completed`, and the header shows "closed" through `slots_closed > 0`.
+- Chosen over adding a "no successes, none missed, slots closed" case to `reevaluateJobs`: that would make the checker's own unfilled-slot closing end `closed` instead of `expired` (no deadline passed, nobody hired). The fix stays in `close-slots`.
+- Test job "Wygdd" was already finalized wrong, and the checker skips finalized jobs, so it was corrected by hand (`partially_complete` to `closed`) after a `select` preview.
+
+**2. Worker names in owner-facing notifications (`8a41824`).**
+- Problem: the owner could not tell which worker submitted work or accepted a release; two "Work submitted" notices on a 2-worker job read identically.
+- Fix: a `workerHandle()` helper in `notifications.ts` returns `@username` from an application id (or job + worker id), or null. It is used for work submitted, revision deadline passed, release accepted, the three dispute notices (opened, release offer declined, release offer expired), the owner half of slot missed, and the owner's dispute-resolved notice (which reads the username from its existing embed). Every notice falls back to its old wording if no name is found. Worker-facing notices are unchanged.
+- Chosen over passing `worker_username` from each route: the `submit-work` and release-answer routes do not select it, and a lookup keeps each call site untouched. Cost: one small query per notice, all fire-and-forget.
+- Convention: any new owner-facing notice about a worker's action names the worker via `workerHandle()`.
+- Notifications sent before this change keep their old text.
+
+**Verification (testnet).**
+- "Ripjzx" (released + closed, zero deliveries): header "Closed", dashboard card "Closed". **Pass.**
+- "Guh v" (released + completed): "Partially Complete"; pager 1 of 2 on the released slot, 2 of 2 on the completed one; released slot's review page renders. **Pass.**
+- "Jodvb", 3 slots (completed, released, slot 3 closed by owner): "Partially Complete", 2 of 3 filled, 1 closed; dashboard card matches. **Pass.**
+- "Fjxdjb": the owner bell shows "@Olawalt submitted work…", "@Eliza1914 submitted work…" and "@Eliza1914 accepted your release offer…". **Pass.**
+- `tsc --noEmit` clean on the backend after each change.
+
+**Observations (not fixed).**
+- A released slot has no "View submission" button on the owner Slots tab, though the pager reaches the same page; intent not determined.
+- Section 139's observations still apply.
+
+**Not verified.**
+- Scenario B (released + dispute refund, expect `closed`) and scenario D (deadline miss alongside a success, expect `partially_complete`, checker path).
+- The review page for a refunded-after-dispute slot and a missed-deadline slot; the bottom of a released slot's review page.
+- Naming in the dispute notices, "Revision deadline passed", the owner slot-missed notice and the owner dispute-resolved notice (reasoned from the code).
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 139, plus: pre-change notifications keep their old wording.
+
+**Files:** `backend/src/routes/jobs.ts`, `backend/src/lib/notifications.ts`, `backend/src/lib/disputes.ts`, `backend/src/routes/admin.ts`; `roadmap.md`; `sessions/session-125.md`.
+
+**Status:** the released-slot check, the `close-slots` bug and the worker-name gap are closed. Next: scenario B and D, the remaining unverified checks above, an optional backfill of old `expired` jobs, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
