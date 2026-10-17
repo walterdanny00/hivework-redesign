@@ -8069,3 +8069,45 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/routes/jobs.ts`, `backend/src/lib/notifications.ts`, `backend/src/lib/disputes.ts`, `backend/src/routes/admin.ts`; `roadmap.md`; `sessions/session-125.md`.
 
 **Status:** the released-slot check, the `close-slots` bug and the worker-name gap are closed. Next: scenario B and D, the remaining unverified checks above, an optional backfill of old `expired` jobs, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 141 — Session 126 (2026-10-17): scenarios B and D verified, `worker_username` select fix, `expired` → `closed` backfill
+
+**What this section is.** The two outcome scenarios left open in Section 140 (B: released + dispute refund; D: completed + missed by deadline), one small notification fix found while reading the dispute code, and the optional backfill of old `expired` jobs. Commit: `ec62993` (Piwork repo only). One data-only change in Supabase (the backfill). No migration.
+
+**1. Scenario B verified (no code change).**
+- Reading the code first: `refundSubmittedSlot` (`settlement.ts`) marks the slot `missed` with a `closed_reason`, credits the refund and calls `reevaluateJobs`. `reevaluateJobs` returns `closed` when there are no successes and every missed slot has `closed_reason` `released` or `dispute_refund`. While a dispute is open the slot stays `submitted`, which keeps the job open.
+- Live, job "Okgvnn" (2 slots: one released, one disputed then resolved with `refund_owner` through `POST /api/admin/disputes/:id/resolve`): owner header "Closed", dashboard card "Closed" with "2π refunded", slots read "Released" and "Refunded after dispute", slot reasons `released` and `dispute_refund`. Owner bell: release-accepted notice naming `@Olawalt`, two "Refund available" notices; worker bell: "Dispute resolved". **Pass.**
+
+**2. Scenario D verified (checker path).**
+- Pass B (`closeExpiredFixedDeadlineSlots`) acts on fixed-deadline jobs whose `deadline_at` is earlier than now minus `GRACE_MS` (24h); the checker polls every 5 minutes. To test without waiting, `jobs.deadline_at` was backdated by hand on the test job after a dry-run `select` of the matching application.
+- Live, job "Fjrgj" (2 slots: one completed, one never submitted): job `partially_complete`, header and dashboard card "Partially Complete" with "1π refunded". Slots read "Completed" and "Missed deadline". Owner bell: "Slot closed, refund pending" naming `@Eliza1914`, then "Refund available"; worker bell: "Your slot … was closed after missing its deadline"; worker job page shows the "Deadline passed" panel. **Pass.** This also verifies the owner half of the slot-missed notice naming from Section 140.
+- A deadline-missed slot keeps `closed_reason` null. That is consistent with `reevaluateJobs`, which counts only `released` and `dispute_refund` as owner-closed.
+
+**3. Accepted rule (stated explicitly).** A job with no deliveries and at least one slot missed by deadline ends `expired`, even if its other slots were released or refunded after a dispute. `closed` is reserved for jobs where every missed slot was ended by the owner or a dispute. Mixed jobs with a delivery end `partially_complete`.
+
+**4. `worker_username` select (`ec62993`).**
+- Root cause: the admin resolve route read `dispute.applications?.worker_username` for the owner's `pay_worker` notice, but its query selected only `applications(worker_id)`, so the notice always fell back to "the worker".
+- Fix: the select is now `applications(worker_id, worker_username)` in `backend/src/routes/admin.ts`. One line. `tsc --noEmit` clean, pushed to the Piwork repo.
+- Only the `pay_worker` outcome is affected; the `refund_owner` owner text never named the worker. Not yet seen live (needs a `pay_worker` resolve).
+
+**5. Backfill of old `expired` jobs.**
+- A read-only preview listed `expired` jobs with at least one missed slot, every missed slot closed by `released` or `dispute_refund`, and no successes. Five matched: "Gghgg", "Oyeet", "Cuncfjv", "Hdskshxb", "Louhpkv".
+- Updated to `closed` by explicit id list, guarded by `status = 'expired'`; five rows returned, all `closed`. Refund totals are unchanged. Run by hand in Supabase; not a migration.
+
+**Observations (not fixed).**
+- The worker-side "Dispute decided" panel says "The job was refunded to the client." On a multi-slot job it should say the slot.
+- An older dispute (opened 2026-10-11, reason "Taking too long to pay", job `722fb8d7…`) is still open in the admin list.
+- Section 140's observations still apply (no "View submission" on a released slot in the Slots tab, one extra query per notice, pre-change notifications keep old text).
+
+**Not verified.**
+- The review page for a refunded-after-dispute slot after resolution, and the missed-deadline slot's page (it has no submission and no "View submission" button); the bottom of a released slot's review page.
+- The backfilled jobs' header and card in the app.
+- Naming in the dispute opened, release-declined and release-expired notices, "Revision deadline passed" and the owner `pay_worker` dispute-resolved notice (reasoned from the code, not triggered).
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 140, plus: the "mixed deadline + owner-closed, no deliveries stays `expired`" rule above.
+
+**Files:** `backend/src/routes/admin.ts`; `roadmap.md`; `sessions/session-126.md`.
+
+**Status:** scenarios B and D are verified, the `worker_username` select is fixed and the old `expired` jobs are backfilled. Next: the remaining unverified checks above, the "job was refunded" wording on the worker's dispute panel, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
