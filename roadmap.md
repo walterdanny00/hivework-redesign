@@ -8111,3 +8111,45 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/routes/admin.ts`; `roadmap.md`; `sessions/session-126.md`.
 
 **Status:** scenarios B and D are verified, the `worker_username` select is fixed and the old `expired` jobs are backfilled. Next: the remaining unverified checks above, the "job was refunded" wording on the worker's dispute panel, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 142 — Session 127 (2026-10-17): slot-aware wording on the worker's released/dispute panel, old dispute resolved (`pay_worker`)
+
+**What this section is.** One wording fix on the worker-side outcome panel carried over from Section 141, then the old open dispute from 2026-10-11 resolved live, which also gave the first live view of the `worker_username` select fix. Commit: `000ff4d` (Piwork repo only, frontend). One resolve call through the admin API. No migration.
+
+**1. Worker panel wording (`000ff4d`).**
+- Problem: on the worker's job page, the `missed` panel said "this job was closed and refunded to the client" (released) and "The job was refunded to the client" (dispute refund). On a multi-slot job it is the slot that is closed and refunded.
+- Fix: two strings in `frontend/src/pages/JobDetail.tsx`. Released now reads "…so your slot was closed and its budget refunded to the client."; dispute refund now reads "…decided in the client's favor. Your slot was closed and its budget refunded to the client." The deadline-missed string already said "slot". Panel titles ("Job released", "Dispute decided") unchanged.
+- Chosen over a single-slot/multi-slot conditional: "your slot" is correct for both, so no job-size lookup is needed.
+- Applied with a Python patch script (backup, exactly-one-match check). Diff was exactly two lines; `tsc --noEmit` clean.
+
+**Verification (testnet).**
+- Worker "Dispute decided" panel renders the new wording. **Pass.**
+- Worker "Job released" panel renders the new wording. **Pass.**
+
+**2. Old dispute resolved (`pay_worker`).**
+- Read-only preview first: dispute `3617661d…` (job `722fb8d7…`, "Papakqlak"), `source` `worker_opened`, reason "Taking too long to pay", status `open`, application `submitted` with a full four-field bug submission, job `in_progress`, deadline 2026-10-12. A genuine unpaid-submission case.
+- Resolved with `POST /api/admin/disputes/:id/resolve`, outcome `pay_worker`, a resolution note. Response `{"ok":true,"outcome":"pay_worker","amount":1}`.
+- `paySubmittedSlot` is a ledger credit only (claims the slot, inserts a `job_completion` credit in `balance_transactions`, recomputes the balance, bumps worker stats, completes the job); no Pi transfer is made. It rolls the claim back if the credit fails and tolerates a duplicate credit.
+- Owner bell: "The dispute on "Papakqlak" was decided for @Olawalt, and the payment was released." This is the live verification of the `worker_username` select fix from Section 141 (`ec62993`). **Pass.**
+- Worker bell: "Dispute resolved … you were paid" and "Payment sent: 1π for "Papakqlak"". **Pass.**
+- Owner job page: header and card "Completed"; Slots tab shows "Dispute resolved: the worker was paid.", "View submission" and the "Rate the worker" widget. Worker history lists the job as completed and paid. **Pass.**
+- The admin list no longer carries this dispute.
+
+**Observations (not fixed).**
+- Worker history shows "completed · paid · 10/11/2026" for "Papakqlak", though it was paid on 2026-10-17. The date matches the job's posted date; which field `HistoryWork.tsx` reads has not been checked.
+- Section 140's observations still apply (no "View submission" on a released slot in the Slots tab, one extra query per notice, pre-change notifications keep old text).
+
+**Not verified.**
+- The review page for a refunded-after-dispute slot after resolution, and the missed-deadline slot's page; the bottom of a released slot's review page.
+- The five backfilled jobs' header and card in the app.
+- Naming in the dispute opened, release-declined and release-expired notices, and "Revision deadline passed" (reasoned from the code, not triggered).
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 141.
+
+**Tooling note.** Termux has no writable `/tmp`; patch scripts go in `~`. Multi-line heredocs with indentation paste badly, so scripts are written flat (no indented lines).
+
+**Files:** `frontend/src/pages/JobDetail.tsx`; `roadmap.md`; `sessions/session-127.md`.
+
+**Status:** the worker panel wording, the old open dispute and the `pay_worker` owner notice are closed. Next: the history date check, the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
