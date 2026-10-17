@@ -7928,3 +7928,58 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** no code changed (`~/Piwork` still at `585d094`); `roadmap.md`; `sessions/session-122.md`.
 
 **Status:** the Section 135 and 136 checks that a tester can trigger are closed (release, dispute, request changes, resubmission, summary rows, dark theme). Next: the missed-slot page and the deadline-driven notifications, then the worker `submitted` panel history, the admin dispute-embed check, the polish items (GMT versus local time in notifications, neutral chip and report-stamp colour for refunded, released and missed slots, the "Expired" label on the owner dashboard, the worker dashboard's disputed label), an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 138 — Session 123 (2026-10-17): polish pass — neutral report stamp, `closed` job status, worker "in dispute" label
+
+**What this section is.** Three of the four polish items observed in Section 137, shipped and verified on testnet: the report stamp colour, the owner dashboard's "Expired" label on an accepted-release job, and the worker dashboard's label for a disputed job. A one-line copy fix on the worker "Job released" panel went with them. The GMT-versus-local-time item is still open. Commits: `c516e78` (stamp), `e0ef05a` (`closed` status), `c31972c` (worker label and copy). Deployed HEAD is `c31972c`. One database migration, applied by hand.
+
+**1. Report stamp follows the slot outcome (`c516e78`).**
+- Root cause: `submissionReportStyles.ts` sets `--stamp:var(--teal)` on every `.submission-report`. Section 131 made the stamp's label follow the slot outcome but not its colour; the only override was the Earlier-rounds fold (`.er-round`, `--stamp:var(--f-ink-soft)`).
+- `SubmissionReport.tsx` takes an optional `tone?: 'muted'` prop and adds a `tone-muted` class on its root. New rule: `.jdo .submission-report.tone-muted{--stamp:var(--f-ink-soft);}`. Because `--stamp` also colours the primary section label, the referenced-attachment chips and the figure-caption border, the whole report goes neutral together, not only the stamp.
+- `SubmissionReview.tsx` passes `tone="muted"` when `slotStatus` returns the `missed` class (released, refunded after dispute, missed deadline) or the label is "In dispute". Every other state keeps the teal stamp.
+
+**2. New job status `closed` (`e0ef05a`).**
+- Root cause of the owner dashboard's "Expired" label on an accepted-release job: accepting a release marks the slot `missed` with `closed_reason = 'released'`, so `reevaluateJobs` (`slotDeadlineChecker.ts`) counted zero successful slots and finalized the job `expired`. `JobCard` printed that status next to the "refunded" badge. The worker side was already right because it reads `closed_reason`.
+- Fix: when no slot succeeded, at least one slot is `missed` and every missed slot has `closed_reason` `released` or `dispute_refund` (a new count query, `ownerClosed`), the job is finalized `closed`. Every other zero-success job stays `expired`, including never-filled jobs with a refund (Section 122's auto-close of unfilled `fixed` slots, Session 107) and jobs where a worker simply missed the deadline. `closed` is also in the checker's skip-list, so a finalized job is never re-evaluated.
+- Rejected alternative: a frontend-only rule showing "Closed" whenever `status = 'expired'` and `refunded > 0`. It is one line, but it would also relabel never-filled jobs that were refunded, and it keys off an amount, not a cause.
+- `jobs.ts`: `closed` added to the two closed-job guards and to `JOB_CLOSED_STATUSES`. Frontend: `ApplicationCard.tsx` (`CLOSED_JOB_STATUSES`), `JobCard.tsx` (pill class `status-pill closed`, label "Closed"), `JobDetail.tsx` (`jdoHeaderStatus` maps `closed` to the existing "closed" header, and `jobClosedToApplicants` includes it).
+- **Migration (applied by hand in the Supabase SQL editor, before the deploy).** The live `jobs_status_check` already allowed `partially_complete` and `expired`, so it had been changed outside the repo's schema file. Replaced with:
+  ```
+  alter table public.jobs drop constraint jobs_status_check;
+  alter table public.jobs add constraint jobs_status_check
+    check (status = any (array['draft','open','in_progress','partially_complete','expired','closed','completed','cancelled']));
+  ```
+- Jobs finalized `expired` before this change keep that status (the checker skips them), so the earlier accepted-release test job still reads "Expired" on the owner side. A backfill query was drafted using the same rule as the checker; none is recorded as run.
+
+**3. Worker dashboard shows "in dispute" (`c31972c`).**
+- Root cause: `ApplicationCard` labels a slot from `slot_status`, `closed_reason` and `job_status` only, and the worker routes never sent dispute information, so a disputed submitted slot fell through to "submitted".
+- `dashboard.ts` (worker tab) and `history.ts` (`/work`) each run one extra query: `disputes` filtered to `status = 'open'` for the application ids on the page. Each row gets `dispute_open: boolean`. `ApplicationCard.tsx` has a `dispute_open?: boolean` field and a branch that prints "in dispute" before the `submitted` case (after the missed and job-closed cases). A flag, not the dispute object, because the list needs neither the reason nor the evidence.
+- Copy: the worker's "Job released" panel in `JobDetail.tsx` said the job "was cancelled and refunded to the client". It now says "closed".
+
+**Verification (testnet).**
+- Released slot, review page (job "Oyeet"): maroon "Released" chip, neutral grey stamp outline, neutral Evidence label and dot. **Pass.**
+- Disputed slot, review page (job "35tuhfh"): amber "In dispute" chip, neutral stamp, hold notice with the worker's reason. **Pass.**
+- Awaiting-review slot: teal stamp and teal Evidence label unchanged. **Pass.**
+- Fresh single-slot job "Olkh" (1π): worker submitted; owner offered release (review page showed the pending-offer notice, the worker's answer deadline, and "Request changes (2 left)"); worker accepted. Owner dashboard card: "Closed" with "↩ 1π refunded". Owner job page: header "Closed", slot "Released" in the neutral chip. Worker dashboard: "released". Worker job page: "Job released". **Pass.** The job was already `closed` by the time it was looked at, so which path set it (the accept route or the checker) is not determined.
+- Worker dashboard "Your work" and History "See all": "35tuhfh" reads "in dispute", "Wuids" (no dispute) still reads "submitted". **Pass.**
+- Worker "Job released" panel reads "closed and refunded to the client". **Pass.**
+- `tsc --noEmit` was clean on backend and frontend after the stamp and `closed` changes; the last change was verified on the deployed build.
+
+**Observations (not fixed).**
+- `backend/supabase_schema.sql` (line 38) still lists five job statuses; the live constraint had already diverged and now has `closed` too. The migration above is not saved as a file in `supabase/migrations/`.
+- The owner header's "closed" now has two sources: status `closed`, and a `completed` job with `slots_closed > 0`. `JobCard` still shows the second as "Completed". Not new, but now more visible.
+- While a release offer is pending, the owner's "Mark complete — release 1π" button is still shown on the review page (seen on "Olkh" before the worker answered). Not changed.
+
+**Not verified.**
+- Regression: a never-filled or timed-out job still reading "Expired" on the owner dashboard.
+- Multi-slot jobs ending `closed`, `completed` or `partially_complete` with a released slot (reasoned from the code, not run).
+- The review page for a refunded-after-dispute slot and for a missed-deadline slot (only the released variant has been seen).
+- The deadline-driven notifications `review_returned`, `review_auto_paid` and `review_reminder`.
+- A released or disputed slot on a multi-slot job, including its place in the pager.
+- Carried over from Session 120 (Section 135): admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 136, plus: jobs finalized `expired` before this session are not relabelled.
+
+**Files:** `backend/src/lib/slotDeadlineChecker.ts`, `backend/src/routes/jobs.ts`, `backend/src/routes/dashboard.ts`, `backend/src/routes/history.ts`, `frontend/src/components/SubmissionReport.tsx`, `frontend/src/lib/submissionReportStyles.ts`, `frontend/src/pages/SubmissionReview.tsx`, `frontend/src/components/ApplicationCard.tsx`, `frontend/src/components/JobCard.tsx`, `frontend/src/pages/JobDetail.tsx`; `roadmap.md`; `sessions/session-123.md`.
+
+**Status:** the neutral-colour, "Expired" and worker-dispute-label polish items are closed. Next: GMT versus local time in notifications (notification text is built on the backend), then the unverified checks above, the "Expired" regression glance, saving the `closed` migration under `supabase/migrations/` and refreshing `supabase_schema.sql`, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
