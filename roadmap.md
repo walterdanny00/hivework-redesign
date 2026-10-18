@@ -8201,3 +8201,50 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/routes/history.ts`; `frontend/src/App.tsx`; `frontend/src/pages/HistoryPayments.tsx`; `frontend/src/components/PaymentRow.tsx`; `frontend/src/components/WithdrawPanel.tsx`; `roadmap.md`; `sessions/session-128.md`.
 
 **Status:** the history date question, the Payments history page and the shared-balance wording are closed. Next: the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, deriving `jobs_completed` and `total_earned` from the ledger, an optional single wallet section above the dashboard tabs, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 144 — Session 129 (2026-10-18): One wallet card above the dashboard tabs, shorter summary lists
+
+**What this section is.** The "single wallet section" item carried from Section 143, plus a follow-up request to shorten the dashboard's summary lists so the My Work / My Jobs pills sit higher. Two commits in the Piwork repo (frontend and backend): `58ad695`, `5e973d3`. No migration.
+
+**Starting state.** `~/Piwork` HEAD `3074619` (docs: session 128), clean, up to date; two-repo drift check silent.
+
+**1. One wallet card (`58ad695`).**
+- `frontend/src/pages/Dashboard.tsx`: a single `<WithdrawPanel kind={tab === 'client' ? 'refund' : 'earnings'} />` is mounted above the My Work / My Jobs toggle. The mount in `WorkerView` and the conditional `kind="refund"` mount in `ClientView` (previously shown only when `total_refunded > 0`) are removed.
+- `frontend/src/components/WithdrawPanel.tsx`: the `isRefund` constant and the `!isRefund` gate on the withdrawal history are removed, so the list shows on both tabs; comment updated. The `kind` label is still sent to the backend as bookkeeping (the balance is one pool either way, Section 143).
+- Behavior changes: the card now also shows for a client with no refunds, and above the My Jobs empty state.
+- Applied with a flat Python patch script (assert-exactly-once anchors, backups in `~`); `tsc --noEmit` clean.
+
+**2. Shorter summary lists (`5e973d3`).**
+- `GET /api/withdrawals?limit=5` → `limit=3` in `WithdrawPanel.tsx` (the card's withdrawal list).
+- `backend/src/routes/dashboard.ts`: `SUMMARY_LIMIT` 5 → 3. It is a local constant that drives both "Your work" (My Work) and "Jobs you've posted" (My Jobs) and their `hasMore` checks; nothing else references it. The budget tracker uses a separate query and is unaffected.
+- Latent bug fixed: `earnings_pending` was computed from `flattened`, i.e. only the latest `SUMMARY_LIMIT` applications, so approved unpaid slots further down were missed. It now comes from its own query: the worker's `approved` applications, excluding `slot_status = 'missed'`, summing `jobs.budget / worker_slots`, rounded to 4 decimals. Same rule as before, no longer limited to the shown page. Cost: one extra query per worker dashboard load.
+- `tsc --noEmit` clean for backend and frontend.
+
+**Verification (testnet, worker account `walterdanny00`).**
+- One card above the toggle with "Available balance" 57.3334π and "Payment history →"; the Withdrawal history list sits under it on both tabs (screenshots). **Pass.**
+- My Work and My Jobs each show 3 items with "See all →"; the pills sit higher. **Pass.**
+- Pending pill reads 0π as before; the posted / refunded / net committed tracker unchanged. **Pass.**
+
+**Observations (not fixed).**
+- "Total earned" (150π) and "Jobs done" (15) still come from the stats counters, not the ledger (carried forward).
+- The Section 143 observation about two `WithdrawPanel` cards is resolved above.
+- Section 140's observations still apply (no "View submission" on a released slot in the Slots tab, one extra query per notice, pre-change notifications keep old text).
+
+**Not verified.**
+- Pending with a non-zero value (only 0π on this account): an account with approved, unpaid slots, including a multi-slot job.
+- A client with no refunds seeing the card; the My Jobs empty state with the card above it.
+- A withdrawal made from either tab refreshing the balance and list in place; whether the card remounts or flickers on a tab switch.
+- A dual-role account's Payments view, the Payments empty state, "Load more" past 20 rows, tap-through to the job (carried from Section 143).
+- The review page for a refunded-after-dispute slot after resolution, and the missed-deadline slot's page; the bottom of a released slot's review page.
+- The five backfilled jobs' header and card in the app.
+- Naming in the dispute opened, release-declined and release-expired notices, and "Revision deadline passed".
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 143.
+
+**Tooling note.** As in Sections 142–143: patch scripts live in `~`, written flat (no indented lines, no `/tmp`). Use `git --no-pager diff` in Termux, since the pager traps the output.
+
+**Files:** `frontend/src/pages/Dashboard.tsx`; `frontend/src/components/WithdrawPanel.tsx`; `backend/src/routes/dashboard.ts`; `roadmap.md`; `sessions/session-129.md`.
+
+**Status:** the single wallet card and the shorter summary lists are closed, along with the Pending-from-a-page bug. Next: the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, deriving `jobs_completed` and `total_earned` from the ledger, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
