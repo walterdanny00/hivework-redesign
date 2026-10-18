@@ -8248,3 +8248,47 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `frontend/src/pages/Dashboard.tsx`; `frontend/src/components/WithdrawPanel.tsx`; `backend/src/routes/dashboard.ts`; `roadmap.md`; `sessions/session-129.md`.
 
 **Status:** the single wallet card and the shorter summary lists are closed, along with the Pending-from-a-page bug. Next: the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, deriving `jobs_completed` and `total_earned` from the ledger, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+---
+
+## Section 145 — Session 130 (2026-10-18): Pending verified on a multi-slot account, no code changes
+
+**What this section is.** A verification-only session on top of Section 144. No commits, no migration. It checked the new Pending query against the code and against a real multi-slot account on testnet, then started scoping the ledger-derived counters.
+
+**Starting state.** `~/Piwork` HEAD `558c564` (docs: session 129, roadmap section 144), clean, up to date; `~/hivework-redesign` up to date; two-repo drift check silent.
+
+**1. Pending query audit (`backend/src/routes/dashboard.ts`).**
+- The query selects the worker's `approved` applications and drops `slot_status === 'missed'`, summing `jobs.budget / worker_slots` with 4-decimal rounding applied once on the sum.
+- Suspected gap: a paid multi-slot application still showing `approved` and being counted. Not real. Both completion paths set `status: 'completed'` together with `slot_status: 'completed'` (`backend/src/lib/settlement.ts:105` and `backend/src/routes/jobs.ts:1045`), so `.eq('status', 'approved')` already excludes them.
+- Released and dispute-refunded slots are covered by the `missed` filter: `settlement.ts` (line 56) treats `missed` as the one "closed and refunded" state, with `closed_reason` (`released`, `dispute_refund`) recording why.
+- Slot status values found in the backend: `active`, `submitted`, `completed`, `missed`. A `submitted` slot counts as pending, which is correct since the money is not yet released.
+- No code change needed.
+
+**2. Testnet check (worker `Olawalt`).**
+- A SQL query for approved, non-missed applications returned one row: `Olawalt`, `slot_status = submitted`, job budget 10, `worker_slots` 5, so 2.0000 per slot.
+- Expected Pending 2π; the dashboard showed **2π** (screenshot). Available balance 1055π, Total earned 1730π, Jobs done 83, Rating 4.1. **Pass.**
+- The single wallet card sits above the toggle with the withdrawal history under it; tab switching shows no flicker; the My Jobs tab shows the card and history. **Pass.**
+
+**3. Ledger-derived counters (scoping only).**
+- "Total earned" and "Jobs done" still read `users.total_earned` / `users.jobs_completed`, not the ledger. Not changed this session.
+- The grep for every writer of those columns and for the ledger table holding `job_completion` credits was prepared but its output was not reviewed before the session closed.
+- Before switching the source, compare counter and ledger values per user; they may have drifted.
+
+**Not verified.**
+- A worker with a `missed` slot confirming the exclusion in Pending (no approved `missed` rows existed to test).
+- A client with no refunds seeing the card; the My Jobs empty state with the card above it.
+- A withdrawal from either tab refreshing the card in place.
+- A dual-role account's Payments view, the Payments empty state, "Load more" past 20 rows, tap-through to the job.
+- The review page for a refunded-after-dispute slot and the missed-deadline slot; the bottom of a released slot's review page.
+- The five backfilled jobs' header and card in the app.
+- Naming in the dispute opened, release-declined and release-expired notices, and "Revision deadline passed".
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 144.
+
+**Tooling note.** Termux pastes of multi-line commands can run together; run `cd` and `grep` lines one block at a time. `git --no-pager diff` as before.
+
+**Files:** `roadmap.md`; `sessions/session-130.md`.
+
+**Status:** Pending with a non-zero multi-slot value is verified; tab-switch flicker is cleared. Next: the ledger-derived `jobs_completed` / `total_earned` (start with the writer and ledger greps, then a counter-vs-ledger comparison), the `missed`-exclusion check when a row exists, the remaining unverified checks, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
