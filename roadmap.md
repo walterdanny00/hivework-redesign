@@ -8153,3 +8153,51 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `frontend/src/pages/JobDetail.tsx`; `roadmap.md`; `sessions/session-127.md`.
 
 **Status:** the worker panel wording, the old open dispute and the `pay_worker` owner notice are closed. Next: the history date check, the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 143 — Session 128 (2026-10-18): Payments history page, one shared balance on the dashboard
+
+**What this section is.** The history date question carried from Section 142, which led to a new Payments history page, then a consistency pass on the dashboard's wallet card. Three commits in the Piwork repo (frontend plus one backend route): `6e7ffe7`, `b71fe58`, `17e169d`. No migration.
+
+**1. History date (no code change).**
+- The "10/11/2026" shown for "Papakqlak" in worker history is `applications.created_at` (the application date), rendered by `ApplicationCard.tsx`. `GET /api/history/work` selects only `created_at` and derives `paid` from `status === 'completed'`; it sends no paid or completed timestamp.
+- Decision: leave the work card's date as the application date. The status label moves through stages while the date stays fixed as the start of the engagement. For deadline disputes the stronger evidence is `submitted_at` against the job's `deadline_at`, which the backend already records. Whether a separate approval timestamp exists was not checked.
+- A real paid date belongs in a payments history, not on this card.
+
+**2. Payments history.**
+- `GET /api/history/payments` (`backend/src/routes/history.ts`): `balance_transactions` rows for the current user with `direction = 'credit'` and `kind` in (`job_completion`, `refund`), joined to `jobs(title)`, newest first, same `limit` / `before` cursor pattern as `/work`.
+- Frontend: `pages/HistoryPayments.tsx` (generated from `HistoryWithdrawals.tsx`: same range filter, pagination, skeletons; scoped CSS class `hw-histpay`), `components/PaymentRow.tsx` (job title, "Payment received" or "Refund" with its own date, `+Nπ`, tap opens the job), route `history/payments` in `App.tsx`. Commit `6e7ffe7`.
+- Why the ledger: it is the source of truth, each row has its own `created_at`, and owner refunds live in the same table keyed by the client's user id, so one page serves both roles. Withdrawal and withdrawal-reversal rows stay out (withdrawals have their own page).
+- Entry point: "Payment history →" in the balance card's label row in `WithdrawPanel.tsx`. Commit `b71fe58`.
+
+**3. One shared balance.**
+- Finding: `POST /api/withdrawals` accepts `kind` only as a label stored on the withdrawal row; the balance check is one `withdrawable_balance` RPC either way. So "Refunded balance" on My Jobs was the same pool as "Available balance" on My Work (both 57.3334π in the app). The card's history list split withdrawals by that label, while "See all" showed all of them.
+- Fix (`WithdrawPanel.tsx`, commit `17e169d`): label is "Available balance" on both tabs; footer copy unified; the Payment history link shows on both; the withdrawal list is unfiltered and appears only on the My Work card. The My Jobs card keeps the balance, the withdraw form and the link, but no list: refund credits are in Payments, and past withdrawals are on My Work and `/history/withdrawals`. The `kind` label is still sent to the backend as bookkeeping.
+- Applied with flat Python patch scripts (assert-exactly-once anchors); `tsc --noEmit` clean for frontend and backend.
+
+**Verification (testnet).**
+- Worker account (@Olawalt): `/history/payments` lists "Papakqlak" as "Payment received · 10/17/2026" +1π, with earlier payments (10/16) below. **Pass.**
+- Owner account: `/history/payments` lists refund rows ("Fjrgj", "Okgvnn" twice, and others) dated 10/17/2026 as "Refund". **Pass.**
+- Dashboard My Work: "Available balance", link in the label row (no crowding on a narrow screen), unfiltered Withdrawal history including the 4π withdrawal made from My Jobs. **Pass.**
+- Dashboard My Jobs: "Available balance", link, no list under the card, the posted / refunded / net committed tracker directly below. **Pass.**
+
+**Observations (not fixed).**
+- The dashboard still mounts two `WithdrawPanel` cards (one per tab). A single wallet section above the My Work / My Jobs switch would remove the duplicate card but means changing `Dashboard.tsx`.
+- "Total earned" and "Jobs done" still come from the stats counters, not the ledger (already in the carried-forward list).
+- The Payments page marks no nav pill active; assumed the same as the other history pages (not checked).
+- Section 140's observations still apply (no "View submission" on a released slot in the Slots tab, one extra query per notice, pre-change notifications keep old text). The Section 142 history-date observation is resolved above.
+
+**Not verified.**
+- A dual-role account (worker and owner credits mixed in one Payments list, labeled per row); the empty state; "Load more" past 20 rows; tapping a row through to the job.
+- The review page for a refunded-after-dispute slot after resolution, and the missed-deadline slot's page; the bottom of a released slot's review page.
+- The five backfilled jobs' header and card in the app.
+- Naming in the dispute opened, release-declined and release-expired notices, and "Revision deadline passed" (reasoned from the code, not triggered).
+- `review_returned`, `review_auto_paid`, `review_reminder`; an older changes-requested notification still showing GMT text.
+- Carried over from Section 135: admin dispute-embed check, the versions endpoint's 403 path, the version-insert failure branch.
+
+**Known limits (accepted).** Unchanged from Section 141, plus: Payments lists credits only (`job_completion`, `refund`); reversal credits from failed withdrawals are not shown; a dual-role account sees both kinds in one list.
+
+**Tooling note.** As in Section 142: patch scripts live in `~`, written flat (no indented lines, no `/tmp`).
+
+**Files:** `backend/src/routes/history.ts`; `frontend/src/App.tsx`; `frontend/src/pages/HistoryPayments.tsx`; `frontend/src/components/PaymentRow.tsx`; `frontend/src/components/WithdrawPanel.tsx`; `roadmap.md`; `sessions/session-128.md`.
+
+**Status:** the history date question, the Payments history page and the shared-balance wording are closed. Next: the remaining unverified checks above, the worker `submitted` panel history, the admin dispute-embed check, deriving `jobs_completed` and `total_earned` from the ledger, an optional single wallet section above the dashboard tabs, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
