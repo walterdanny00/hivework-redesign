@@ -8328,3 +8328,26 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `supabase/migrations/20261019000000_recompute_worker_stats_fn.sql`, `backend/src/routes/jobs.ts`, `backend/src/lib/settlement.ts`; `roadmap.md`; `sessions/session-131.md`.
 
 **Status:** ledger-derived `jobs_completed` / `total_earned` is in place and backfilled; the live completion check is pending. Next: confirm the deploy and run that check, drop `increment_worker_stats` afterwards, then the remaining unverified checks, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 147 — Session 132 (2026-10-19): live stats check passed, `increment_worker_stats` dropped
+
+**What this section is.** Closes Section 146's pending live check and removes the unused function. No app-code changes.
+
+**Starting state.** `~/Piwork` HEAD `e0f9e56` (docs: session 131, roadmap section 146), clean; `~/hivework-redesign` up to date; two-repo drift check silent. Render showed `78962c3` Live (auto-deploy, 43.5s build).
+
+**1. Live check.** `Olawalt`'s 2π submitted slot on job `f799d04c` ("Test flow on hivework multi worker job post", budget 10, 5 slots) was paid by the client, `walterdanny00`.
+- Before: 85 jobs / 1746π earned / balance 1056π / Pending 2π.
+- After: 86 jobs / 1748π earned / balance 1058π / Pending 0π, plus a new `job_completion` credit of 2π in `balance_transactions` (2026-10-19 11:55 UTC).
+- Dashboard screenshots match the SQL. **Pass.**
+
+**2. Drop.** Grep found no references to `increment_worker_stats` in `backend/src` or `frontend/src`; the only migration hits are the original create (`20260701000000`) and a comment in the backfill (`20260701010000`). `supabase/migrations/20261019000100_drop_increment_worker_stats.sql` runs `drop function if exists increment_worker_stats(uuid, numeric)`. Applied by hand in the SQL editor first (Supabase's destructive-operation prompt confirmed), then saved as the migration. `pg_proc` confirms `increment_worker_stats` is gone and `recompute_worker_stats` remains.
+
+**Not verified.**
+- Which completion path the payment used (`/complete-slot` or `settlement.ts`); the other path and single-worker `/complete` are unexercised.
+- Everything under Section 145's "Not verified" still applies.
+
+**Known limits (accepted).** The `recompute_worker_stats` RPC result is still not checked in code, so a failure would be silent.
+
+**Files:** `supabase/migrations/20261019000100_drop_increment_worker_stats.sql` (`~/Piwork`); `roadmap.md`; `sessions/session-132.md`.
+
+**Status:** worker stats are ledger-derived and live-verified; the old increment function is gone. Next: a single-worker `/complete` check, then the Section 145 unverified list, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
