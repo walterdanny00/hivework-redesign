@@ -8292,3 +8292,39 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `roadmap.md`; `sessions/session-130.md`.
 
 **Status:** Pending with a non-zero multi-slot value is verified; tab-switch flicker is cleared. Next: the ledger-derived `jobs_completed` / `total_earned` (start with the writer and ledger greps, then a counter-vs-ledger comparison), the `missed`-exclusion check when a row exists, the remaining unverified checks, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 146 — Session 131 (2026-10-19): `jobs_completed` / `total_earned` rebuilt from the ledger
+
+**What this section is.** Closes the long-carried "derive worker stats from the ledger" item (Sections 131, 143, 144, 145). One migration, three call-site changes, one backfill. Live completion check still pending.
+
+**Starting state.** `~/Piwork` HEAD `a953873` (docs: session 130, roadmap section 145), clean; `~/hivework-redesign` up to date; two-repo drift check silent.
+
+**1. Who writes the counters.**
+- No code in `backend/src` writes `users.jobs_completed` / `users.total_earned` directly. The only writer is the SQL function `increment_worker_stats(worker_id, earned)` (blind `+1` and `+earned`), called after a fresh credit at `jobs.ts` `/complete`, `jobs.ts` `/complete-slot` and `settlement.ts` `paySubmittedSlot`. A tolerated duplicate credit skipped the call.
+- The 07-01 backfill rebuilt the counters from `payouts`. The 07-04 ledger migration never seeded `balance_transactions` from `payouts`.
+- The credit amount equals the counter amount at all three sites (`budget`, or `budget / slots` per slot), so there is no fee mismatch.
+
+**2. Counter vs ledger.** Three users drifted, all counters above the ledger: `walterdanny00` 15 / 150π vs 7 / 37π, `Olawalt` 84 / 1731π vs 71 / 1623π, `lizzybeth00` 3 / 18π vs 0 / 0.
+- Completed `payouts` rows with no ledger row: `lizzybeth00` 3 / 18π (exact), `Olawalt` 14 / 123π, `walterdanny00` 9 / 123π.
+- The remaining one-job gap for `Olawalt` (job `72fcc4a5`, 15π, manually corrected 2026-07-02) and `walterdanny00` (job `fc57ca2f`, 10π) is the BUG-100 incident rows: completed and paid, but never counted. Not a live bug.
+
+**3. Change.**
+- Decision: keep the two `users` columns as a cache, always rebuilt from the ledger (same pattern as `recompute_worker_balance`) rather than a view or changing every reader. Count the two incident payouts as completed jobs. The ledger is not backfilled from `payouts` (those credits would become withdrawable).
+- `supabase/migrations/20261019000000_recompute_worker_stats_fn.sql`: `recompute_worker_stats(p_worker_id uuid)` sets `jobs_completed` and `total_earned` to ledger `job_completion` credits plus completed `payouts` that have no `job_completion` ledger row for the same worker and job. Granted to `service_role`. Applied by hand in the SQL editor first, then saved as the migration.
+- `jobs.ts` (two sites) and `settlement.ts` (one site): `if (!creditError) await supabase.rpc('increment_worker_stats', …)` replaced by an unconditional `supabase.rpc('recompute_worker_stats', { p_worker_id })`. A retry or duplicate credit now self-corrects, closing the crash-between-credit-and-stats window noted in Section 131. Scripted patch with anchor check and backups; `tsc --noEmit` clean. Commit `78962c3`.
+- One-time backfill: `select recompute_worker_stats(id) from users;`.
+
+**4. Verification (data).** Every user's counters equal ledger + legacy: `Eliza1914` 9 / 10π, `lizzybeth00` 3 / 18π, `Olawalt` 85 / 1746π, `walterdanny00` 16 / 160π, `dannywills00` 0 / 0. The dashboards for `Eliza1914`, `walterdanny00` and `Olawalt` show those totals. **Pass.**
+
+**Not verified.**
+- A live completion with the new code: backend deploy of `78962c3` not confirmed. Planned check: pay `Olawalt`'s 2π pending slot and expect 86 jobs, 1748π, Pending 0π, balance +2π.
+- The `/complete` and `/complete-slot` routes in `jobs.ts` running the recompute call.
+- Everything listed under Section 145's "Not verified" still applies.
+
+**Known limits (accepted).** The RPC result is not checked in code (as before), so a failure would be silent. `increment_worker_stats` is now unused and stays in the database until the live check passes. A legacy payout stops counting as "legacy" once it gets a ledger row, so the numbers stay correct if the ledger is ever seeded.
+
+**Tooling note.** Scripted patch with an anchor-uniqueness check, backups kept outside the repo in `~/stats_patch_bak/` so `git add` cannot pick them up. Add specific paths rather than `backend/src`.
+
+**Files:** `supabase/migrations/20261019000000_recompute_worker_stats_fn.sql`, `backend/src/routes/jobs.ts`, `backend/src/lib/settlement.ts`; `roadmap.md`; `sessions/session-131.md`.
+
+**Status:** ledger-derived `jobs_completed` / `total_earned` is in place and backfilled; the live completion check is pending. Next: confirm the deploy and run that check, drop `increment_worker_stats` afterwards, then the remaining unverified checks, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
