@@ -8381,3 +8381,40 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `roadmap.md`; `sessions/session-133.md`.
 
 **Status:** all three completion paths are ledger-derived; single-worker `/complete` is live-verified including the revision window. Next: the Section 145 unverified list, the admin dispute-embed check, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 149 — Session 134 (2026-10-20): admin dispute-embed and admin dispute-pay verified, single-worker Pending fixed
+
+**What this section is.** Closes the long-carried admin dispute-embed check, exercises `paySubmittedSlot` (single-worker branch) through admin dispute resolution, and fixes a Pending gap found along the way. One backend change, one commit.
+
+**Starting state.** `~/Piwork` HEAD `b8b8bcb` (docs: session 133, roadmap section 148), clean; `~/hivework-redesign` up to date; two-repo drift check silent.
+
+**1. Admin dispute-embed check.** `GET /api/admin/disputes` (`backend/src/routes/admin.ts:24`, `x-admin-key` auth, key read into a shell variable with `read -s`). The select embeds `submission_versions` under `applications` and sorts by `version_no` (lines 29-35).
+- Resolved list: no error, 7 disputes, each with exactly one embedded version (`order [1]`). Open list: no error, 1 dispute. No schema-cache problem, so no `notify pgrst, 'reload schema'` was needed.
+- A SQL join for disputes whose application has more than one `submission_versions` row returned no rows, so the `version_no` sort has only run on single-version rows. **Pass, with that limit.**
+
+**2. `paySubmittedSlot`, single-worker branch (admin dispute-pay).** Dispute `80bfed6a-2e9d-4e86-83e0-b5d8b4f04d46` (worker-opened, source `offer_declined`), job `35tuhfh` (budget 1π, 1 slot), worker `Olawalt`, client `walterdanny00`, application `submitted`. Read `admin.ts:49` (resolve handler) and `settlement.ts:92` first. Resolved with `pay_worker` and a note.
+- Before: application `submitted`, job `in_progress`, `payout_claimed` false, dispute open, no ledger rows for the application; all four deadline columns already null (so the deadline-clearing step could not be observed); `Olawalt` 88 jobs / 1750π.
+- Response: `{"ok":true,"outcome":"pay_worker","amount":1}`.
+- After: application `completed`, job `completed`, `payout_claimed` true, dispute `resolved` with outcome and note, one `job_completion` credit of 1.0000 (2026-10-20 06:46:15 UTC), `Olawalt` 89 jobs / 1751π. Dashboard 1751π earned / 89 jobs / 1061π balance; bell badge 2 on `Olawalt` (notice text not inspected); `walterdanny00`'s bell shows "The dispute on "35tuhfh" was decided for @Olawalt, and the payment was released." **Pass.**
+
+**3. Pending gap for single-worker jobs.** Observation: the dashboard showed 0π Pending while that application was `submitted`. `dashboard.ts` line 34 selected only `status = 'approved'`; a single-worker application moves to `status = 'submitted'` on submission, while multi-slot applications stay `approved` and only `slot_status` changes (which is why the Section 145 multi-slot check passed).
+- Refund path checked first: `refundSubmittedSlot` sets a single-slot application back to `approved` with `slot_status = 'missed'`, so the existing `missed` filter already excludes refunded rows.
+- Blast radius: 7 pre-ledger single-worker applications sit at `status = 'submitted'` on `completed` jobs (58π in total across three workers), all with null deadline columns. A plain status widening would have shown them as phantom Pending.
+- Change (`backend/src/routes/dashboard.ts`, 2 lines): select now includes `status` and `jobs(status)`; the query takes `status in ('approved','submitted')`; the filter keeps `slot_status !== 'missed'` and counts a row only if `status === 'approved'` or its job is `in_progress`. `approved` (multi-slot) behaviour is unchanged. Scripted patch with anchor check and backup in `~/pending_patch_bak/`; `tsc --noEmit` clean. Commit `1d731a9`, Render deployed and Live.
+- Live check on a fresh single-worker 1π job: Pending read 1π once `Olawalt` was approved, stayed 1π after submission, and dropped to 0π only after payment, with `Olawalt` at 90 jobs / 1752π earned / 1062π balance. Olawalt's Pending stayed 0π despite the stale `submitted` rows. **Pass.**
+
+**Not verified.**
+- `paySubmittedSlot` multi-slot branch (admin dispute-pay and auto-pay) and the `refundSubmittedSlot` outcome path through the admin route.
+- The `REVIEW_AUTOPAY_LIVE` value in Render (not checked), so `review_auto_paid` and `review_reminder` stay unverifiable.
+- The `version_no` sort with two or more versions in one dispute.
+- Worker-side notice text for the dispute-pay (badge count seen, text not read).
+- Which path session 132's slot payment took (inferred `/complete-slot`).
+- Everything under Section 145's "Not verified" still applies, plus the carried versions-endpoint 403 path and version-insert failure branch.
+
+**Known limits (accepted).** The 7 stale pre-ledger `submitted` applications remain in the data; the in-progress guard keeps them out of Pending and their null deadline columns keep the checker from picking them up. A `submitted` application on a job in any state other than `in_progress` (for example cancelled) is not counted as pending. Section 148's limits are unchanged.
+
+**Tooling note.** Admin calls use `read -s ADMIN_KEY` and `BASE=<Render URL>` so the key never reaches shell history or chat. Patch convention as before: Python script with a match-exactly-once assert, backup outside the repo, `tsc --noEmit`, then `git add` of the specific path.
+
+**Files:** `backend/src/routes/dashboard.ts` (`~/Piwork`); `roadmap.md`; `sessions/session-134.md`.
+
+**Status:** the admin dispute-embed check is closed, `paySubmittedSlot` single-worker is exercised through admin dispute-pay, and single-worker Pending is fixed and live-verified. Next: check `REVIEW_AUTOPAY_LIVE` in Render, then the multi-slot `paySubmittedSlot` branch, the Section 145 unverified list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
