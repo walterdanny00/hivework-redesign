@@ -8351,3 +8351,33 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `supabase/migrations/20261019000100_drop_increment_worker_stats.sql` (`~/Piwork`); `roadmap.md`; `sessions/session-132.md`.
 
 **Status:** worker stats are ledger-derived and live-verified; the old increment function is gone. Next: a single-worker `/complete` check, then the Section 145 unverified list, the worker `submitted` panel history, the admin dispute-embed check, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 148 — Session 133 (2026-10-20): single-worker `/complete` verified, completion and deadline paths read, no code changes
+
+**What this section is.** Closes the single-worker `/complete` check carried from Section 147, plus a read-through of the three completion paths and the deadline checker. No commits, no migration.
+
+**Starting state.** `~/Piwork` HEAD `29293e4` (docs: session 132, roadmap section 147), clean; `~/hivework-redesign` up to date; two-repo drift check silent.
+
+**1. Completion paths (read).**
+- `/complete` (`backend/src/routes/jobs.ts:887`): requires `job.status === 'in_progress'`, claims via `jobs.payout_claimed` false→true, credits `job.budget` as `job_completion`, runs `recompute_worker_balance`, marks job and application `completed`, runs `recompute_worker_stats`, notifies. A 23505 duplicate counts as success; the catch block releases the claim.
+- `/complete-slot` (`jobs.ts:1017`): inline per-slot claim (`slot_status` submitted→completed) and credit, then both recomputes.
+- `paySubmittedSlot` (`backend/src/lib/settlement.ts:92`) handles single and multi-slot. Its only callers are the deadline checker's auto-pay (`slotDeadlineChecker.ts:673`) and admin dispute resolution (`admin.ts:68`). Manual owner payment never goes through it.
+- Owner UI: `frontend/src/lib/useCompleteSlot.ts` picks `/complete` (single-worker) or `/complete-slot`. `SubmissionReview.tsx` `canAct` requires the `submitted` state, so Complete is not offered before submission or during a revision window.
+
+**2. Deadline checker (read).** The revision (`returnLapsedRevisions`), auto-pay (`autoPayExpiredReviews`) and reminder (`remindOwnersBeforeAutoPay`) passes all filter on submitted/active state, so a paid application cannot be picked up even if a deadline column is left set. Auto-pay and the reminder pass are dry-run unless `REVIEW_AUTOPAY_LIVE === 'true'` (`slotDeadlineChecker.ts:629`).
+
+**3. Live check.** Single-worker job `HkdvwX` (`a6c83ebb-e1f3-48a7-87b7-b94bebf8a8c2`, budget 1π): `Olawalt` submitted, the client requested changes once (round 1 of 2, no Complete button in the revision window), `Olawalt` resubmitted, the client paid.
+- Before: 87 jobs / 1749π earned / 1059π balance / 0π pending. After: 88 / 1750π / 1060π / 0π pending.
+- `balance_transactions`: one `job_completion` credit of 1.0000 (2026-10-20 06:03:18 UTC). `jobs`: `completed`, `payout_claimed = true`. Review page: "Payment released. 1π went to @Olawalt", "Earlier rounds (1)". **Pass.**
+
+**Not verified.**
+- `paySubmittedSlot` is unexercised (auto-pay and admin dispute-pay, both branches).
+- Which path session 132's slot payment took (inferred `/complete-slot`).
+- The `REVIEW_AUTOPAY_LIVE` value in Render, so `review_auto_paid` and `review_reminder` stay unverifiable until it is on.
+- Everything under Section 145's "Not verified" still applies.
+
+**Known limits (accepted).** The `recompute_worker_stats` RPC result is not checked in code. `/complete` does not check that the assigned application is `submitted`; only the UI gates this, reachable only by a direct API call from the job's own client (optional hardening). `/complete` and `/complete-slot` leave deadline columns set on a paid application (harmless; the checker filters on state). `useCompleteSlot.ts` comments still describe the pre-ledger payout flow.
+
+**Files:** `roadmap.md`; `sessions/session-133.md`.
+
+**Status:** all three completion paths are ledger-derived; single-worker `/complete` is live-verified including the revision window. Next: the Section 145 unverified list, the admin dispute-embed check, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
