@@ -8418,3 +8418,40 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** `backend/src/routes/dashboard.ts` (`~/Piwork`); `roadmap.md`; `sessions/session-134.md`.
 
 **Status:** the admin dispute-embed check is closed, `paySubmittedSlot` single-worker is exercised through admin dispute-pay, and single-worker Pending is fixed and live-verified. Next: check `REVIEW_AUTOPAY_LIVE` in Render, then the multi-slot `paySubmittedSlot` branch, the Section 145 unverified list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 150 — Session 135 (2026-10-20): `paySubmittedSlot` multi-slot verified through admin dispute-pay and auto-pay, no code changes
+
+**Starting state.** `git pull`, `git status --short` and `git log --oneline -3` in `~/Piwork` (HEAD `1d731a9` or a docs commit on top), `git pull` in `~/hivework-redesign`, and the `diff -rq` drift check, per the Session 134 next-session list. No code changes this session.
+
+**Termux convention.** Admin calls use `BASE=https://hivework-backend.onrender.com` (the variable is `BASE`, not `API`) and `$ADMIN_KEY` in the `x-admin-key` header. Use `curl -sS -w "\nHTTP %{http_code}\n"`; plain `-s` hides a failed call (an unset base turns the URL into a bare path and prints nothing). Check variables with `echo "BASE=[$BASE]"; echo "key length: ${#ADMIN_KEY}"` after opening a new Termux session.
+
+**Code read first.** `settlement.ts` `paySubmittedSlot` (multi-slot claims on `slot_status = 'submitted'`, sets `slot_status` and `status` to `completed`, credits `budget / worker_slots`, then `reevaluateJobs`; single-slot sets `jobs.status = 'completed'` and `payout_claimed = true`); `admin.ts` resolve handler (`pay_worker` calls `paySubmittedSlot`, then closes the dispute row, then notifies both sides); `reevaluateJobs` (`slotDeadlineChecker.ts:247`: skips while any slot is `approved`+`active` or `approved`+`submitted`, waits until every slot is filled or closed, then sets `completed`, `partially_complete`, `expired` or `closed`); `autoPayExpiredReviews` (Pass G, `slotDeadlineChecker.ts` ~line 637); `jobs.ts` `/reject`; `startSlotDeadlineChecker` (default 5-minute poll, called with no argument in `index.ts:58`). `payout_claimed` is only written by the single-worker paths (`/complete`, single-slot `paySubmittedSlot`); multi-slot replaces that guard with the `slot_status` submitted-to-completed claim (`jobs.ts` ~1041), so it staying false on a finished multi-slot job is by design.
+
+**1. Multi-slot admin dispute-pay.** Job `6d48a392-6c05-4391-a715-edcff9b24447` (2π, 2 slots, owner `walterdanny00`, workers `Olawalt` and `Eliza1914`). `Olawalt` submitted and the owner rejected, opening dispute `894f8202-043b-4d64-8830-71e51b49e16b`.
+- Before: `Olawalt` `approved`/`submitted`, `Eliza1914` `approved`/`active`, job `in_progress`, `payout_claimed` false. Dashboards: `Olawalt` 1752π / 90 jobs / 1π pending / 1062π; `Eliza1914` 10π / 9 / 1π / 10π.
+- Resolved `pay_worker`: `{"ok":true,"outcome":"pay_worker","amount":1}`, HTTP 200 (per-slot share, not the full 2π).
+- After: `Olawalt` `completed`/`completed`, `review_due_at` null; `Eliza1914` untouched; job still `in_progress`, `payout_claimed` false; one `job_completion` credit of 1.0000 for `Olawalt`; dispute `resolved` with note. `Olawalt` 1753π / 91 / 0π / 1063π; `Eliza1914` unchanged (pending 1π).
+- Notices: `Olawalt` got "The dispute on "LoursZ" was decided in your favor and you were paid." plus a separate "Payment sent / You were paid 1π" (this closes the worker-side dispute-pay notice item from Section 149). `walterdanny00` got "The dispute on "LoursZ" was decided for @Olawalt, and the payment was released."
+- Second slot: `Eliza1914` submitted, was rejected, dispute `b2c1fb0c-f73c-45c7-ae7e-203fe365c846` resolved `pay_worker` (amount 1, HTTP 200). Both applications `completed`/`completed`; job flipped to `completed` through `reevaluateJobs`; `payout_claimed` still false; two 1.0000 `job_completion` credits (one per worker, correct application ids). `Eliza1914` 11π / 10 jobs / 0π pending / 11π available. **Pass.**
+
+**2. `REVIEW_AUTOPAY_LIVE`.** Set to `true` in Render, so Pass G pays for real (earlier sections could not verify `review_auto_paid`). Pass G selects applications with `review_due_at` in the past, `revision_due_at` and `release_offer_expires_at` null and the slot `submitted` (multi-slot: `slot_status`), skips any with an open dispute (and opening a dispute already nulls `review_due_at`), and pays through `paySubmittedSlot`. Default review window is 72h (`DEFAULT_REVIEW_WINDOW_HOURS`).
+
+**3. Multi-slot auto-pay.** Job `6116e803-d5c6-4b35-9e2c-938f1e5d2ca0` (2π, 2 slots; both `review_due_at` about 2026-10-22 17:36 UTC), both workers submitted and the owner did nothing. `review_due_at` was backdated in SQL one slot at a time (`update applications set review_due_at = now() - interval '1 minute' where id = ...`), waiting one 5-minute poll after each.
+- After the first backdate (`Olawalt`, `da7fa1d3-026e-4c3e-af53-c56e3370e99f`): `Olawalt` `completed`/`completed`, one 1.0000 credit; `Eliza1914` still `submitted` with her future `review_due_at`; job `in_progress`.
+- After the second (`Eliza1914`, `7b56f1d1-46b2-4196-aac1-aeb898ab81ad`): both `completed`/`completed`, job `completed`, `payout_claimed` false, two 1.0000 `job_completion` credits.
+- Notices: each worker got "Payment sent / You were paid 1π for "Tijfjncc"" with no dispute notice; `walterdanny00` got two "Review window ended: The review window on "Tijfjncc" ended without a decision, so @Olawalt / @Eliza1914 was paid automatically." Counts: `Olawalt` 92 jobs, `Eliza1914` 11. **Pass.**
+
+**Not verified.**
+- Multi-slot `refund_owner` through the admin route (`refundSubmittedSlot`, `creditRefundForSlot`; `settlement.ts` lines 1-85 not read this session). Expected: 1π refund to the owner, slot `missed` with `closed_reason = 'dispute_refund'`, job stays `in_progress` until the other slot settles.
+- Single-worker auto-pay (only the multi-slot path was exercised); the 24h/6h `review_reminder` notices (Pass F2); a revision-return path.
+- `missed`-slot Pending exclusion on a multi-slot account; Payments page edge cases; worker `submitted` panel history; notification naming from Section 145's list.
+- The `version_no` sort with 2+ versions in one dispute; the versions endpoint 403 path and version-insert failure branch; which path session 132's slot payment took (inferred `/complete-slot`).
+
+**Observations (not fixed).**
+- The job `6116e803…` appeared to be posted with a 48h review window rather than the 72h default (due about 2026-10-22 17:36 UTC from a 2026-10-20 submission); not investigated, no effect on the test.
+- `walterdanny00`'s available balance read 57.3334π on the dashboard; not part of this test and not traced.
+- Section 148's and 149's accepted limits are unchanged.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-135.md`.
+
+**Status:** `paySubmittedSlot` multi-slot is now verified through both admin dispute-pay and auto-pay (live, `REVIEW_AUTOPAY_LIVE=true`), including job finalization through `reevaluateJobs` and all worker/owner notice text. Next: read `settlement.ts` lines 1-85 and test multi-slot `refund_owner`, then the remaining Section 145 unverified list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
