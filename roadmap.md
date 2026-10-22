@@ -8455,3 +8455,44 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-135.md`.
 
 **Status:** `paySubmittedSlot` multi-slot is now verified through both admin dispute-pay and auto-pay (live, `REVIEW_AUTOPAY_LIVE=true`), including job finalization through `reevaluateJobs` and all worker/owner notice text. Next: read `settlement.ts` lines 1-85 and test multi-slot `refund_owner`, then the remaining Section 145 unverified list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 151 — Session 136 (2026-10-22): multi-slot `refund_owner` verified through the admin route, ledger reconciled, no code changes
+
+**Starting state.** `~/Piwork` HEAD `0114c90` (docs: session 135) on top of `47c611a` and `1d731a9`, clean; `~/hivework-redesign` up to date; two-repo drift check silent. No code changes this session.
+
+**Termux convention.** `settlement.ts` lives at `~/Piwork/backend/src/lib/settlement.ts` (not `src/settlement.ts`). Admin calls as in Section 150 (`$BASE`, `$ADMIN_KEY`, `curl -sS -w "\nHTTP %{http_code}\n"`).
+
+**Code read first.** `lib/settlement.ts` lines 1-115 and `routes/admin.ts` lines 46-100, plus `creditRefundForSlot` and `closeSlotAndRefund` in `slotDeadlineChecker.ts` (lines 30-98).
+- `refundSubmittedSlot(applicationId, 'released' | 'dispute_refund')`: claims atomically (multi-slot on `slot_status = 'submitted'`, single-slot on `status = 'submitted'`), sets `slot_status = 'missed'` plus `closed_reason`, clears the four deadline columns, and for a single-slot application also returns `status` to `approved`. Then calls `creditRefundForSlot`, then `reevaluateJobs`, and returns `amount = budget / slots`. A lost claim returns 409 "This slot is no longer awaiting review."
+- `creditRefundForSlot` inserts a `balance_transactions` credit (`kind = 'refund'`, `worker_id` = the job's `client_id`, `amount = budget / worker_slots`, `application_id` set, `clears_at` = now), treats a `23505` unique violation as success (idempotent via `uq_baltx_slot_refund`), calls `recompute_worker_balance` for the owner, and sends `notifyRefundCredited`. If the insert fails the slot is already `missed` and `reconcileMissingRefunds` retries it every cycle.
+- `admin.ts` resolve handler: `refund_owner` calls `refundSubmittedSlot(application_id, 'dispute_refund')`, closes the dispute row only after the money step succeeds, then notifies both sides. A second resolve of the same dispute returns 409 before touching money.
+
+**1. Multi-slot admin dispute refund.** Job `22d995e1-f676-4978-95bd-a132ce08d23c` ("Digfy", 2π, 2 slots, owner `walterdanny00`, workers `Olawalt` and `Eliza1914`). `Olawalt` submitted and the owner rejected, opening dispute `bd3a50c6-b0dd-4087-9540-0738f9f3ea52`.
+- Before: `Olawalt` `approved`/`submitted`, `Eliza1914` `approved`/`active`, job `in_progress`, `payout_claimed` false, dispute `open`, no ledger rows for the job. `walterdanny00` available 57.3334π.
+- Resolved `refund_owner` (note "Session 136 multi-slot refund test"): `{"ok":true,"outcome":"refund_owner","amount":1}`, HTTP 200 (per-slot share, not the full 2π). Resolved at 2026-10-22 16:25:54 UTC.
+- Repeat of the same call: `{"error":"This dispute is already resolved."}`, HTTP 409, nothing moved.
+- After: `Olawalt` `approved`/`missed`, `closed_reason = 'dispute_refund'`; `Eliza1914` untouched (`approved`/`active`); dispute `resolved` with outcome `refund_owner` and the note; job still `in_progress`, `payout_claimed` false. Exactly one ledger row: a 1.0000 `refund` credit to `walterdanny00` with `Olawalt`'s application id.
+- Dashboards: `walterdanny00` available 57.3334π to 58.3334π (+1.0000); earned 160π, 16 jobs, 0π pending unchanged. `Olawalt` 1754π earned / 92 jobs / 0π pending / 1064π available (no earnings or job-count change). `Eliza1914` 12π / 11 / 1π pending (her still-active slot) / 12π.
+- Notices: owner got "Dispute resolved: The dispute on "Digfy" was decided in your favor and the slot was refunded to you." plus a separate "Refund available: 1.00π from "Digfy" is now available to withdraw."; worker got "Dispute resolved: The dispute on "Digfy" was decided for the client, and the slot was refunded to them." These match the handler text and close the owner-side refund-credited notice item.
+
+**2. Job finalization.** `Eliza1914` then submitted, was approved and completed in the app. Final state: `Olawalt` `approved`/`missed` (`dispute_refund`), `Eliza1914` `completed`/`completed`, job `partially_complete` (through `reevaluateJobs`), `payout_claimed` false. The job's ledger holds exactly two rows: the 1.0000 refund to the owner tied to `Olawalt`'s application and a 1.0000 `job_completion` credit to `Eliza1914` tied to hers. The 2π is fully accounted for, nothing double-counted. **Pass.**
+
+**3. Ledger reconcile for `walterdanny00`.** The 57.3334π dashboard figure (Section 150 observation) is explained. Ledger totals by kind: `job_completion` credits 7 rows / 37.0000; `refund` credits 66 / 92.3334; `withdrawal` debits 14 / 91.0000; `withdrawal_reversal` credit 1 / 20.0000. Credits 149.3334 minus debits 91.0000 = 58.3334π after the +1 refund, equal to the dashboard. No balance bug. The only fractional rows are two 0.6667 `refund` credits on job `37301bfd-b0b0-480f-8f95-c1487d132721` (2026-09-05, `application_id` null), i.e. job-level refunds from before per-slot refunds existed. Likely a 3-slot split of a 2π job (2/3 rounded to 4 decimals); the job's budget and slot count were not checked.
+
+**Not verified.**
+- Single-slot `refund_owner` through the admin route (the `status` returns to `approved` branch); the `released` close reason (accepted release offers).
+- `Olawalt`'s Pending before the refund was not captured, so the `missed`-slot Pending exclusion is inferred from the 0π after reading, not observed as a drop.
+- `Eliza1914`'s "Payment sent" notice for the in-app completion; which route the in-app completion took (inferred `/complete-slot`, as in session 132).
+- Single-worker auto-pay (only the multi-slot path has been exercised); the 24h/6h `review_reminder` notices (Pass F2); a revision-return path.
+- Payments page edge cases; worker `submitted` panel history; notification naming from Section 145's list.
+- The `version_no` sort with 2+ versions in one dispute; the versions endpoint 403 path and version-insert failure branch.
+- Whether the 0.6667 rows on job `37301bfd…` are a 3-slot rounding artifact (side check, low priority).
+
+**Observations (not fixed).**
+- Job `6116e803…` appeared to be posted with a 48h review window rather than the 72h default (Section 150); still not investigated.
+- Per-slot refunds credit the 4-decimal rounded share, so a job whose budget does not divide evenly by its slot count can be refunded 0.0001π more or less than the budget in total. Accepted limit, no action.
+- Sections 148 and 149's accepted limits are unchanged.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-136.md`.
+
+**Status:** multi-slot `refund_owner` is verified through the admin route end to end: per-slot refund credit to the owner, slot `missed` with `closed_reason = 'dispute_refund'`, idempotent repeat (409), job held `in_progress` until the other slot settled, and final `partially_complete` after `Eliza1914` was paid. `walterdanny00`'s balance reconciles to the ledger. Next: single-worker auto-pay, then single-slot `refund_owner`, the Section 145 unverified list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
