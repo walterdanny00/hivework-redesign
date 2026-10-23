@@ -8546,3 +8546,55 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-137.md`.
 
 **Status:** single-worker auto-pay is verified live end to end (query conditions, atomic claim, one full-budget credit, job `completed` with `payout_claimed` true, both notices, Render log). Single-slot `refund_owner` is verified through the admin route (slot `missed`, `dispute_refund`, application back to `approved`, job `closed`, one owner credit, Pending dropped, 409 on repeat, dashboard card Closed with refunded chip). The 48h window question is closed. Next: the 24h/6h reminders (read `remindOwnersBeforeAutoPay`, `slotDeadlineChecker.ts` lines 696-757, first), the revision-return path, the `released` reason, the rest of the Section 145 list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 153 — Session 138 (2026-10-23): 24h/6h review reminders, revision-return path and the open-dispute guards verified, no code changes
+
+**Starting state.** `~/Piwork` HEAD `be6cdb8` (docs: session 137, roadmap section 152) on top of `9fc8a30` and `0114c90`, clean, up to date; `~/hivework-redesign` up to date; two-repo drift check silent. No code changes this session.
+
+**Termux convention.** First admin call returned `{"error":"Unauthorized"}` (HTTP 401) because `ADMIN_KEY` was not valid in that shell; nothing moved. Fix: set it again with `read -rs ADMIN_KEY && export ADMIN_KEY` (keeps the key out of history and off screen), check `echo "key length: ${#ADMIN_KEY}"`, then repeat. Never paste the key itself into a chat.
+
+**Code read first.**
+- `remindOwnersBeforeAutoPay` (`slotDeadlineChecker.ts` lines 696-757): selects applications with `review_due_at` between now and now + 24h, `revision_due_at` and `release_offer_expires_at` null, and `status` or `slot_status` equal to `submitted` (multi-slot jobs use `slot_status`). Tier is 6 when 6h or less remain, else 24. It skips when the tier's `review_reminded_*_for` column already equals the current `review_due_at` to the millisecond, and skips on an open dispute (`hasOpenDispute`, fails closed). With `AUTOPAY_LIVE` false it only logs "Review reminder [DRY-RUN]" once per key. When live it writes the reminded column first, then logs "Review reminder: sent." and calls `notifyUser` (`review_reminder`, "Review window closing"), so a failed notice can never repeat every cycle.
+- `returnLapsedRevisions` (Pass H, lines 549-587): selects `revision_due_at` in the past with `status = 'approved'` and `slot_status = 'active'`; for a single-slot job sets `status = 'submitted'`, clears `revision_due_at`, sets `review_due_at = now + review_window_hours` (fallback 72); claim is atomic and re-checks status and deadline; calls `notifyReviewReturned`. It never refunds and logs nothing on success.
+- `POST /:id/request-changes` (`routes/jobs.ts` lines 1135-1240): note 10-1000 characters, `revision_hours` 24-168 (default 48), at most `MAX_REVISION_ROUNDS = 2`. Blocked on closed jobs and on an open dispute. Single-slot claim sets `status = 'approved'`, `revision_round + 1`, `revision_due_at`, `changes_note`, and clears `review_due_at`, `release_offer_at` and `release_offer_expires_at`. It does not touch the `review_reminded_*` columns. The note and `changes_requested_at` are then written to the latest `submission_versions` row (logged on failure, never blocks); the worker gets `notifyChangesRequested`.
+- Admin resolve handler (`admin.ts` lines 40-105) re-read; unchanged from Section 152.
+
+**Test job.** `8d870536-2927-4f63-b1d7-81f6c7a2c4a8` ("Jytj", 1π, 1 slot, 48h window, owner `walterdanny00`), worker `Olawalt`, application `dd401bba-e9a1-4d32-bf7f-131770f55f92`. Starting row: `submitted` / `active`, `review_due_at` 2026-10-25 17:16:51.419 UTC, both reminded columns null.
+
+**1. 24h tier (pass).** Set `review_due_at` to now + 20h (2026-10-24 13:19:47.629706 UTC). Within one poll `review_reminded_24h_for` equalled it exactly, `review_reminded_6h_for` stayed null, Render logged "Review reminder: sent." tier 24h at 17:21:30 UTC, and the owner got "Review window closing … about 20 hours … @Olawalt is paid automatically."
+
+**2. 6h tier (pass).** Set `review_due_at` to now + 5h (2026-10-23 22:24:10.306029 UTC). `review_reminded_6h_for` equalled it, the 24h column kept its old value (tiers are independent), Render logged tier 6h at 17:26:31 UTC, and a second owner notice read "about 5 hours".
+
+**3. No-repeat guard (pass).** After at least one further poll: no third log line, no new notice, the three values unchanged.
+
+**4. Revision request (pass).** Owner requested changes with the note "Poor submission" and the shortest deadline the form offers (24h). Row: `approved` / `active`, `review_due_at` null (so the armed 22:24 auto-pay could no longer fire), `revision_due_at` 2026-10-24 17:39:48.31 UTC, `revision_round` 1, `changes_note` set, both reminded columns untouched. `submission_versions` version 1 carries the note and `changes_requested_at` 17:39:49.102 UTC. Worker notice: "Changes requested … (round 1 of 2). Resubmit by 10/24/2026, 6:39:48 PM."
+
+**5. Revision return, Pass H (pass).** Backdated `revision_due_at` to 17:41:00.954773 UTC. After the next poll: `submitted` / `active`, `revision_due_at` null, `review_due_at` 2026-10-25 17:46:28.773 UTC (poll time + 48h), `revision_round` still 1, nothing paid or refunded. Owner notice "Revision deadline passed: @Olawalt did not resubmit "Jytj" in time. The earlier submission is back with you for review." (this is the `notifyReviewReturned` notice). Closes the revision-return item and the "Revision deadline passed" naming item from Section 145.
+
+**6. Reminders re-arm after a return (pass).** The reminded columns still held the pre-return values, both different from the new `review_due_at`. Set `review_due_at` to now + 20h (2026-10-24 13:49:13.766278 UTC): `review_reminded_24h_for` took the new value, `review_reminded_6h_for` kept its old one, and the owner received a fresh "about 20 hours" notice. Because the guard compares values, a returned submission is reminded again for its new window without any reset.
+
+**7. Open-dispute guards (pass).** Owner rejected the work, opening dispute `88c0030b-8c90-4e98-8774-5b99899633f0` (`open`). Rejecting also clears `review_due_at`, so in normal use a disputed slot never reaches either pass; the guards were tested by putting a due time back in by SQL.
+- Reminder skip: `review_due_at` set to now + 10h (2026-10-24 04:13:28.158095 UTC, different from the stored 24h value). After a poll both reminded columns were unchanged, with no log line and no new notice.
+- Auto-pay skip: `review_due_at` backdated to 2026-10-23 18:23:33.538663 UTC. At 18:38:54 UTC (15 minutes, several polls later) the application was still `submitted` / `active`, job `in_progress`, `payout_claimed` false, no "Review auto-pay: paid." line, no payment.
+
+**8. Cleanup: dispute resolved `refund_owner` (pass).** `{"ok":true,"outcome":"refund_owner","amount":1}`, HTTP 200. After: application `approved` / `missed`, `closed_reason = 'dispute_refund'`, `review_due_at` null; job `closed`, `payout_claimed` false. `walterdanny00` available 59.3334π to 60.3334π, earned 160π / 16 jobs / 0π pending unchanged; notices "Dispute resolved … refunded to you" and "Refund available: 1.00π from "Jytj"". `Olawalt` earned 1755π / 93 jobs / 0π pending / 1065π available unchanged; notice "Dispute resolved … decided for the client". One screenshot of the worker dashboard showed Pending 1π; it was an old capture, and a fresh load showed 0π.
+
+**Not verified.**
+- The reminder pass's dry-run branch and auto-pay's dry-run branch (`REVIEW_AUTOPAY_LIVE` unset); neither was exercised.
+- The `released` close reason (accepted release offers); the release-declined and release-expired notices.
+- `Eliza1914`'s "Payment sent" notice for the in-app completion from Section 151.
+- Payments page edge cases; worker `submitted` panel history; the remaining Section 145 naming items (owner "dispute opened" copy, release-declined, release-expired, an older GMT-text notification).
+- The `version_no` sort with 2+ versions (this job only ever had version 1, since the worker never resubmitted); the versions endpoint 403 path; the version-insert failure branch.
+- Revision round 2, and the `MAX_REVISION_ROUNDS` 409.
+- Whether the two 0.6667 refund rows on job `37301bfd-b0b0-480f-8f95-c1487d132721` are a 3-slot rounding artifact (low priority); the dashboard's "posted" total.
+
+**Observations (not fixed).**
+- `request-changes` and Pass H leave the `review_reminded_*` columns alone; correctness relies on the value-equality check. Fine today, but a future change that reuses an identical `review_due_at` value would suppress a reminder.
+- Rejecting work clears `review_due_at`, so the `hasOpenDispute` checks in both passes are a second line of defence, reachable only by a race or a manual edit.
+- The notification panel header read 30 before and after a new notice arrived. It is probably a list cap rather than an unread count; not checked.
+- Pass H writes no log line on success, so it can only be verified through the database and the owner notice.
+- Earlier accepted limits unchanged.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-138.md`.
+
+**Status:** the 24h and 6h owner reminders are verified live in both tiers, with the no-repeat guard and re-arming after a revision return. The revision-request route, Pass H, its owner notice and the version-note write are verified end to end. Reminders and auto-pay both skip a disputed slot, and the dispute resolved cleanly through `refund_owner`. Next: have the worker resubmit after a revision (version 2, `version_no` sort, round 2), the `released` reason and release-offer notices, the rest of the Section 145 list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
