@@ -8598,3 +8598,63 @@ Built the review window decided in Sections 126 and 127. A submission no longer 
 **Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-138.md`.
 
 **Status:** the 24h and 6h owner reminders are verified live in both tiers, with the no-repeat guard and re-arming after a revision return. The revision-request route, Pass H, its owner notice and the version-note write are verified end to end. Reminders and auto-pay both skip a disputed slot, and the dispute resolved cleanly through `refund_owner`. Next: have the worker resubmit after a revision (version 2, `version_no` sort, round 2), the `released` reason and release-offer notices, the rest of the Section 145 list, the worker `submitted` panel history, an admin page, reviewer delegation (`job_reviewers`) and dispute chat.
+
+## Section 154 — Session 139 (2026-10-23): submission versions 1-3, revision round 2, the round-limit 409 and in-app approval after two revisions verified, no code changes
+
+**Starting state.** The `git pull` / `git status --short` / `git log --oneline -3` check in `~/Piwork`, the `git pull` in `~/hivework-redesign` and the two-repo `diff -rq` drift check were requested at the start, but their output was not pasted back in this session, so treat the starting state as unconfirmed; run them again before the next commit. No code changes this session.
+
+**Code read first.**
+- `routes/jobs.ts` lines 147-166 (`GET /:id/applications/:appId/versions`): `requireAuth`; looks up the application by `appId` and `job_id` with the job's `client_id`; allowed only if `app.worker_id` or `jobs.client_id` equals the caller, otherwise 403 `Not authorized` (a failed lookup leaves `app` null, so a wrong job/application pair hits the same branch); returns `version_no`, `submission`, `attachments`, `submitted_at`, `revision_round`, `changes_note`, `changes_requested_at`, ordered by `version_no` ascending in the query; 500 `Could not load earlier rounds.` on a database error.
+- `routes/jobs.ts` lines 1135-1190 (`POST /:id/request-changes`): 400 on a missing `application_id`, a note outside 10-1000 characters or `revision_hours` outside 24-168; 403 `Not your job`; 409 `This job is closed.`; 404 if the application is not found; then 409 `There is no submitted work to send back.` (line 1174), then the round limit (line 1178, `round >= MAX_REVISION_ROUNDS`, 409 `You have already used both change requests for this worker.`), then the open-dispute check (409 `This submission is in dispute.`). Order matters: a slot that is back with the worker (`approved`) answers with the "no submitted work" message, never the round-limit one.
+- `routes/auth.ts` lines 1-60 and `middleware/auth.ts` lines 1-25: `POST /verify` verifies the Pi access token and issues a random 32-byte hex session token stored in the `sessions` table (`token`, `user_id`, `pi_uid`, `username`, `expires_at` 7 days out). `requireAuth` reads it from the `x-session-token` header (not `Authorization`) and looks it up in `sessions`. `frontend/src/lib/api.ts` sends the same header from `localStorage['sessionToken']`.
+- `frontend/src/components/OwnerActions.tsx` lines 34, 85, 106 (grep): the "Request changes (N left)" button renders only while `(app.revision_round || 0) < 2`.
+- `routes/jobs.ts` lines 912-925 and 948-960 (comments only).
+
+**Termux convention (new).** The session token is a plain database value, not a signed JWT. To call a `requireAuth` route as a given user: read the newest unexpired row from `sessions` for that username in the Supabase SQL editor, copy the value, then `read -rs OWNER_TOKEN && export OWNER_TOKEN` and check `echo "token length: ${#OWNER_TOKEN}"` (64). Send it as `-H "x-session-token: $OWNER_TOKEN"`. Never paste the token into a chat. The admin routes still use `x-admin-key`.
+
+**Test job.** `95451a40-ba49-483a-a53f-5f80a30e0640` (title "Oof. " with a trailing space, 1π, 1 slot, 48h window, owner `walterdanny00`), worker `Olawalt`, application `29d95577-a88e-4024-b9aa-24c0836bb12d`.
+
+**1. Three submission versions in order (pass).** After the worker's second resubmission the application was `submitted` / `active`, `revision_round` 2, `revision_due_at` null, and `submission_versions` held three rows:
+- version 1: `revision_round` 0, submitted 2026-10-23 18:59:30.024 UTC, note "Poor submission", `changes_requested_at` 19:00:05.005 UTC;
+- version 2: `revision_round` 1, submitted 19:00:36.866 UTC, note "No reproducible steps", `changes_requested_at` 19:05:35.776 UTC;
+- version 3: `revision_round` 2, submitted 19:08:26.462 UTC, note and `changes_requested_at` null.
+Each resubmission opened a fresh review window measured from that version's `submitted_at`: after version 3, `review_due_at` was 2026-10-25 19:08:26.462 UTC, equal to its `submitted_at` to the millisecond (48h window). Between the rounds the application sat at `approved` / `active` with `review_due_at` null and `revision_due_at` set (19:05:35.1 UTC on 2026-10-24 for round 2).
+
+**2. Versions endpoint (pass).** Called with the owner's session token: `GET /api/jobs/<job>/applications/<app>/versions` returned HTTP 200 with versions 1, 2, 3 in ascending order and the matching `revision_round`, notes and timestamps. With a valid application ID but a wrong job ID (all-zero UUID): HTTP 403 `{"error":"Not authorized"}`. With no token: HTTP 401 `{"error":"Not authenticated"}`. An authenticated user who is neither the worker nor the owner was not tested (no third account token was loaded); the wrong-job-ID call exercises the same denial branch.
+
+**3. Revision round 2 (pass).** The second request-changes call (note "No reproducible steps") left the application `approved` / `active`, `revision_round` 2, `review_due_at` null; the worker notice read "round 2 of 2" with a resubmit time. The owner's earlier "Poor submission" note stayed on version 1 and the new note landed on version 2, so the note write follows the latest version each time.
+
+**4. Round limit (pass, both layers).**
+- UI: with the application `submitted` and `revision_round` 2 the owner's "Request changes" button is hidden, matching `OwnerActions.tsx` line 85.
+- Server: a direct `POST /api/jobs/<job>/request-changes` with the owner's token and `{"application_id":"29d95577-…","note":"Session 139 round limit test","revision_hours":24}` returned `{"error":"You have already used both change requests for this worker."}`, HTTP 409. Re-reading the application afterwards showed it unchanged (`submitted` / `active`, round 2, `review_due_at` 2026-10-25 19:08:26.462 UTC, `revision_due_at` null, `changes_note` still "No reproducible steps"). Closes revision round 2 and `MAX_REVISION_ROUNDS` from Section 153's not-verified list.
+
+**5. In-app approval after two revision rounds (pass).** The owner approved and completed in the app at about 19:21:46 UTC.
+- Owner job page: "Payment released. 1π went to @Olawalt." The job card on the owner dashboard reads Completed, 1 applicant, no refunded chip.
+- Database: application `completed` / `active`, `revision_round` 2, `revision_due_at` null; job `completed`, `payout_claimed` true. `review_due_at` is still set (2026-10-25 19:08:26.462 UTC) on the completed application; a `refund_owner` resolution nulls it but a completion does not. Harmless, since both passes select only `submitted` rows.
+- Ledger: `balance_transactions` holds exactly one row for the job: `04f3d584-daa5-47e2-8b9a-16ceb9bd7aad`, `credit`, `1.0000`, `job_completion`, worker `79ada740-40e2-429e-9e86-615387f780a1`, this application, `clears_at` 2026-10-23 19:21:46.373 UTC (the same instant as creation, so no hold), notes null.
+- Worker side: notice "Payment sent: You were paid 1π for "Oof. "." (0m ago) above "Changes requested" round 2 of 2, "Changes requested" round 1 of 2 and "Application approved"; the dashboard's available balance card read 1066π (1065π before).
+- Owner side: the owner's panel showed "Work submitted" three times (one per version) and "New application"; no separate notice for the approval appeared at the top, which fits the owner being the one who acted.
+- Owner dashboard strip: 1881.3333π posted, 94.3334π refunded, 1786.9999π net committed, against Section 152's 1879.3333 / 93.3334 / 1785.9999: +2 posted (this job and "Jytj"), +1 refunded ("Jytj"), +1 net (this job paid). Cards: "Oof. " Completed; "Jytj" and "Sujxgc" Closed with "1π refunded"; one unpaid draft ("A test job from walterdanny00", 1π).
+
+**6. Settlement index (read, not changed).** `pg_indexes` shows only `uq_baltx_slot_refund` and `uq_baltx_slot_settlement` among the `uq_baltx%` indexes. `uq_baltx_slot_settlement` is `UNIQUE (application_id) WHERE kind IN ('job_completion','refund') AND application_id IS NOT NULL`, so the guarantee is one completion-or-refund credit per application, not per (worker, job). The comments at `routes/jobs.ts` lines 917 and 952 name `uq_baltx_job_completion` and describe it as unique on (worker, job); that index does not exist.
+
+**Not verified.**
+- An authenticated user who is neither worker nor owner calling the versions endpoint (needs a third account's session token, e.g. read from `sessions`); the admin route's JS sort of versions (`admin.ts` lines 34-35) with 2+ versions.
+- The version-insert failure branch (`routes/jobs.ts` lines 838-850).
+- Dry-run branches of the reminder and auto-pay passes; the `released` close reason; the release-declined and release-expired notices.
+- `Eliza1914`'s "Payment sent" notice for the in-app completion from Section 151 (this session saw the same notice for `Olawalt`, on the same code path).
+- Payments page edge cases; worker `submitted` panel history; the remaining Section 145 naming items (owner "dispute opened" copy, release-declined, release-expired, an older GMT-text notification).
+- Whether other settlement inserts always set `application_id` (the partial index ignores rows without it); only the in-app completion insert was seen.
+- Job `37301bfd-b0b0-480f-8f95-c1487d132721`'s two 0.6667 rows; the dashboard "posted" total against `jobs`.
+
+**Observations (not fixed).**
+- The two comments at `routes/jobs.ts` lines 917 and 952 refer to a non-existent index (`uq_baltx_job_completion`) with the wrong uniqueness key. Behaviour is unaffected, because the 23505 handler catches a violation from whichever index raises it. Documentation-only fix.
+- `review_due_at` stays set on a `completed` application (see item 5); no effect today.
+- The job title "Oof. " carries a trailing space; the form does not trim titles.
+- The notification panel header still reads 30 on both accounts after new notices; consistent with a list cap, still unchecked.
+- The round-limit message only appears once the worker has resubmitted; while the slot is back with the worker the same route answers `There is no submitted work to send back.`
+- Earlier accepted limits unchanged.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-139.md`.
+
+**Status:** the full revision path is verified live: three versions in order through the versions endpoint (200 / 403 / 401), each resubmission opening its own 48h window, round 2 of 2, the 409 at the round limit from both the UI (button hidden) and the server, and in-app approval after two revisions with one `job_completion` credit, the worker's "Payment sent" notice and the owner card Completed. Next: the `released` reason and release-offer notices, the rest of the Section 145 list, the worker `submitted` panel history, an authenticated non-party call to the versions endpoint, an admin page, reviewer delegation (`job_reviewers`) and dispute chat; optionally correct the two stale index comments.
