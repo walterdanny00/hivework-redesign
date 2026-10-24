@@ -77,6 +77,67 @@ first, to see all information and components actually supposed to be on
 that screen. Applies to every future screen, not a one-off — this is how
 Section 6/7/8's findings surfaced in the first place.
 
+**Standing reference — backend API calls from Termux (admin + user session).**
+Recorded session 140 so no session has to hunt for this again. Verified live
+against production on 2026-10-24.
+
+```
+export BASE=https://hivework-backend.onrender.com     # the variable is BASE
+read -rs ADMIN_KEY && export ADMIN_KEY                # hidden prompt; never paste the key into chat
+echo "key length: ${#ADMIN_KEY}"                      # 48 at last check
+```
+
+- **Mount and auth:** `routes/admin.ts` is mounted at `/api/admin`
+  (`backend/src/index.ts` line 41). Every route needs the header
+  `-H "x-admin-key: $ADMIN_KEY"`, compared (timing-safe) against env
+  `ADMIN_API_KEY`: wrong or missing key is 401 `Unauthorized`; env unset is
+  503. Not a user session; no token table involved. If the first call hangs,
+  retry once (the host may be waking up).
+- **Only two admin routes exist** (`admin.ts`, 101 lines):
+  - List disputes (default open; `?status=resolved` for closed ones). The
+    dispute `id` in the output is what the resolve URL takes, not the
+    `application_id`. Each row embeds the application (worker, status, slot
+    status, submission, `submission_versions` sorted by `version_no`) and the
+    job (title, budget, slots, client username):
+    ```
+    curl -s "$BASE/api/admin/disputes" -H "x-admin-key: $ADMIN_KEY" | head -c 3000
+    ```
+  - Resolve a dispute (`outcome` is `pay_worker` or `refund_owner`; `note`
+    must be at least 5 characters):
+    ```
+    D=<dispute id>
+    curl -s -w " HTTP %{http_code}\n" -X POST "$BASE/api/admin/disputes/$D/resolve" \
+      -H "x-admin-key: $ADMIN_KEY" -H "Content-Type: application/json" \
+      -d '{"outcome":"refund_owner","note":"<reason, 5+ chars>"}'
+    ```
+    Answers: 200 `{"ok":true,"outcome":...,"amount":1}`; 400 bad outcome; 400
+    note too short; 404 `Dispute not found`; 409 `This dispute is already
+    resolved.`; 409 `This slot is no longer awaiting review.` (settled
+    elsewhere first); 401/503 as above. Checks run in that order: outcome,
+    note, lookup. Money moves first (`paySubmittedSlot` /
+    `refundSubmittedSlot(…, 'dispute_refund')`), the dispute row closes
+    after, then both parties get a `dispute_resolved` notice.
+- **User routes (`requireAuth`):** header is `x-session-token`, not
+  `Authorization`. Read the newest unexpired row for the username from the
+  `sessions` table in the Supabase SQL editor, then
+  `read -rs OWNER_TOKEN && export OWNER_TOKEN`, check
+  `echo "token length: ${#OWNER_TOKEN}"` (64), and call e.g.
+  `curl -s "$BASE/api/jobs/<job>/applications/<app>/versions" -H "x-session-token: $OWNER_TOKEN"`.
+  Never paste tokens into chat.
+- **Timing facts for tests:** the deadline checker polls every 5 minutes
+  (`startSlotDeadlineChecker`, `slotDeadlineChecker.ts` line 776), so a
+  backdated deadline is picked up within about 5 minutes. Release offers last
+  48h (`RELEASE_OFFER_HOURS`, `routes/jobs.ts` line 1246). To expire an offer
+  without waiting: `update applications set release_offer_expires_at = now() - interval '1 minute' where job_id = '<JOB_ID>';`.
+- **Standard verification queries (Supabase SQL editor, one job id):**
+  ```
+  select status, slot_status, closed_reason, release_offer_expires_at, review_due_at, revision_round from applications where job_id = '<JOB_ID>';
+  select source, opened_by_role, status, outcome, worker_response, resolution_note from disputes where job_id = '<JOB_ID>';
+  select kind, amount, clears_at, created_at from balance_transactions where job_id = '<JOB_ID>';
+  select status, payout_claimed from jobs where id = '<JOB_ID>';
+  select user_id, type, title, body, created_at from notifications where related_job_id = '<JOB_ID>' order by created_at;
+  ```
+
 ---
 
 ## 1. Screen Inventory
@@ -8658,3 +8719,64 @@ Each resubmission opened a fresh review window measured from that version's `sub
 **Files:** none changed in `~/Piwork`; `roadmap.md`; `sessions/session-139.md`.
 
 **Status:** the full revision path is verified live: three versions in order through the versions endpoint (200 / 403 / 401), each resubmission opening its own 48h window, round 2 of 2, the 409 at the round limit from both the UI (button hidden) and the server, and in-app approval after two revisions with one `job_completion` credit, the worker's "Payment sent" notice and the owner card Completed. Next: the `released` reason and release-offer notices, the rest of the Section 145 list, the worker `submitted` panel history, an authenticated non-party call to the versions endpoint, an admin page, reviewer delegation (`job_reviewers`) and dispute chat; optionally correct the two stale index comments.
+
+## Section 155 — Session 140 (2026-10-24): release-offer flow (accept, decline, expiry), dispute response and admin resolution (`pay_worker`, `refund_owner`) verified, admin curl path recorded, no code changes
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `0ef2473` (`docs: session 139, roadmap section 154`), then `5fb002e` (session 138) and `be6cdb8` (session 137). `git pull` in `~/hivework-redesign`: already up to date, clean. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Closes the unconfirmed starting state from Section 154.
+
+**Standing reference added.** The exact admin curl path (base URL, `x-admin-key`, both admin routes, response codes), the session-token convention and a set of standard verification queries now sit near the top of this file, after the "sweep before designing" rule. Read that block instead of re-deriving it.
+
+**Code read first.**
+- `routes/jobs.ts` lines 1279-1400: `POST /:id/offer-release` (owner only; 403 `Not your job`, 409 closed job, 404, 409 `There is no submitted work to release.`, 409 pending offer, 409 open dispute; sets `release_offer_at`, `release_offer_expires_at` = now + `RELEASE_OFFER_HOURS` (48, line 1246) and nulls `review_due_at`; notifies the worker `release_offered`) and `POST /:id/respond-release` (worker; 409 `There is no release offer to answer.`, 409 expired offer going to admin review; accept calls `refundSubmittedSlot(app.id, 'released')` and notifies the owner `release_accepted`; decline calls `openDispute` with source `offer_declined`).
+- `lib/settlement.ts` lines 40-110: `refundSubmittedSlot` closes the slot as `slot_status` `missed` with `closed_reason` `released` or `dispute_refund` (a single-slot application also goes back to `status` `approved`), clears every timer and offer field, then `creditRefundForSlot` and `reevaluateJobs`; `paySubmittedSlot` is the mirror.
+- `lib/slotDeadlineChecker.ts` lines 590-720: Pass I (`escalateExpiredReleaseOffers`, line 597, called at line 767) opens a `system` dispute with source `offer_expired`; auto-pay (Pass G) and the reminders (Pass F2) both skip a slot with a pending offer. The checker polls every 5 minutes (line 776).
+- `lib/disputes.ts` (all 127 lines): `openDispute` inserts the dispute, freezes the slot (back to `submitted`, every timer and offer cleared, only if still live), and picks the notices by source: `reject` → worker "Work rejected"; `worker_opened` → owner "Dispute opened"; `offer_declined` → owner "Release offer declined"; `offer_expired` → owner and worker "Release offer expired". All of them use the notification type `dispute_opened`.
+- `lib/notifications.ts` lines 1-60 (type list: no `release_declined` or `release_expired` type exists), `routes/notifications.ts` (`PAGE_SIZE` 30, line 9; applied at line 24), `components/NotificationBell.tsx` lines 155-175.
+- `routes/jobs.ts` lines 1385-1450: `open-dispute` (worker; reason 20-1000 characters) and `dispute-response` (worker; note 10-1000 characters; updates `worker_response` and `worker_responded_at` on the open dispute; 409 `There is no open dispute to respond to.`). `pages/JobDetail.tsx` lines 700-760 (`workerCall` and the three handlers).
+- `routes/admin.ts` lines 1-101 (all of it).
+
+**Test jobs (all 1π, 1 slot; owner `walterdanny00`, worker `Olawalt`).**
+- Accept: "Duhxgjg", application `013f7209-689b-44fc-9bb3-2228ae0154e2`.
+- Decline: "Jdkakxbxb", job `849d89e7-fe81-4f9e-b84a-6374f51edd7d`, application `884cf1a8-4007-48a4-99d3-270f62986e9f`, dispute `eb2926be-b554-4bca-aeff-c703a86638a2`.
+- Expiry: "Dijzhk", job `381f6d5b-d230-4a87-a8b5-a2e68d3747e8`, application `fa9db018-aee1-4ea7-a17c-b693a3368de1`, dispute `ab0781fb-45ec-4918-936e-6521e682561d`.
+
+**1. Release offer accepted (pass).** After the owner's offer and the worker's accept: application `approved` / `missed`, `closed_reason` `released`, `release_offer_at`, `release_offer_expires_at` and `review_due_at` null. One `refund` row of 1.0000 tied to the application (created 2026-10-23 20:14:08 UTC). Job `closed`, `payout_claimed` false. Owner notices "Refund available" (20:14:09) and "Release accepted" (20:14:12); the owner's available balance went 60.3334π to 61.3334π. The worker's only notice for the job was the earlier "Release offer"; there is no notice to the worker on accept, and `Olawalt`'s balance stayed at 1066π.
+
+**2. Release offer declined (pass).** Offer 20:26:37, decline 20:27:41 UTC with the note "Submitted correctly, I decline release". Application back to `submitted` / `active`, offer fields and `review_due_at` null. One `open` dispute, source `offer_declined`, role `worker`, the note stored as the reason. Owner notice "Release offer declined" (type `dispute_opened`); no notice to the worker; no ledger rows.
+
+**3. Release offer expired, Pass I (pass).** Offer created 2026-10-23 20:38:24 UTC (expiry 48h out). `release_offer_expires_at` was backdated to one minute in the past by SQL; the checker opened the dispute at 20:46:31 UTC, inside the 5-minute poll interval. One `open` dispute, source `offer_expired`, `opened_by` null, role `system`; its reason text says "48 hours" (hardcoded, so it read that way even though the offer was backdated). Both accounts received "Release offer expired" at 20:46:32. A re-read of the application showed `submitted` / `active` with `release_offer_expires_at` and `review_due_at` null (the first read had run just before the checker). A stale worker page still showing the live offer answered the accept press with `There is no release offer to answer.` (the post-escalation answer; the "expired and going to an admin review" message only exists in the window between expiry and the next poll and was not seen). Closes the `released` reason and the release-offered / declined / expired notices from Section 154's list; the Section 145 "release-declined" and "release-expired" naming items are now seen live.
+
+**4. Disputed-slot views (pass).** Worker panel: "An admin is reviewing this submission. Payment is on hold until they decide.", the reason given, a response box whose "Send response" button stays disabled under 10 characters. Owner card: "In dispute" chip, reason, the worker's response, then the submission.
+
+**5. Dispute response (pass).** One field, overwritten on every send: 2026-10-23 20:56:47 UTC "Submitted correctly, please review the work", then 21:05:21 UTC "Submitted correctly and structurally, please review the work"; only the second is stored. The dispute stays `open`; no notice goes to anyone. After the first send the button reads "Update response" and the page shows "Your response". There is no `dispute_messages` table (grep empty) and no owner-side response route, so "dispute chat" does not exist as a feature: it is this single worker field.
+
+**6. Notification header (closed).** The "30" is `notifications.length` (`NotificationBell.tsx` line 167); the list is capped at `PAGE_SIZE` 30, so it reads 30 for any account with 30 or more notices. The red badge is a separate `unreadCount`. Not a bug.
+
+**7. Admin list and guards (pass).** `GET /api/admin/disputes` returned both open fixtures with the embedded application (one `submission_versions` row each) and job. Calls with a bad outcome: 400 `outcome must be pay_worker or refund_owner`; a 2-character note: 400 `Add a short resolution note.`; an all-zero dispute id: 404 `Dispute not found`; no key: 401 `Unauthorized`.
+
+**8. Admin `pay_worker` on a declined offer (pass).** Dispute `eb2926be…` resolved at 2026-10-24 17:12:24 UTC, response `{"ok":true,"outcome":"pay_worker","amount":1}`, HTTP 200; the same call repeated: 409 `This dispute is already resolved.` Application `completed` / `active`; job `completed`, `payout_claimed` true; dispute `resolved` / `pay_worker` with the note. One `job_completion` credit of 1.0000, `clears_at` at creation (no hold). Worker `Olawalt`: available 1066π to 1067π, jobs done 94 to 95, total earned 1756π to 1757π, Pending 2π to 1π. Notices: worker "Dispute resolved" (decided in your favor and you were paid) and "Payment sent"; owner "Dispute resolved" (decided for @Olawalt, payment released).
+
+**9. Admin `refund_owner` on an expired offer (pass).** Dispute `ab0781fb…` resolved at 2026-10-24 17:22 UTC, `{"ok":true,"outcome":"refund_owner","amount":1}`, HTTP 200. Application `approved` / `missed`, `closed_reason` `dispute_refund`, `review_due_at` null; dispute `resolved` / `refund_owner`; one `refund` row of 1.0000, no hold; job `closed`, `payout_claimed` false. Owner available 61.3334π to 62.3334π. Notices: owner "Dispute resolved" (decided in your favor, refunded to you) and "Refund available"; worker "Dispute resolved" (decided for the client, refunded to them) only. Worker Pending 1π to 0π, balance unchanged at 1067π.
+
+**Not verified.**
+- The admin JS sort of `submission_versions` (`admin.ts` lines 34-35) with 2+ versions: both fixtures had one version. Needs a dispute on a job that went through a revision.
+- An authenticated non-party call to the versions endpoint; the version-insert failure branch.
+- Reviewer delegation (`job_reviewers`).
+- The release flow on a multi-slot job; the `offer-release` error branches (403, 409 pending offer, 409 open dispute); the `respond-release` "expired and going to an admin review" 409 (only open between expiry and the next poll).
+- `open-dispute` (worker-opened, source `worker_opened`) and its server-side 400 for a reason under 20 characters; the owner's "Dispute opened" copy; the server-side 400 and 409 branches of `dispute-response` (only the disabled button was seen).
+- Dry-run branches of the reminder and auto-pay passes; the older GMT-text notification from Section 145.
+- `Eliza1914`'s own "Payment sent" notice; Payments page edge cases; worker `submitted` panel history.
+- Whether every settlement insert sets `application_id`; job `37301bfd…`'s 0.6667 rows; the My Jobs "posted" total against `jobs`.
+
+**Observations (not fixed).**
+- `workerCall` (`JobDetail.tsx` lines 713-728) refreshes the page only on success. Any error, including the 409 after a checker escalation, leaves a stale card (a live offer with both buttons) on screen until a manual refresh. A one-line fix would call `reloadMyApplication()` on a 409.
+- Pass I's reason text hardcodes "48 hours" rather than reading `RELEASE_OFFER_HOURS` (`jobs.ts` line 1246); changing the constant would leave the text wrong.
+- `release_declined` and `release_expired` are not notification types; both use `dispute_opened`, distinguished only by title. Anything filtering on type groups them with ordinary dispute openings.
+- Notice asymmetry: accepting a release, declining it and sending a dispute response each notify nobody on the acting side or the other side (accept notifies only the owner; decline only the owner; a response nobody). A worker's response is only visible when the owner opens the job page.
+- A `pay_worker` resolution sends the worker two notices for one event ("Dispute resolved" and "Payment sent").
+- The dispute response is one overwritten field: no history, no owner reply, and the admin sees only the latest text.
+- Earlier accepted limits unchanged.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md` (new standing reference near the top, this section); `sessions/session-140.md`.
+
+**Status:** the full release-offer lifecycle is verified live for a single-slot job: accept (`released` close, owner refund and notice), decline (dispute from the worker), and silence (Pass I escalates within the 5-minute poll, both parties notified). The dispute response, the admin list, every admin guard and both resolutions (`pay_worker`, `refund_owner`) are verified with their ledger rows, balances and notices, and the repeat-resolve 409 holds. Next: the admin sort with 2+ versions, an authenticated non-party versions call, reviewer delegation (`job_reviewers`), the worker-opened dispute path and the owner "Dispute opened" copy, the multi-slot release flow and the `offer-release` error branches, the dry-run branches, and the worker `submitted` panel history; optionally reload the page on a 409 in `workerCall` and correct the two stale index comments at `routes/jobs.ts` lines 917 and 952.
