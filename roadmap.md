@@ -8780,3 +8780,63 @@ Each resubmission opened a fresh review window measured from that version's `sub
 **Files:** none changed in `~/Piwork`; `roadmap.md` (new standing reference near the top, this section); `sessions/session-140.md`.
 
 **Status:** the full release-offer lifecycle is verified live for a single-slot job: accept (`released` close, owner refund and notice), decline (dispute from the worker), and silence (Pass I escalates within the 5-minute poll, both parties notified). The dispute response, the admin list, every admin guard and both resolutions (`pay_worker`, `refund_owner`) are verified with their ledger rows, balances and notices, and the repeat-resolve 409 holds. Next: the admin sort with 2+ versions, an authenticated non-party versions call, reviewer delegation (`job_reviewers`), the worker-opened dispute path and the owner "Dispute opened" copy, the multi-slot release flow and the `offer-release` error branches, the dry-run branches, and the worker `submitted` panel history; optionally reload the page on a 409 in `workerCall` and correct the two stale index comments at `routes/jobs.ts` lines 917 and 952.
+
+## Section 156 — Session 141 (2026-10-24): worker-opened dispute path (normal state and revision window), server guards, `offer-release` guards and admin resolution on revised jobs verified, no code changes
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `5657c08` (`docs: session 140, roadmap section 155`), then `0ef2473` (session 139) and `5fb002e` (session 138). `git pull` in `~/hivework-redesign`: already up to date, clean. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Closes the starting state from Section 155.
+
+**Code read first.**
+- `routes/jobs.ts` lines 1385-1450: `POST /:id/open-dispute` (worker; reason trimmed, 20-1000 characters else 400 `Explain what went wrong (20 to 1000 characters).`; looks up the caller's own application by `job_id` + `worker_id` with `.single()`, 404 `No application found`; delegates to `openDispute` with role `worker`, source `worker_opened`; returns `{ ok, dispute_id }`) and `POST /:id/dispute-response` (note 10-1000 characters else 400 `Write your side of it (10 to 1000 characters).`; 404 as above; 409 `There is no open dispute to respond to.`).
+- `lib/disputes.ts` lines 35-127: `openDispute` re-reads the application with its job and allows the dispute when the slot is `submitted` (single-slot: `status`; multi-slot: `slot_status`) **or** in a revision window (`revision_due_at` set, `status` `approved`, `slot_status` `active`); otherwise 409 `There is no submitted work to dispute.` The insert is guarded by the unique index on open disputes per application (code 23505 gives 409 `This submission is already in dispute.`). The freeze step then sets the slot back to `submitted` and clears `revision_due_at`, `review_due_at` and both offer fields, only for a slot still `active` or `submitted` and not `completed`; a freeze that matches no row deletes the dispute row again and returns 409 `This slot was just settled, so it can no longer be disputed.` For source `worker_opened` the only notice goes to the owner, "Dispute opened" (type `dispute_opened`).
+- `pages/JobDetail.tsx` lines 1470-1545 (worker `submitted` stage): the "Open a dispute" button (then a form with a 20-character minimum and "Open dispute") shows only when `jdwState` is `submitted`, there is no open dispute and no release offer. Open dispute shows "Your side of the dispute"; a release offer shows the offer panel. The button is not rendered in the revision-requested state.
+
+**Test jobs (both 1π, 1 slot; owner `walterdanny00`, worker `Olawalt`).**
+- Job A "Jxksjchsk": job `941b24d7-4a7d-4754-a672-dd5e296c69c2`, application `94c35518-46c0-4dfb-872d-3311da088bf6`, dispute `573a6407-7a4b-4f55-b43a-128a3a648c5f`. Path: apply, approve, v1 (18:32:17 UTC), changes requested (round 1), v2 (18:33:29), dispute from the worker UI at 18:35:08.
+- Job B "Hdkzh": job `573c70b5-b837-4dc7-a01c-98dbf22c0b32`, application `3bf4e263-260e-4f46-bbf7-1a45d80de762`, dispute `24d0ac10-c7ec-44e8-9ad7-d8a5a973dadc`. Path: apply, approve, v1 (18:41:52), changes requested (18:42:26), no v2, dispute by API at 19:08:47.
+
+**1. Worker-opened dispute, normal state (pass, job A).** After the worker's "Open a dispute" with a reason of 20+ characters: application `submitted` / `active`, `review_due_at` null, `revision_round` 1; one `open` dispute, source `worker_opened`, role `worker`, the reason stored as given. Owner notice "Dispute opened" (type `dispute_opened`, "@Olawalt opened a dispute on ... An admin will review it.") at 18:35:09, 1.6 seconds after the dispute row. The worker received no notice for it. The worker panel flipped to "An admin is reviewing this submission. Payment is on hold until they decide." plus "Your side of the dispute" with the reason.
+
+**2. Admin embed with 2 versions (pass, with a caveat).** `GET /api/admin/disputes` returned job A's dispute with `submission_versions` as v1 (`revision_round` 0, `changes_requested_at` set, `changes_note` "Poor submission") then v2 (`revision_round` 1, `changes_note` null). The output is ascending by `version_no`, but both versions were inserted in order, so this does not prove the sort (`admin.ts` lines 34-35) corrects a wrong order. The application-level `changes_note` still reads "Poor submission" after v2 was submitted.
+
+**3. Server guards on `open-dispute` and `dispute-response` (pass, run as `Olawalt` against job A while its dispute was open).**
+- `open-dispute` with a 9-character reason: 400 `Explain what went wrong (20 to 1000 characters).`
+- `open-dispute` with a valid reason on the already-disputed slot: 409 `This submission is already in dispute.` (the slot is back at `submitted`, so it passes the status check and the unique index answers).
+- `dispute-response` with a 5-character note: 400 `Write your side of it (10 to 1000 characters).`
+- `open-dispute` with the owner's token on the owner's own job: 404 `No application found` (the owner has no application there).
+- After job A was resolved: `dispute-response` 409 `There is no open dispute to respond to.`; `open-dispute` 409 `There is no submitted work to dispute.` Closes the server-side 400/409 branches of `dispute-response` and the 400/404/409 branches of `open-dispute` listed as not verified in Section 155.
+
+**4. `offer-release` and `respond-release` guards on a disputed slot (pass).**
+- `offer-release` with an empty body: 400 `application_id is required` (checked before ownership or dispute; this branch was not in the roadmap before).
+- `offer-release` as the owner with the application id, while the dispute was open: 409 `This submission is in dispute.`
+- `offer-release` as the worker: 403 `Not your job`.
+- `respond-release` as the worker with no offer: 409 `There is no release offer to answer.`
+
+**5. Dispute during a revision window (pass, job B).** Job B was `approved` / `active`, round 1, `revision_due_at` 2026-10-25 18:42:26 UTC, no v2. The worker's UI showed no dispute button (the stage renders only for `submitted`). `POST /api/jobs/<B>/open-dispute` by API as `Olawalt` returned 200 `{"ok":true,"dispute_id":"24d0ac10-…"}`. Afterwards: application `submitted` / `active`, `revision_due_at` null, `review_due_at` null; one `open` `worker_opened` dispute; owner notice "Dispute opened" at 19:08:48; no worker notice. The worker page then showed the "Your side of the dispute" form over the v1 submission. The admin embed showed v1 only, with its `changes_note`.
+
+**6. Admin `pay_worker` on a revised job (pass, job A).** Resolved at 2026-10-24 19:18:01 UTC, `{"ok":true,"outcome":"pay_worker","amount":1}`, HTTP 200. Application `completed` / `active`, `closed_reason` null, round 1; dispute `resolved` / `pay_worker` with the note; job `completed`, `payout_claimed` true; one `job_completion` credit of 1.0000 with `clears_at` equal to creation (no hold). Worker `Olawalt` dashboard: available 1068π (seen before) to 1069π, 97 jobs done, 1759π total earned, Pending 1π (job B's open dispute at that moment). Notices: worker "Dispute resolved" (decided in your favor and you were paid) plus "Payment sent"; owner "Dispute resolved" (decided for @Olawalt, payment released). The owner's available balance stayed at 62.3334π.
+
+**7. Admin `refund_owner` on a dispute opened mid-revision (pass, job B).** Resolved at 2026-10-24 19:25:45 UTC, `{"ok":true,"outcome":"refund_owner","amount":1}`, HTTP 200. Application `approved` / `missed`, `closed_reason` `dispute_refund`, `review_due_at` null, round 1; dispute `resolved` / `refund_owner`; one `refund` row of 1.0000 with no hold; job `closed`, `payout_claimed` false. Owner available 62.3334π to 63.3334π, Pending 0π. Notices: owner "Dispute resolved" (decided in your favor, slot refunded to you) plus "Refund available"; worker "Dispute resolved" (decided for the client, slot refunded to them) only. Worker Pending 1π to 0π; balance 1069π, 97 jobs done and 1759π earned unchanged.
+
+**8. "Changes requested" date token (closed).** The notice body is stored with a raw `{{t:<ISO time>}}` token; the bell renders it as a local date ("Resubmit by 10/25/2026, 7:42:26 PM") for the worker. Not a bug.
+
+**Not verified.**
+- The admin JS sort of `submission_versions` against a wrongly ordered input (versions were inserted in order); an authenticated non-party call to the versions endpoint; the version-insert failure branch.
+- Reviewer delegation (`job_reviewers`).
+- The release flow on a multi-slot job; the remaining `offer-release` error branches (409 closed job, 404, 409 `There is no submitted work to release.`, 409 pending offer); the `respond-release` "expired and going to an admin review" 409 (only open between expiry and the next poll).
+- The freeze-race 409 (`This slot was just settled…`) and the 500 branches of `open-dispute` / `dispute-response`.
+- Dry-run branches of the reminder and auto-pay passes; the older GMT-text notification from Section 145.
+- `Eliza1914`'s own "Payment sent" notice; Payments page edge cases; worker `submitted` panel history.
+- Whether every settlement insert sets `application_id`; job `37301bfd…`'s 0.6667 rows; the My Jobs "posted" total against `jobs`.
+
+**Observations (not fixed).**
+- A worker in a revision window has no dispute button in the UI, but the API accepts the dispute (`inRevision` in `openDispute`). Via API a worker can answer a revision request with a dispute, which cancels the revision deadline; money still only moves through an admin decision. Open design question: hide it in the API too, or show a button.
+- Opening a dispute notifies only the owner; the worker gets no confirmation notice (consistent with the notice asymmetry in Section 155).
+- The admin embed's top-level `changes_note` is the round-1 note and is not cleared when v2 arrives, so it reads as stale next to v2's null `changes_note`.
+- `offer-release` returns 400 `application_id is required` before any ownership check; a client that omits the id sees a bare 400.
+- Earlier accepted limits and the Section 155 observations (`workerCall` stale card on 409, hardcoded "48 hours", `dispute_opened` reuse, double worker notice on `pay_worker`, single overwritten response field) unchanged.
+
+**Termux note.** A pasted token must print length 64 (`echo "token length: ${#WORKER_TOKEN}"`); 48 means the admin key was still on the clipboard and every user route answers 401 `Invalid session`. Nothing is called until the length is right. Tokens and keys were never pasted into chat.
+
+**Files:** none changed in `~/Piwork`; `roadmap.md` (this section); `sessions/session-141.md`.
+
+**Status:** the worker-opened dispute path is verified live in both reachable states (submitted, and revision window via API), with the owner notice, the freeze, the admin embed and all server-side guards of `open-dispute`, `dispute-response` and the `offer-release` dispute and ownership checks. Admin resolution is now verified on revised jobs in both directions (`pay_worker` on job A, `refund_owner` on job B) with ledger rows, balances and notices. Next: an authenticated non-party versions call, reviewer delegation (`job_reviewers`), the multi-slot release flow and the remaining `offer-release` branches, the dry-run branches, and the worker `submitted` panel history; decide whether a worker may dispute during a revision window (and whether they should get a notice on opening one); optionally reload the page on a 409 in `workerCall`, read the offer hours from `RELEASE_OFFER_HOURS` in Pass I's reason text, and correct the two stale index comments at `routes/jobs.ts` lines 917 and 952.
