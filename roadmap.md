@@ -102,8 +102,9 @@ echo "key length: ${#ADMIN_KEY}"                      # 48 at last check
     ```
     curl -s "$BASE/api/admin/disputes" -H "x-admin-key: $ADMIN_KEY" | head -c 3000
     ```
-  - Resolve a dispute (`outcome` is `pay_worker` or `refund_owner`; `note`
-    must be at least 5 characters):
+  - Resolve a dispute (`outcome` is `pay_worker`, `refund_owner` or, since
+    Section 157, `uphold_changes` (only for a `worker_opened` dispute; moves no
+    money, 409 otherwise); `note` must be at least 5 characters):
     ```
     D=<dispute id>
     curl -s -w " HTTP %{http_code}\n" -X POST "$BASE/api/admin/disputes/$D/resolve" \
@@ -126,9 +127,10 @@ echo "key length: ${#ADMIN_KEY}"                      # 48 at last check
   Never paste tokens into chat.
 - **Timing facts for tests:** the deadline checker polls every 5 minutes
   (`startSlotDeadlineChecker`, `slotDeadlineChecker.ts` line 776), so a
-  backdated deadline is picked up within about 5 minutes. Release offers last
-  48h (`RELEASE_OFFER_HOURS`, `routes/jobs.ts` line 1246). To expire an offer
+  backdated deadline is picked up within about 5 minutes. Refund requests (the
+  old release offers, same columns) last 48h (`RELEASE_OFFER_HOURS`, `routes/jobs.ts`). To expire an offer
   without waiting: `update applications set release_offer_expires_at = now() - interval '1 minute' where job_id = '<JOB_ID>';`.
+- **Dispute and settlement model (since Section 157; supersedes the Section 113-155 rules on reject, release offers, Pass H and Pass I):** a dispute exists only where the worker disagrees with a decision. Owner: pay, or Reject, which is Request changes (max 2 rounds, owner-chosen 24h-7d) or Request refund (`/reject`, reason 20-1000 chars, 48h worker window stored in `release_offer_*`, reason in `refund_reason`). Worker, refund request pending: accept (refund, `released`) or dispute (`offer_declined`, reason 20+). Worker, revision window: resubmit, dispute (`worker_opened`), or give up the slot (`/release-slot`, `worker_released`). No worker dispute while work is only under review. Silence by the worker at any of these deadlines refunds the owner (`no_response`: Pass H for revisions, Pass I for refund requests); silence by the owner during review still auto-pays (Pass G). Admin outcomes: `pay_worker`, `refund_owner`, `uphold_changes` (window min(`revision_hours`, 48h), floor 24h, round count unchanged; lapse refunds). Worker reminders at 24h/6h (Pass F3, `worker_reminded_*_for`). A job whose missed slots all have `closed_reason` in released, dispute_refund, no_response, worker_released is `closed`, not `expired`.
 - **Standard verification queries (Supabase SQL editor, one job id):**
   ```
   select status, slot_status, closed_reason, release_offer_expires_at, review_due_at, revision_round from applications where job_id = '<JOB_ID>';
@@ -8840,3 +8842,65 @@ Each resubmission opened a fresh review window measured from that version's `sub
 **Files:** none changed in `~/Piwork`; `roadmap.md` (this section); `sessions/session-141.md`.
 
 **Status:** the worker-opened dispute path is verified live in both reachable states (submitted, and revision window via API), with the owner notice, the freeze, the admin embed and all server-side guards of `open-dispute`, `dispute-response` and the `offer-release` dispute and ownership checks. Admin resolution is now verified on revised jobs in both directions (`pay_worker` on job A, `refund_owner` on job B) with ledger rows, balances and notices. Next: an authenticated non-party versions call, reviewer delegation (`job_reviewers`), the multi-slot release flow and the remaining `offer-release` branches, the dry-run branches, and the worker `submitted` panel history; decide whether a worker may dispute during a revision window (and whether they should get a notice on opening one); optionally reload the page on a 409 in `workerCall`, read the offer hours from `RELEASE_OFFER_HOURS` in Pass I's reason text, and correct the two stale index comments at `routes/jobs.ts` lines 917 and 952.
+
+## Section 157 — Session 142 (2026-10-27): reject/dispute model reworked (refund request, silence refunds the owner, `uphold_changes`, worker give-up, worker reminders); code shipped and verified live except two checker paths
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `d2151c4` (`docs: session 141, roadmap section 156`), then `5657c08` and `0ef2473`. `git pull` in `~/hivework-redesign`: already up to date. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Closes the starting state from Section 156.
+
+**Why this session changed code.** The open design questions from Section 156 (dispute during a revision window; notify the worker on dispute) led to a larger rework, decided with the owner of the project step by step:
+- A worker may not dispute while work is merely under review (nothing has been decided against them). A worker may dispute a changes request instead of resubmitting.
+- Owner-opened disputes (`/reject` opening a dispute) and the owner's "Offer release" button are removed as overlapping. Reject becomes a refund request with a required reason; the worker has a fixed 48h to accept or dispute; silence refunds the owner (reverses the Section 113 rule that silence never auto-refunds). The same silence rule applies to every revision window (Pass H no longer returns the work to the owner).
+- Owner UI is two buttons: Mark complete and Reject, where Reject offers Request changes (N left) or Request refund, each with a reason.
+- A dispute against a changes request that the admin decides for the client does not refund by default: the new outcome `uphold_changes` gives the worker a fresh window to resubmit or give up the slot. Window = the owner's original `revision_hours` capped at 48h, floor 24h (default 48h when unset); `revision_round` is not reset. Lapse refunds the owner.
+- The worker can give up the slot in a revision window (refund, `worker_released`).
+- Worker reminders at 24h and 6h before each revision or refund-request deadline, because silence now costs the worker.
+Not decided: whether opening a dispute should notify the worker (still only the owner is told).
+
+**Code read first.** `routes/jobs.ts` 1170-1420 (`request-changes` tail, `reject`, `offer-release`, `respond-release`, `open-dispute`), `lib/slotDeadlineChecker.ts` Passes H, I, G, F2 and `checkSlotDeadlines`, `lib/settlement.ts` 1-135, `lib/disputes.ts` 35-127, `routes/admin.ts` 20-125, the disputes table migration, `components/OwnerActions.tsx`, `pages/JobDetail.tsx` worker stages, `slotStatus.ts`, `ApplicationCard.tsx`.
+
+**Migrations (both run in Supabase).**
+- `20261026000000_reject_refund_flow.sql`: `applications.refund_reason`, `applications.revision_hours`; `closed_reason` check now allows deadline, released, dispute_refund, no_response, worker_released; `disputes_outcome_check` now allows `uphold_changes`. Verified through `pg_constraint`.
+- `20261026000100_worker_reminders.sql`: `applications.worker_reminded_24h_for`, `worker_reminded_6h_for`.
+
+**Commits (all pushed).** `93c3649` backend reject/refund flow; `4015d46` worker reminders; `584ecaf` owner panel; `3ce01a6` worker panels and selects; `23fa741` uphold notice wording; `9f1d5cd` labels and job status for `no_response`/`worker_released`; `fa270c3` notice wording (refund request).
+
+**What changed.**
+- `lib/settlement.ts`: `refundSubmittedSlot(applicationId, closedReason, from = 'submitted')`; `from: 'revision'` claims an `approved`/`active` slot with `revision_due_at` set; new reasons `no_response`, `worker_released`.
+- `routes/jobs.ts`: `/reject` now requires a `submitted` slot, no pending request and no open dispute, sets `release_offer_at`/`release_offer_expires_at` (48h), `refund_reason`, clears `review_due_at`, notifies the worker (type `release_offered`, title "Refund requested", reason cut at 300 chars with a full stop added); `/offer-release` deleted; `/request-changes` returns 409 `You already asked for a refund on this work. Wait for the worker to answer.` while a request is pending, stores `revision_hours`, clears `refund_reason`; `/respond-release` decline needs a note of 20+ characters and the expired text now says the client is being refunded; new `POST /:id/release-slot` (worker, `refundSubmittedSlot(…, 'worker_released', 'revision')`, owner notice "Worker gave up the slot"); `my-application` select now returns `refund_reason`, `revision_hours`.
+- `lib/disputes.ts`: source `worker_opened` is accepted only in a revision window (409 `You can only dispute after the client requests changes. While the work is under review, wait for their decision.`); other sources unchanged. `reject` and `offer_expired` sources remain in the type and the DB check but are no longer produced. Owner notice for `offer_declined` is now "Refund request disputed".
+- `lib/slotDeadlineChecker.ts`: Pass H (`refundLapsedRevisions`) refunds with `no_response` and notifies both sides; Pass I (`refundUnansweredRequests`) skips slots with an open dispute and refunds with `no_response`; new Pass F3 `remindWorkersBeforeRefund` (marker columns hold the deadline value; tightest tier only; the 24h reminder only when the window was longer than 24h; no dry-run switch); the job-closing rule counts `no_response` and `worker_released` as owner-ended, so such jobs close instead of expiring.
+- `routes/admin.ts`: `uphold_changes` (409 `Only a dispute against a changes request can be sent back to the worker.` unless source is `worker_opened`; restores the slot to `approved`/`active` with the new `revision_due_at` and stores `revision_hours`; 409 if the slot is no longer `submitted`); list select adds `refund_reason`, `revision_hours`.
+- Frontend: `OwnerActions.tsx` rewritten (Reject expands to Request changes / Request refund, refund-pending message, changes hidden when rounds are used); `JobDetail.tsx` worker refund-request panel (owner reason, Accept refund, Open a dispute with 20+ characters), revision panel (Dispute these changes, Give up the slot with a confirm), the old dispute form in the `submitted` stage is now unreachable (left in place), new panel titles/text and labels for `worker_released` and `no_response`; `SubmissionNotices.tsx` and `JobDetail.tsx` summaries handle `uphold_changes`; `ApplicationCard.tsx`, `slotStatus.ts` labels; `jobTypes.ts` gained `refund_reason`, `revision_hours`.
+- Zero in-flight rows (`revision_due_at` or `release_offer_expires_at` set) were present before the first push, so no real slot changed behaviour.
+
+**Live verification (owner `walterdanny00`, worker `Olawalt`, 1π jobs, 1 slot).**
+- **"Tugc"** job `a129dbd0-2792-4c07-aab6-78456736aa98`, application `bf68ada5-0725-48de-9a30-ebb787180b31`: owner Request refund; worker notice shows the reason and 48h; worker Accept refund; slot `missed` / `released`, refund 1.00, job Closed (pass).
+- **"Fivcb"** job `0aaeebb4-3185-4507-9407-623e2706a21b`, application `ab91bbd4-b37a-4183-bbaa-74be2ecd72ca`, dispute `b8bbc494-9381-4738-a806-562366fee3f0`: changes requested (round 1, 24h), worker UI shows Dispute these changes and Give up the slot, worker dispute (`worker_opened`), admin `uphold_changes` 200 `{"ok":true,"outcome":"uphold_changes","amount":0}`; slot `approved`/`active`, round 1, `revision_hours` 24, `revision_due_at` 2026-10-28 07:19:38 UTC (24h), dispute `resolved`; worker and owner notices correct; then worker Give up the slot: `missed` / `worker_released`, one `refund` credit of 1.0000, owner notice "Worker gave up the slot" (pass).
+- **"Gigzd"** job `381426e5-3529-4058-9357-5fbe2c4c2ab9`, application `a4dcc80f-70be-4b8f-a9aa-db8412c517fd`: v1, changes requested, `revision_due_at` backdated, the checker refunded it with `no_response`; owner notice "Slot refunded", worker notice "Deadline missed", refund credit 1.00 (pass).
+- **"Vhjcg"** job `39b441bf-82c5-4122-85b9-941734792b9d`, application `bf2bcf84-868c-44ea-af9c-1c507675da65`, dispute `e4737943-19fe-4122-af88-587492929a18`: owner Request refund; worker opened a dispute (`offer_declined`, `release_offer_expires_at` cleared by the freeze, `refund_reason` kept); admin `uphold_changes` refused with 409 and the slot unchanged (`submitted`/`active`); admin `pay_worker` 200, slot `completed`, one `job_completion` credit, zero refund credits, dispute `resolved`; notices on both sides (pass).
+
+**Defects found and fixed during testing.**
+- Jobs ended by `no_response` or `worker_released` showed Expired (the owner-ended list only had released and dispute_refund). Fixed in `9f1d5cd`; the two test jobs were corrected by SQL (`status = 'closed'`).
+- The worker page said "Deadline passed" for a give-up, "release offer" for a refund request, and the dashboard said "missed deadline" for both new reasons. Fixed in `9f1d5cd`. The dashboard still showed the old label in the last screenshot, before the deploy was confirmed.
+- The refund-request notice ran the reason into "You have 48 hours". Fixed (full stop added). Owner notices "Release offer declined" and "Release accepted" reworded to "Refund request disputed" and "Refund accepted" (`fa270c3`); notices written earlier keep their stored text.
+- The `uphold_changes` worker notice told the worker to "accept the refund"; it now says give up the slot (`23fa741`).
+
+**Not verified.**
+- Pass I live (an unanswered refund request refunding with `no_response`) and its dispute-beats-lapse behaviour; Pass F3 reminders live (6h and 24h tiers, no repeat on the next cycle).
+- The worker resubmitting after `uphold_changes`; lapse of the post-uphold window; the worker dispute from a round-2 revision window.
+- The dashboard labels and the new notice wording after the final deploy.
+- Multi-slot jobs for `/reject`, `/release-slot`, `uphold_changes` and Pass H/I.
+- Mark complete while a refund request is pending (the owner panel still shows the button; whether `/complete` blocks it was not read).
+- Earlier items still open from Section 156: authenticated non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+
+**Observations (not fixed).**
+- Opening a dispute still notifies only the owner (design question open).
+- The unreachable "Something wrong?" dispute form remains in `JobDetail.tsx` (`submitted` stage); `respond-release`, `release_offer_*`, `RELEASE_OFFER_HOURS`, the `release_offered`/`release_accepted` notice types and the `reject`/`offer_expired` dispute sources keep their old names.
+- `refund_reason` is not cleared after a dispute or a payment; `uphold_changes` assumes 48h when `revision_hours` is null (rounds created before this session).
+- The Section 113-155 text describing Pass H as never refunding and Pass I as escalating to a dispute is superseded by this section and the standing reference.
+
+**Termux note.** Patches were flat Python scripts with unique-anchor assertions and `.bak` copies in `~`; `npx tsc --noEmit` in `backend` and `frontend` ran clean after each. Admin curl as in the standing reference; the admin key printed length 48. Tokens and keys were never pasted into chat.
+
+**Files:** backend `lib/settlement.ts`, `lib/disputes.ts`, `lib/slotDeadlineChecker.ts`, `routes/jobs.ts`, `routes/admin.ts`; frontend `components/OwnerActions.tsx`, `components/SubmissionNotices.tsx`, `components/ApplicationCard.tsx`, `pages/JobDetail.tsx`, `lib/slotStatus.ts`, `lib/jobTypes.ts`; the two migrations above; `roadmap.md` (this section and the standing reference); `sessions/session-142.md`.
+
+**Status:** the reject/dispute model is reworked and live: refund requests with a 48h worker window, silence refunding the owner, `uphold_changes`, worker give-up, worker reminders, and the owner two-button panel. Verified live: refund-request accept and dispute, `uphold_changes` and its refusal on the wrong dispute type, give-up, revision-lapse refund, `pay_worker` after a refund-request dispute. Next: Pass I and the reminders live, resubmission after `uphold_changes`, multi-slot paths, Mark complete during a pending refund request, then removal of the dead dispute form.
