@@ -9223,3 +9223,38 @@ Not decided: whether opening a dispute should notify the worker (still only the 
 **Files:** none in code. Docs: `roadmap.md` (this section only); `sessions/session-151.md`.
 
 **Status:** the `pay_worker` line is verified live on a single-slot job, and every single-slot paid path ends `completed` / `active`. Next: multi-slot paths with a 2-slot job, the Section 156 leftovers, the refund-request-then-pay check, and the two product decisions.
+
+## Section 167 — Session 152 (2026-10-28): Mark complete over an open refund request re-run live; stale-column read paths checked; no code changed
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `3da5815` (`docs: session 151, roadmap section 166`), then `8d55112` and `a7fc05d`. `git pull` in `~/hivework-redesign`: already up to date, HEAD `9846c9d` (`docs: session 151, roadmap section 166`), then `cb7142d`. Both `git status --short` empty. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. `roadmap.md` hash `41c9b83df93d…` in `~/hivework-redesign` matched the chat copy. Closes the starting state from Section 166.
+
+**Why this session, and a correction.** Section 166 listed "refund request followed by pay or complete" under Not verified. That line meant the product decision on clearing the refund-request columns, not the behaviour, which Section 158 (Session 143) already verified live, including a backdated expiry the checker ignored. The test was re-run before the roadmap was searched, so it repeats Section 158 and adds no new behaviour. Search the roadmap for a check before proposing it.
+
+**Code read first (no changes).**
+- Writers of the three columns: only `/reject` (`routes/jobs.ts` line 1298) sets `release_offer_at`, `release_offer_expires_at` and `refund_reason`. `submit-work` (817-818) and the `openDispute` freeze (`lib/disputes.ts` 119-120) clear the two deadlines but not `refund_reason`. `lib/settlement.ts` (65-66, 105-106) clears the two deadlines when a slot settles. `/request-changes` (`jobs.ts` 1199-1211) clears all three when it withdraws a pending request. `/complete` (898-1027) checks only `in_progress` and no open dispute, never reads `release_offer_expires_at`, and never writes the three columns.
+- Checker readers: Pass H request branch skips any row that is not `submitted`; Pass I selects `submitted` rows; both auto-pay passes (`autoPayExpiredReviews`, `remindOwnersBeforeAutoPay`, lines 620-632 and 680-690) need `review_due_at`, null `revision_due_at`, null `release_offer_expires_at` and a `submitted` slot. A `completed` row matches none of them.
+- Frontend readers: `OwnerActions` ("Refund requested…", line 59) has one mount, `SubmissionReview.tsx` 151, behind `canAct` (line 110: `status` or `slot_status` equals `submitted`). The owner summary at `JobDetail.tsx` 1082 needs `awaitingReview`, which excludes `isAppCompleted`. The worker refund panel (1509, 1522) sits inside `jdwState === 'submitted'`, and the `jdwState` chain (768-792) tests `missed` and `completed` before `submitted`.
+- Not seen: how `mySlotState` is derived on the worker side. The worker-side result rests on it mapping a paid slot to `completed`; the SQL counts in Section 166 (77 of 77 single-slot, 47 of 47 multi-slot) support that.
+
+**Live check (`Refcomp-1`, job `4eebec23-d0be-4de4-ad7d-762cc37affb2`, application `c97ae12e-d31f-439a-a36a-4ea981eb9184`; owner `walterdanny00`; 1π, 1 slot).**
+- Setup: apply, approve, worker submit, owner Reject then Request refund (reason "Poor submission, unreadable"); the worker did not answer.
+- Baseline before Mark complete: application `submitted` / `active`, `release_offer_at` 2026-10-28 18:42:41.392+00, `release_offer_expires_at` 2026-10-30 18:42:41.392+00 (48h), `refund_reason` set, `review_due_at` null, `closed_reason` null; job `in_progress`, `payout_claimed` false, budget 1.0000.
+- After Mark complete (went through with the request open): application `completed` / `active`; `release_offer_at`, `release_offer_expires_at` and `refund_reason` all still set; `closed_reason` null; job `completed`, `payout_claimed` true; one `job_completion` credit; one notification row linked to the application. The prediction written before the run matched.
+
+**Decision (recommended, not confirmed).** Leave the refund-request columns uncleared on payout: nothing reads them on a paid row (readers above, plus Section 158's backdate), and patching `/complete`, `/complete-slot` and `pay_worker` adds regression risk for no behavioural gain. Carried as a known, harmless finding unless Newizik decides otherwise. Multi-slot paid-after-refund-request has not been run; the gating is the same by code.
+
+**New finding (from reading, not run, not fixed).** `/complete-slot` (`routes/jobs.ts` 1028-1149) rolls back half of its claim. The claim sets `slot_status = 'completed'` and `status = 'completed'` together. On a credit failure and in the catch block, only `slot_status` is reset to `'submitted'`. The application is left `status = 'completed'` / `slot_status = 'submitted'`: the owner can retry (`canAct` reads `slot_status`), but the in-flight count that finalizes the job looks for `status = 'approved'`, so another slot completing in that window could finalize the job early. Reachable only on the 500 branches. `/complete` is not affected (its claim and rollback use `payout_claimed`). `paySubmittedSlot` was not read for the same pattern.
+
+**Multi-slot coverage already on record (found this session).** Section 129 (one slot auto-paid, the other refunded through a dispute on a 2-slot job), Section 150 (`paySubmittedSlot` multi-slot through admin dispute-pay and auto-pay), Section 151 (multi-slot `refund_owner`, job held `in_progress` then `partially_complete`; second worker `Eliza1914`), and `/complete-slot` live earlier. Those admin pay and refund checks predate the later dispute-helper refactor. Still open on multi-slot: `/reject` and the Pass I lapse, `/release-slot`, `uphold_changes`, `openDispute` freeze with a sibling settling, Pass H.
+
+**Not verified.**
+- Pass H and Pass I against the stale row on `Refcomp-1` on today's code. Test A: set `release_offer_expires_at = now() + interval '3 hours'` with the guard `status = 'completed' and release_offer_expires_at > now() and closed_reason is null`, wait one or two polls, then re-select (expect no `review_reminder`). Test B: backdate by 10 minutes with the same guard, wait two or three polls, re-select. Pass: `completed` / `active`, `closed_reason` null, one ledger row, no new notices (`review_reminder`, `refund_credited`, `slot_lapsed`).
+- The multi-slot paths listed above, and `pay_worker` on a multi-slot job after the helper refactor.
+- Section 156 leftovers: non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens; whether to clear the refund-request columns (recommendation above).
+
+**Termux notes.** The code reads used `sed -n` ranges and `grep -rn` over `backend/src` and `frontend/src`. The `/api/jobs` route prefix for a direct `/complete` call was a guess and was never used. No tokens or keys were used.
+
+**Files:** none in code. Docs: `roadmap.md` (this section only); `sessions/session-152.md`.
+
+**Status:** Mark complete over an open refund request is confirmed again on a live job, and no read path found shows the stale columns on a paid row. Next: Tests A and B on `Refcomp-1`, then multi-slot `/reject`, `/release-slot`, `uphold_changes`, `openDispute` and Pass H/I with a second worker, plus the half-rollback in `/complete-slot` and the two product decisions.
