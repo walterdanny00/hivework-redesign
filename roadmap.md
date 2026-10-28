@@ -9159,3 +9159,36 @@ Not decided: whether opening a dispute should notify the worker (still only the 
 **Files:** backend `lib/notifications.ts`, `lib/slotDeadlineChecker.ts`; `roadmap.md` (this section only); `sessions/session-149.md`. No frontend code or migrations changed.
 
 **Status:** the revision-lapse and refund-request lapse notices now carry `slot_lapsed`, and the revision-lapse pair is verified live; the refund-request pair is typechecked and deployed only. Next: multi-slot paths with a 2-slot job, the Section 156 leftovers, the refund-request lapse pair live, and the product decisions above.
+
+## Section 165 — Session 150 (2026-10-28): refund-request lapse pair verified live; no code changed
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `a7fc05d` (`docs: session 149, roadmap section 164`), then `7d8e020` and `1f4a3f9`. `git pull` in `~/hivework-redesign`: already up to date, HEAD `1c33f21` (`docs: session 149, roadmap section 164`), then `8d2ea50`. Both `git status --short` empty. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. `roadmap.md` hash `5056f778…` identical in both repos and matching the chat copy. Closes the starting state from Section 164.
+
+**Why this session.** Section 164 left the refund-request lapse pair (lines 600-601 of `lib/slotDeadlineChecker.ts`, Pass I) typechecked and deployed but not seen live. This session ran it. No code, migration or frontend change.
+
+**Code read first.** `lib/slotDeadlineChecker.ts` Pass I (`refundUnansweredRequests`, lines 575-605): selects applications with `release_offer_expires_at` in the past and `status = 'submitted'` or `slot_status = 'submitted'`, skips a slot with an open dispute (`hasOpenDispute`), settles through `refundSubmittedSlot(app.id, 'no_response')`, then sends two `slot_lapsed` notices (owner "Slot refunded", worker "Refund request expired"). `lib/settlement.ts` lines 65-66 and 105-106 clear `release_offer_at` and `release_offer_expires_at` when a slot settles.
+
+**Live check (`Reflapse-1`, job `9fa129d5-5ee2-4c85-a59b-f8226ee39e63`, application `d2e7e03a-f2f0-4546-b861-3f72a7ee8fdb`; owner `walterdanny00`, worker `Olawalt`; 1π, 1 slot).**
+- Setup through the UI: apply, approve, worker submit, owner Reject then Request refund with the reason "Poor submission, unreadable, no reproducible steps"; the worker did not answer.
+- Baseline before the backdate: application `submitted` / `active`, `release_offer_at` 2026-10-28 12:28:46.575+00, `release_offer_expires_at` 2026-10-30 12:28:46.575+00 (48h), `closed_reason` null. Notifications for the job: `new_application` and `work_submitted` (owner), `application_approved` and `release_offered` "Refund requested" (worker, 12:28:47). No `slot_lapsed` or `refund_credited` rows; no ledger rows for the job.
+- Backdate in the Supabase SQL editor, guarded on `id`, `status = 'submitted'`, `slot_status = 'active'`, `release_offer_expires_at > now()` and `closed_reason is null`: one row returned, `release_offer_expires_at` set to 2026-10-28 12:32:17.637+00.
+- After the poll (ledger credit 12:38:17, notices 12:38:18-22, about five minutes after the backdate): application `approved` / `missed`, `closed_reason` `no_response`, `release_offer_at` and `release_offer_expires_at` null, `refund_reason` kept. New notification rows: `refund_credited` "Refund available" (owner, 12:38:18.88), `slot_lapsed` "Slot refunded" (owner, 12:38:22.31), `slot_lapsed` "Refund request expired" (worker, 12:38:22.33). Ledger: one `refund` credit of 1.0000 for the owner, no duplicate.
+- Screens: the owner job page shows Closed with the Slots tab and review page showing only the "No response" pill and stamp (no dispute line); owner dashboard shows Closed with "1π refunded" for `Reflapse-1`; owner bell shows "Slot refunded" and "Refund available" ("1.00π … is now available to withdraw"); worker dashboard shows "no response · 10/28/2026"; worker job page shows the No response panel ("You did not respond before the deadline, so the slot was closed and its budget refunded to the client"); worker bell shows "Refund request expired", "Refund requested" and "Application approved". All text matches the code.
+
+**Question raised and answered: application `status` after a refund.** After the lapse the row read `status = 'approved'` with `slot_status = 'missed'`, where it was `submitted` / `active` before. Checked against earlier refunded slots by SQL: `Tugc` (`released`), `Fivcb` (`worker_released`), `Gigzd` (`no_response`) and `Reflapse-1` (`no_response`) all end `approved` / `missed`. So `refundSubmittedSlot` returns `status` to `approved` on every path and `slot_status = 'missed'` marks the slot dead (the dashboard filter from Section 150 relies on it). Normal, not a defect. `Dispute test` did not match the title list used and was not compared.
+
+**Findings (not fixed).**
+- `refund_reason` stays on the application after a refund lapse (and, per Section 157, after a decline then `pay_worker`). Harmless to behaviour; it feeds the open decision on clearing the refund-request columns.
+- Unchanged from Section 164: `release_accepted` still used for "Worker gave up the slot" (`routes/jobs.ts` line 1397); both owner-side endpoints return the newest dispute row with no status, round or submission check; admin `uphold_changes` has no guard of its own; `openDispute` stamps the round for every source; Mark complete leaving refund-request columns set; `changes_note` after resubmission; unpaid drafts repeating titles.
+
+**Not verified.**
+- The `pay_worker` line through the helper on a live job (carried from Section 163).
+- Multi-slot jobs for `/reject`, `/release-slot`, `uphold_changes`, `openDispute` and Pass H/I (needs a 2-slot job and a second worker account).
+- Section 156 leftovers: authenticated non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens; clear the refund-request columns on payout (and now on refund lapse); `uphold_changes` assumes 48h when `revision_hours` is null.
+
+**Termux notes.** Column names found by lookup: `notifications` has `related_job_id` and `related_application_id` (no `job_id`); `balance_transactions` has `worker_id`, `direction`, `amount`, `kind`, `job_id`, `application_id`, `notes`, `created_at`. The checker polls every 5 minutes. Lapse recipe unchanged: read the row, backdate with a guard on state and an unexpired deadline, one poll, re-select. No tokens or keys were used.
+
+**Files:** none in code. Docs: `roadmap.md` (this section only); `sessions/session-150.md`.
+
+**Status:** both lapse pairs (revision and refund request) are verified live and every refund path ends `approved` / `missed`. Next: multi-slot paths with a 2-slot job, the `pay_worker` line live, the Section 156 leftovers, and the product decisions above.
