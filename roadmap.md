@@ -9127,3 +9127,35 @@ Not decided: whether opening a dispute should notify the worker (still only the 
 **Files:** frontend `lib/disputeNotice.ts` (new), `components/SubmissionNotices.tsx`, `pages/JobDetail.tsx`; `roadmap.md` (this section; the Section 162 standing bullet on owner-side dispute wording rewritten); `sessions/session-148.md`. No backend code or migrations changed.
 
 **Status:** the owner-side dispute line has one source of truth, is hidden once a slot lapses after an upheld dispute, and is verified live in the submitted, live-window, legacy, `refund_owner` and lapsed states. Next: multi-slot paths with a 2-slot job, the Section 156 leftovers, the reused lapse notice types, and the product decisions above.
+
+## Section 164 — Session 149 (2026-10-28): lapse notices get their own `slot_lapsed` type, revision-lapse pair verified live
+
+**Starting state (confirmed).** `git pull` and `git status --short` clean in both repos; Piwork HEAD `1f4a3f9` and `hivework-redesign` HEAD `8d2ea50`, both `docs: session 148, roadmap section 163`; `diff -rq` silent; `sha256sum` of `roadmap.md` `54b05a5fdd66f83a…` identical in both repos and matching the chat copy.
+
+**Sweep before the change (read-only).**
+- `lib/slotDeadlineChecker.ts` writes two notice pairs on the lapse paths: lines 568-569 (revision deadline missed: owner "Slot refunded" as `release_accepted`, worker "Deadline missed" as `dispute_resolved`) and lines 600-601 (refund request unanswered for 48 hours: owner "Slot refunded" as `release_accepted`, worker "Refund request expired" as `dispute_resolved`). No dispute exists on either path.
+- Other users of the same types: `release_accepted` in `routes/jobs.ts` line 1357 ("Refund accepted", a real acceptance) and line 1397 ("Worker gave up the slot"); `dispute_resolved` in `routes/admin.ts` lines 111-112 (real admin resolutions).
+- `NotificationType` in `lib/notifications.ts` is a TypeScript-only union. `notifications.type` is plain `text`; the only constraints on the table are the primary key and three foreign keys (`user_id`, `related_job_id`, `related_application_id`), so a new type cannot fail an insert.
+- `components/NotificationBell.tsx` never reads the type for display or routing; click navigation uses only `related_job_id` and `related_application_id` (with an application id it goes to `/jobs/:id/review/:appId`, otherwise `/jobs/:id`). The worker lapse notices omit `applicationId` on purpose, because the review page is an owner page.
+
+**One type for the four lapse notices (Piwork `7d8e020`).** `'slot_lapsed'` added to the `NotificationType` union (`lib/notifications.ts`, 1 insertion); the four `notifyUser` calls at lines 568, 569, 600 and 601 of `lib/slotDeadlineChecker.ts` now use it (4 insertions, 4 deletions). Titles, bodies and ids unchanged. `release_accepted` stays on "Refund accepted" and "Worker gave up the slot"; `dispute_resolved` is now admin-only. No backfill: older rows keep their old types and their titles still tell them apart. 2 files, 5 insertions, 4 deletions; anchored Node patch (counts every anchor first, writes nothing if any misses), `tsc --noEmit` clean, diff read before committing.
+
+**Live check, revision-lapse pair (pass).** Job `Redispute-1` (`1eb4264b-6430-4191-8224-bc6aba7a8196`, application `77f46027-2b64-4b8b-93fa-c6c69cbc4b8e`), deployed before the trigger. Read first: `approved` / `active`, `revision_round` 2, `revision_due_at` 2026-10-29 07:10:30.055+00, `closed_reason` null; baseline `notifications` for the job had no `slot_lapsed` rows. Then in the Supabase SQL editor: `update applications set revision_due_at = now() - interval '1 minute' where id = '…' and revision_due_at is not null`. After the poll: `approved` / `missed`, `closed_reason` `no_response`, `revision_due_at` null. New notification rows at 2026-10-28 09:08: `refund_credited` "Refund available" (owner, 09:08:16), `slot_lapsed` "Slot refunded" (owner, 09:08:22.075) and `slot_lapsed` "Deadline missed" (worker, 09:08:22.101). Screenshots: the owner Slots tab and review page show only the "No response" pill and stamp with no dispute line (the Section 163 `missed` rule, now also confirmed for a legacy null-round application), and the bell shows "Slot refunded" and "Refund available" for `Redispute-1` with unchanged text. `Redispute-1` is now spent (closed, refunded); its null-round path stays verified from Section 162 but cannot be re-run.
+
+**Findings (not fixed).**
+- `release_accepted` is still used for "Worker gave up the slot" (`routes/jobs.ts` line 1397), which is a worker action, not an acceptance. Left alone: it is a deliberate worker-initiated release, and the title is accurate.
+- Older roadmap sections that mention the reused lapse types (Sections 135, 158 and later carry-over lists) describe the state before this change and are left as history.
+- Unchanged from Section 163: both owner-side endpoints return the newest dispute row with no status, round or submission check; admin `uphold_changes` has no guard of its own; `openDispute` stamps the round for every source; Mark complete leaving refund-request columns set; `changes_note` after resubmission; unpaid drafts repeating titles.
+
+**Not verified.**
+- The refund-request lapse pair (lines 600-601) live. It is the same mechanical type swap as lines 568-569 and passed `tsc`, but needs a job with an open refund offer and a guarded backdate of `release_offer_expires_at`.
+- The `pay_worker` line through the helper on a live job (carried from Section 163).
+- Multi-slot jobs for `/reject`, `/release-slot`, `uphold_changes`, `openDispute` and Pass H/I (needs a 2-slot job and a second worker account).
+- Section 156 leftovers: authenticated non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens; clear the refund-request columns on payout; `uphold_changes` assumes 48h when `revision_hours` is null.
+
+**Termux notes.** Patch script written to `~` and deleted after the run; the lapse was triggered in the Supabase SQL editor (read the row first, backdate with an `is not null` guard, one poll, re-select). The `slotDeadlineChecker.ts` file lives in `backend/src/lib/`, not `backend/src/services/`. No tokens or keys were used. Real-app-code commit went to the Piwork repo alone.
+
+**Files:** backend `lib/notifications.ts`, `lib/slotDeadlineChecker.ts`; `roadmap.md` (this section only); `sessions/session-149.md`. No frontend code or migrations changed.
+
+**Status:** the revision-lapse and refund-request lapse notices now carry `slot_lapsed`, and the revision-lapse pair is verified live; the refund-request pair is typechecked and deployed only. Next: multi-slot paths with a 2-slot job, the Section 156 leftovers, the refund-request lapse pair live, and the product decisions above.
