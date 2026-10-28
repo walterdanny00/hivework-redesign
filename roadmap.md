@@ -9192,3 +9192,34 @@ Not decided: whether opening a dispute should notify the worker (still only the 
 **Files:** none in code. Docs: `roadmap.md` (this section only); `sessions/session-150.md`.
 
 **Status:** both lapse pairs (revision and refund request) are verified live and every refund path ends `approved` / `missed`. Next: multi-slot paths with a 2-slot job, the `pay_worker` line live, the Section 156 leftovers, and the product decisions above.
+
+## Section 166 — Session 151 (2026-10-28): `pay_worker` line verified live on a single-slot job; no code changed
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `8d55112` (`docs: session 150, roadmap section 165`), then `a7fc05d` and `7d8e020` (last code commit, unchanged). `git pull` in `~/hivework-redesign`: already up to date, HEAD `cb7142d` (`docs: session 150, roadmap section 165`). Both `git status --short` empty. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. `roadmap.md` hash `25f973123643…` identical in both repos and matching the chat copy. Closes the starting state from Section 165.
+
+**Why this session.** Section 165 left the `pay_worker` line through the dispute helper unseen on a live job. This session ran it end to end on a single-slot job. No code, migration or frontend change.
+
+**Live check (`Test 001`, job `f480ed7b-506c-4a08-ac2e-0cc01a8bcce0`, application `bb6a500b-e459-40ea-8823-234792159eb6`, dispute `fa334332-7090-44f2-ba41-89eb828409d6`; owner `walterdanny00` (user `ca940c22-0ccb-4cb7-b554-33f07ac37da7`), worker `Olawalt` (user `79ada740-40e2-429e-9e86-615387f780a1`); 1π, 1 slot, review window 48h).**
+- Setup through the UI: apply, approve, worker submit, owner Request changes with the note "Poor submission" (round 1 of 2).
+- Baseline before the dispute: application `approved` / `active`, `revision_round` 1, `revision_due_at` 2026-10-29 12:58:27.185+00, `review_due_at` and `release_offer_expires_at` null, `refund_reason` null; job `in_progress`, `payout_claimed` false; one submission version; no dispute rows.
+- Worker disputed in the app at 13:02:58 (`worker_opened`, `opened_by_role` worker, round 1, status open). Result: application `submitted` / `active`, `revision_due_at` cleared to null; the owner got `dispute_opened` ("Dispute opened"); the worker got no notice of their own dispute.
+- Admin resolve from Termux, outcome `pay_worker`, note "Session 151 pay_worker live check": `{"ok":true,"outcome":"pay_worker","amount":1} HTTP 200`. The admin key was read with `read -rs` and unset afterwards; nothing was pasted into chat.
+- After the resolve: application `completed` / `active`, `closed_reason`, `revision_due_at`, `review_due_at`, `release_offer_expires_at` and `refund_reason` all null; dispute `resolved` / `pay_worker` with the note kept; ledger one `job_completion` credit of 1.0000 (`clears_at` equal to `created_at`, 13:06:14, so no hold; no duplicate row); job `completed`, `payout_claimed` true. Notices: worker `payment_sent` ("You were paid 1π") then `dispute_resolved` ("decided in your favor and you were paid"); owner `dispute_resolved` ("decided for @Olawalt, and the payment was released").
+- Screens match the code: owner Slots tab and review page show "Dispute resolved: the worker was paid." (the `disputeResolvedLine` rule), the Completed pill, "Payment released. 1π went to @Olawalt." and the rating panel; owner dashboard shows `Test 001` as Completed; worker dashboard shows "completed · paid"; both bells show the notices above.
+
+**Question raised and answered: `slot_status` after a paid slot.** The application ended `completed` / `active`. Checked by SQL across all completed applications: every single-slot application (77 of 77, 2026-06-30 to 2026-10-28) ends `completed` / `active`, and every multi-slot application (47 of 47, 2-, 3- and 5-slot jobs) ends `completed` / `completed`. So `slot_status` is only maintained on multi-slot jobs, matching the brief's note that single-worker reads `status`. Normal, not a defect.
+
+**Correction.** The pre-check guessed `payout_claimed` would stay false after the resolve. It read true: the payout is claimed as part of this path.
+
+**Findings (not fixed).** None new. Unchanged from Section 165: `refund_reason` stays on the row after a refund lapse; `release_accepted` still used for "Worker gave up the slot" (`routes/jobs.ts` line 1397); both owner-side endpoints return the newest dispute row with no status, round or submission check; admin `uphold_changes` has no guard of its own; `openDispute` stamps the round for every source; Mark complete leaving refund-request columns set; `changes_note` after resubmission; unpaid drafts repeating titles.
+
+**Not verified.**
+- Multi-slot paths (`/reject`, `/release-slot`, `uphold_changes`, `openDispute`, Pass H/I); needs a 2-slot job and a second worker account.
+- `pay_worker` on a multi-slot job (this check covered single-slot only).
+- The clear-refund-request-columns decision was not exercised: `Test 001` never had a refund request, so those columns were null throughout. Testing it needs a job where the owner requests a refund and then pays or completes.
+- Section 156 leftovers: non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens (this run confirmed the owner is told and the worker is not); clear refund-request columns on payout and refund lapse.
+
+**Files:** none in code. Docs: `roadmap.md` (this section only); `sessions/session-151.md`.
+
+**Status:** the `pay_worker` line is verified live on a single-slot job, and every single-slot paid path ends `completed` / `active`. Next: multi-slot paths with a 2-slot job, the Section 156 leftovers, the refund-request-then-pay check, and the two product decisions.
