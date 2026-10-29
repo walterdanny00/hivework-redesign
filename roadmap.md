@@ -9331,3 +9331,42 @@ Applied with a guarded Python replace script (each target string matched exactly
 **Files:** `backend/src/lib/settlement.ts` (commit `ba1227d`). Docs: `roadmap.md` (Section 169); `sessions/session-154.md`.
 
 **Status:** the `paySubmittedSlot` reopen now restores the deadline columns and logs a failed reopen; the auto-pay happy path passed live. Next: the multi-slot paths with `Eliza1914`, the `/complete-slot` half-rollback, the Section 156 leftovers and the two product decisions.
+
+## Section 170 — Session 155 (2026-10-29): `/complete-slot` rollback now restores `status` and reopens only its own unpaid claim; the Section 169 deploy-time caveat closed
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `25f2c11` (`docs: session 154, roadmap section 169`), then `ba1227d`, `5f370e6`. `git pull` in `~/hivework-redesign`: already up to date, HEAD `77760f3` (same message), then `c93cd2e`, `6366894`. Both `git status --short` empty. The first drift command failed on wrong paths (`roadmap.md` and `sessions/` are not at the `~/Piwork` root). By `find`, the roadmap copies at `~/Piwork/hivework-redesign/roadmap.md` and `~/hivework-redesign/roadmap.md` both hash `c9c18fcf2416…`, matching the chat copy (Section 169 included). A third copy, `~/Piwork/design/roadmap.md` (`56555bcc57d3…`), is stale: its last commit is `a7d30e6` (`Redesign: onboarding + Job Detail multi-worker pass`). It is not a canonical copy.
+
+**Section 169 caveat closed.** The Render deploy log for `ba1227d` shows the build starting 2026-10-29T07:02:26Z and the service live at 07:03:01Z. The auto-pay pass credited at 16:53:07 (database time, read as UTC, the Supabase default). The patched code was therefore running for that pass. The credit-failure branch still cannot be forced live.
+
+**Read (`backend/src/routes/jobs.ts` 1028-1149; file hash `e999e8527811…`).**
+- The claim sets `slot_status: 'completed'` **and** `status: 'completed'`. Both 500 branches (credit failure, outer `catch`) reset only `slot_status: 'submitted'`, leaving `status = 'completed'` with `slot_status = 'submitted'`.
+- Earlier hypothesis corrected: the deadline checker's submitted detection uses `status.eq.submitted OR slot_status.eq.submitted` (`slotDeadlineChecker.ts` 588, 630, 688, 765), so auto-pay, the review reminders and the refund-request lapse still see such a row. The damage is in the counts: the in-flight counts (`slotDeadlineChecker.ts` 256-264 and `/complete-slot`'s own `inProgress`) key on `status = 'approved'`, so the row drops out of "in flight" while still counting as filled. When a sibling slot completes, the job can finalize while this slot is still unpaid. This is read from the code only; `reevaluateJobs` was not read.
+- The `catch` rollback was unguarded: it also ran after a successful credit (a later count query throwing would reset a paid slot) and for exceptions before the claim (it would reset a slot this request never claimed).
+- Neither rollback checked or logged its own error. This claim does not null the deadline columns, so the Section 169 bug does not recur here.
+
+**Code change (one file, one commit, `4c951ba`).** `backend/src/routes/jobs.ts`:
+1. New helper `reopenCompletedSlot(applicationId, jobId)`: sets `slot_status: 'submitted', status: 'approved'`, guarded with `.eq('slot_status', 'completed')`, logs its own error (`complete-slot: reopen failed, row left completed without a credit`).
+2. The credit-failure branch calls it.
+3. Two flags before the `try` (`slotClaimed`, `slotCredited`): set after the claim and after the credit check passes. The `catch` reopens only when `slotClaimed && !slotCredited`.
+Applied with a guarded Python replace script (each of the five targets matched exactly once, backup `~/jobs.ts.bak`). `git --no-pager diff --stat`: 26 insertions, 4 deletions. Deployed file hash `fcf5649c5b85…`. `npx tsc --noEmit` clean in Termux. Pushed `25f2c11..4c951ba`.
+
+**Behaviour change to be aware of.** An exception after the credit lands (for example in the job-finalize counts) now leaves the slot `completed`, which is correct because it is paid. The response is still a 500 `Job completion failed`, and an owner retry gets the 409 `This slot is already being completed...`. Before, the paid slot was wrongly reopened.
+
+**Not verified live.** The rollback branches cannot be forced without contriving a failure; the fix rests on the code read, `tsc` and the diff.
+
+**Findings (not fixed).**
+- New: `/complete-slot` has the same claim-to-reopen window as `paySubmittedSlot` (the row reads `completed` between the claim and a failed-credit reopen, so a concurrent `reevaluateJobs` could count it). Closing it needs a transaction or an RPC.
+- New: after a post-credit exception the owner sees a 500 for a payment that went through; a retry returns 409.
+- Carried unchanged from Section 169: `refund_reason` stays on the row after a refund lapse; `release_accepted` still used for "Worker gave up the slot" (`routes/jobs.ts` line 1397); both owner-side endpoints return the newest dispute row with no status, round or submission check; admin `uphold_changes` has no guard of its own; `openDispute` stamps the round for every source; Mark complete leaving refund-request columns set; `changes_note` after resubmission; unpaid drafts repeating titles; the worker `payment_sent` notification linked under `related_job_id` rather than `related_application_id`.
+
+**Not verified.**
+- `paySubmittedSlot` multi-slot branch live; both credit-failure reopens live.
+- Whether `reevaluateJobs` finalizes a job early over a half-rolled-back row (code not read).
+- Multi-slot `/reject` and the Pass I lapse, `/release-slot`, `uphold_changes`, `openDispute` freeze with a sibling settling, Pass H; `pay_worker` on a multi-slot job (needs a 2-slot job and the second worker `Eliza1914`).
+- The worker-side `mySlotState` derivation.
+- Section 156 leftovers: non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens; whether to clear the refund-request columns (recommendation in Section 168).
+
+**Files:** `backend/src/routes/jobs.ts` (commit `4c951ba`). Docs: `roadmap.md` (Section 170); `sessions/session-155.md`.
+
+**Status:** the `/complete-slot` rollbacks now restore both columns and only undo their own unpaid claim; the Section 169 deploy-time caveat is closed. Next: the multi-slot paths with `Eliza1914`, a read of `reevaluateJobs`, the Section 156 leftovers and the two product decisions.
