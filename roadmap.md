@@ -9290,3 +9290,44 @@ Not decided: whether opening a dispute should notify the worker (still only the 
 **Files:** none in code. Docs: `roadmap.md` (Section 168); `sessions/session-153.md`.
 
 **Status:** Tests A and B are both verified: Pass H and Pass I leave a paid row with stale refund-request columns untouched. Next: read the `paySubmittedSlot` rollback, then multi-slot `/reject`, `/release-slot`, `uphold_changes`, `openDispute` and Pass H/I with a 2-slot job and `Eliza1914`, the half-rollback in `/complete-slot`, the Section 156 leftovers and the two product decisions.
+
+## Section 169 — Session 154 (2026-10-29): `paySubmittedSlot` credit-failure reopen now restores the deadline columns; auto-pay happy path re-verified live on the patched code
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date, HEAD `5f370e6` (`docs: session 153, roadmap section 168`), then `0b1becc`, `3da5815`, `8d55112`. `git pull` in `~/hivework-redesign`: already up to date, HEAD `c93cd2e` (same message), then `6366894`, `9846c9d`, `cb7142d`. Both `git status --short` empty. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. `roadmap.md` hash `6b59fd190d54…` matched the chat copy (Section 168 included). Closes the starting state from Section 168.
+
+**Why this session.** Section 168 left "read the `paySubmittedSlot` rollback in `settlement.ts`" first in Next, to see whether it shares the `/complete-slot` half-rollback pattern. The roadmap was searched first (`paySubmittedSlot`, `reopen`): earlier sections note that the credit-failure reopen exists and that it "assumes" the multi-slot submitted shape (Section 140s), but none checked what the reopen restores.
+
+**Read (`backend/src/lib/settlement.ts` 90-190, `slotDeadlineChecker.ts` 620-672, `loadSlot` 26-33).**
+- The claim is a guarded compare-and-set on the submitted state, so a concurrent caller gets a 409. It does not have the `/complete-slot` pattern: the credit-failure reopen sets the status back (`slot_status: 'submitted', status: 'approved'` multi-slot, `status: 'submitted'` single), so the in-flight count does not finalize the job early once the reopen lands.
+- **New finding (fixed).** The claim nulls `review_due_at`, `revision_due_at`, `release_offer_at` and `release_offer_expires_at`. The reopen restored only the status. After a credit failure the row was `submitted` with every deadline null, which no checker select matches: `autoPayExpiredReviews` (`slotDeadlineChecker.ts` 625-629) requires `review_due_at` not null, the review reminders (683-687) the same, and the refund-request lapse (586-587) requires `release_offer_expires_at` not null. The auto-pay loop does `continue` on a non-409 failure and would retry next tick, but only for a row it can still select. Result: a single credit failure on an auto-pay attempt left the slot unpaid, with no reminders and no lapse, until the owner acted by hand. `refundSubmittedSlot` does not have this problem (a failed credit leaves the slot `missed`, and `reconcileMissingRefunds` retries it every cycle). Admin dispute-pay was not affected (`openDispute` already nulls those columns, and the admin can resolve again).
+- `REVIEW_AUTOPAY_LIVE` is `true` in the Render environment, so the path was live, not dry-run.
+
+**Code change (one file, one commit, `ba1227d`).** `backend/src/lib/settlement.ts`:
+1. `loadSlot` also selects `review_due_at, revision_due_at, release_offer_at, release_offer_expires_at` (`refundSubmittedSlot` shares it and ignores them).
+2. The credit-failure reopen in `paySubmittedSlot` restores those four values along with the status.
+3. The reopen's own error is now checked and logged (`paySubmittedSlot: reopen failed, row left completed without a credit`). Previously a failed reopen left a `completed` row with no credit and no trace.
+Applied with a guarded Python replace script (each target string matched exactly once, backup written, nothing else touched). `git --no-pager diff` showed only those edits (12 insertions, 3 deletions); `npx tsc --noEmit` clean.
+
+**Behaviour change to be aware of.** After a credit failure the row matches the auto-pay select again, so a persistent credit failure now retries every tick and logs `Review auto-pay failed` each time. No owner or worker notification fires on a failure (`review_auto_paid` only sends on success).
+
+**Live check (auto-pay happy path, `Dispute test 2`).** Application `6bf1ba6e-6505-40af-a0d7-838e9aeeda77`, job `dcb56257-ccfa-4e7f-85f8-9715805f3ae3`; owner `walterdanny00`, worker id `79ada740-40e2-429e-9e86-615387f780a1`; 1π, 1 slot. Only row in the `submitted` lookup with a non-null `review_due_at`; both of its earlier disputes `resolved`, so `hasOpenDispute` did not block it. Baseline: `submitted` / `active`, `review_due_at` 2026-10-30 06:46:49, no ledger row, notifications `work_submitted` (x3), `dispute_opened` (x2), one `review_reminder` (24h, 2026-10-29 06:48). Guarded update (`status = 'submitted' and review_due_at is not null and revision_due_at is null and release_offer_expires_at is null`) set `review_due_at = now() - interval '10 minutes'`; confirmed by select: 16:40:11 against `db_now` 16:50:45, so the update ran at about 16:50:11. Read after the wait: application `completed` / `active`, `closed_reason` null; one `job_completion` / `credit` / 1.0000 ledger row at 16:53:07; `review_auto_paid` to the owner at 16:53:09; `payment_sent` to the worker at 16:53:08; job `completed`, `payout_claimed` true. **Pass**, on the first poll (about 3 minutes after the update). This row is now consumed.
+
+**Caveat.** The Render deploy time of `ba1227d` was not recorded against the 16:53 auto-pay, so this pass proves the happy path is unbroken but does not by itself prove the patched code ran. The credit-failure branch cannot be forced live without contriving a failure, so the fix rests on the code read, `tsc` and the diff.
+
+**Findings (not fixed).**
+- New: the claim-to-reopen window (a multi-slot row reads `completed` between the claim and a failed-credit reopen, so a concurrent `reevaluateJobs` could count it) remains; closing it needs a transaction or RPC.
+- New, minor: the worker's `payment_sent` notification did not appear in a lookup by `related_application_id` (the owner's `review_auto_paid` did); it appeared under `related_job_id`.
+- Carried unchanged from Section 168: `/complete-slot` half-rollback (500 branches only, read not run); `refund_reason` stays on the row after a refund lapse; `release_accepted` still used for "Worker gave up the slot" (`routes/jobs.ts` line 1397); both owner-side endpoints return the newest dispute row with no status, round or submission check; admin `uphold_changes` has no guard of its own; `openDispute` stamps the round for every source; Mark complete leaving refund-request columns set; `changes_note` after resubmission; unpaid drafts repeating titles.
+
+**Not verified.**
+- `paySubmittedSlot` multi-slot branch live (auto-pay and admin dispute-pay); the credit-failure reopen live.
+- Multi-slot `/reject` and the Pass I lapse, `/release-slot`, `uphold_changes`, `openDispute` freeze with a sibling settling, Pass H; `pay_worker` on a multi-slot job (needs a 2-slot job and the second worker `Eliza1914`).
+- The worker-side `mySlotState` derivation.
+- Section 156 leftovers: non-party versions call, reviewer delegation (`job_reviewers`), dry-run branches, worker `submitted` panel history, freeze-race and 500 branches.
+- Product decisions pending: notify the worker when a dispute opens; whether to clear the refund-request columns (recommendation in Section 168).
+
+**Termux and SQL notes.** The Supabase SQL editor prints "Success. No rows returned" for any `UPDATE`: confirm with a select. For backdate tests, measure elapsed time from the update (stored expiry minus the backdate), not from the stored timestamp. A multi-statement `git commit && git push` prompts for credentials twice if the username is mistyped; the second `git push` succeeded.
+
+**Files:** `backend/src/lib/settlement.ts` (commit `ba1227d`). Docs: `roadmap.md` (Section 169); `sessions/session-154.md`.
+
+**Status:** the `paySubmittedSlot` reopen now restores the deadline columns and logs a failed reopen; the auto-pay happy path passed live. Next: the multi-slot paths with `Eliza1914`, the `/complete-slot` half-rollback, the Section 156 leftovers and the two product decisions.
