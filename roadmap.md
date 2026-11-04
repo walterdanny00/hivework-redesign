@@ -9772,3 +9772,37 @@ Patch script `~/p165a.py` (both anchors matched exactly once, abort otherwise); 
 **Files:** none changed in code. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-166.md`.
 
 **Status:** `/close-slots` on a job that delivered work ends `completed` and refunds the closed slot, verified live; the only new item is the cosmetic `JobCard` / `JobDetail` label mismatch. Next: pick from the Still-open list (a failed `/close-slots` refund with no retry; the `/close-slots` 403 / 409 mapping; the `JobCard` / `JobDetail` label decision), grepping the roadmap before proposing any live test.
+
+## Section 182 — Session 167 (2026-11-04): `JobCard` label now matches the `JobDetail` header for a `completed` job with closed slots; `history/jobs` returns `slots_closed` (`02ff6dc`)
+
+**Starting state (confirmed).** `git pull` in `~/Piwork`: already up to date. `git log --oneline -3`: `3d23242` (docs: session 166, roadmap section 181) above `e9a5e2c` and `bf58ee6`. `git status --short` showed only the four untracked backups (`slotDeadlineChecker.ts.bak163`, `slotDeadlineChecker.ts.bak165`, `admin.ts.bak163`, `jobs.ts.bak165`); `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Before proposing anything the roadmap was grepped: the label mismatch was logged in Sections 180 and 181 as a decision needed, and Section 25 already defines the rule (`closed` means at least one slot was refunded or closed unfilled, even if other slots completed; `completed` means every slot finished and none was refunded).
+
+**Decision (owner, this session).** Map the label in `JobCard`, not drop the `JobDetail.tsx` line 810 mapping. Reasons: it matches Section 25's three-state rule, and dropping line 810 would make the pre-Section-180 test jobs (every slot owner-closed, nothing delivered, ended `completed`, no backfill) read "Completed" in the header.
+
+**Read.** `JobDetail.tsx` 798-830 (`jdoHeaderStatus`: `completed` with `slots_closed > 0` gives "closed"), `JobCard.tsx` 1-60 (the pill class already gives `completed` and `closed` the same `status-pill closed` style; only the label text differed), `routes/dashboard.ts` line 38 (client-tab jobs select already includes `slots_closed`; line 68 builds `jobsWithRefunds` with `...j`, so the field reaches the frontend), `routes/history.ts` lines 66-98 (`/jobs` select did not include `slots_closed`; `items` also spread the row).
+
+**Fix (`02ff6dc`, two files, +5 / -4, `tsc --noEmit` clean in `backend` and `frontend`).**
+1. `backend/src/routes/history.ts`: `/jobs` select now includes `slots_closed`.
+2. `frontend/src/components/JobCard.tsx`: `JobItem` gained `slots_closed?: number`; `statusLabel(status, slotsClosed = 0)` returns "Closed" for `completed` when `slotsClosed > 0`, otherwise "Completed"; the card passes `job.slots_closed`. The pill class function is unchanged. `JobDetail.tsx` line 810 is unchanged.
+Patch script `~/p166a.py` (every anchor matched exactly once, abort otherwise); backups `history.ts.bak166` and `JobCard.tsx.bak166` (untracked, not committed). Commit and push were `git add` of the two files only; pushed to the Piwork repo alone (`3d23242..02ff6dc`).
+
+**Live check (owner screenshots, after a hard refresh).**
+- Dashboard, My Jobs: "Close test 2" (`9665ddae-...`) reads "Closed" with "1π refunded" (it read "Completed" before this change).
+- History → Jobs: "Close test 2" reads "Closed" with "1π refunded". `history.ts` is the only source of `slots_closed` on that page, so this also shows the backend change was live.
+- Control: "Job test" (job detail header "Completed", "2 of 2 slots filled", no closed slots) reads "Completed" on its History → Jobs card; "Fixes-1" and "Multi uphold 1" also still read "Completed".
+- `JobDetail` header for "Close test 2" reads "Closed" ("1 of 2 slots filled · 1 closed (refunded)"), so card and header now agree.
+- Deploy (Render log pasted by the owner): checked out commit `02ff6dcd17df9570953d7c1b2dc2280aac9bdcbc` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-04T20:45:31Z; `node dist/index.js` started with the withdrawal drainer and the slot deadline checker; "Your service is live" 2026-11-04T20:45:55Z. Pass.
+
+**Findings (not fixed).**
+- Observed in the History → Jobs screenshots, not investigated: "Naming test 2", "Notice test", "Multi slot pass" and "slot test" read "In progress" with "1π refunded".
+- Still open from Section 181 (the `JobCard` / `JobDetail` label mismatch is closed): a failed `/close-slots` refund has no retry; `/close-slots` job-read 403 and CAS 409 mapping; whether `/close-slots` rejects `closed` / `expired` / `partially_complete` jobs with unfilled slots; overlapping second close (500); `/complete` without application-state or `worker_slots` check; `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; single-slot `paySubmittedSlot` update guard; finalization paths not compared (the inline status writes in `/complete-slot` and `/complete` remain); dead `DisputeSource` values; unlogged recompute sites (Section 173); lost-race loser left `pending` on a filled job (includes the unfilled applicant `ce640a43-...` left `pending` on a finished job, Section 181); the `{{t:...}}` token in `changes_requested` bodies (informational).
+
+**Not verified.**
+- The pill style for a `completed` job with closed slots was not compared against a `closed` job beyond the two screenshots (both use `status-pill closed` by code read).
+- Everything on the Section 177-181 Not-verified lists otherwise stands.
+
+**Termux notes.** The first `sed -n '60,82p ~/...'` attempt failed because the closing quote was misplaced; the correct form is `sed -n '60,82p' <file>`. Untracked and not to be committed: `.bak163` (two files), `.bak165` (two files), `.bak166` (two files). No tokens or keys were used. Test job state left behind: `9665ddae-...` `completed` (Eliza1914 `pending`); `57d726f9-...` `closed`; `f55755be-...` still has Olawalt in a 24h revision window (due about 2026-11-05 15:37 UTC; Pass H refunds it if nobody acts).
+
+**Files:** `backend/src/routes/history.ts`, `frontend/src/components/JobCard.tsx` (commit `02ff6dc`, Piwork repo only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-167.md`.
+
+**Status:** the dashboard card, History → Jobs card and job detail header now use the same three labels for a `completed` / `closed` job, verified live. Next: pick from the Still-open list (a failed `/close-slots` refund with no retry; the `/close-slots` 403 / 409 mapping), grepping the roadmap before proposing any live test.
