@@ -10067,3 +10067,42 @@ The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58
 **Files:** `frontend/src/pages/JobDetail.tsx` (commit `bcaaefd`). Docs: `roadmap.md` (this section and the new standing rule at the top, delivered as the complete file); `sessions/session-173.md`.
 
 **Status:** the single-slot `paySubmittedSlot` guard and retry shape are closed; the worker pending panel is fixed on a filled single-slot job (display only, `tsc` only, not seen live); the Section 184 test jobs and the `f55755be-...` refunds are confirmed. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of any flag before changing it; optionally the missed-slot `/complete-slot` check, and the worker panel on a real leftover if one ever appears.
+
+## Section 189 — Session 174 (2026-11-05): stale `/close-slots` finalize comment refreshed (`513f37d`), `DisputeSource` legacy values documented (`500cd1e`), "Only N slot(s)" message reviewed and left; comment-only commits, no behaviour change
+
+**Focus.** Take the small cosmetic items from the Section 188 Still-open list. The roadmap was read and grepped before each proposal (the standing rule at the top of this file); neither item had a test on record, and no live test was run. Every use of the thing in question was listed before any edit, and both patches were comment-only with a backup, an exact-match anchor that matched once, `git diff --stat` and `npx tsc --noEmit` before commit.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date. HEAD `3b64b26` (`docs: session 173, roadmap section 188`), then `bcaaefd`, `37dbb14`, `72bddf8`. `git status --short`: the ten untracked `.bak` files. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing.
+
+**1. `/close-slots` "BUG" comment (`routes/jobs.ts` 530-535): refreshed, comment only (`513f37d`).**
+- Sweep: `grep -n "BUG" jobs.ts` showed the other `BUG-nnn` hits (lines 605, 742, 981, 1135, 1141, 1160) are ticket references in unrelated routes; only line 534 was this item. Read `jobs.ts` 440-575 (the whole route) before editing.
+- The comment described the pre-Section 180 shape ("flip to completed only once every slot is accounted for", "BUG: job stayed 'in_progress' forever"). The code below it now counts in-flight and ever-filled slots, and finalizes every outcome (`completed` / `partially_complete` / `closed` / `expired`) through `reevaluateJobs(new Set([job.id]))` (Sections 176, 180, 181). Comment rewritten to say that. The fail-closed note below it is untouched.
+- `git diff --stat`: 6 insertions, 6 deletions in `backend/src/routes/jobs.ts`; `tsc` printed `TSC OK`. Pushed to the Piwork repo alone (Section 30): `3b64b26..513f37d`.
+
+**2. "Only N slot(s) are still unfilled." (`routes/jobs.ts` 468): reviewed, not patched.**
+- `currentlyUnfilled` (line 467) is a local `const` read only by the check at 468 and the message on the same line.
+- `count < 1` is rejected at line 444, so the message prints only when `count > currentlyUnfilled`. **A 0 is reachable** and reads correctly ("Only 0 slot(s) are still unfilled", for example `count` 1 on a job whose slots are all filled or closed).
+- A negative value needs `filled + slots_closed > slots`. The post-write capacity rechecks undo that state (`/close-slots` at 493-494 undoes its own close; `approve-application` at 673-678 is the other check), so a negative would be visible only in a transient race window. A `Math.max(0, ...)` clamp would be harmless but fixes a message that practically never shows. **Decision: not worth patching.** The earlier cosmetic note calling the message "unreachable" was too strong for the 0 case.
+
+**3. Dead `DisputeSource` values: documented, comment only (`500cd1e`).**
+- Sweep (`backend/src`): `DisputeSource` is defined at `lib/disputes.ts:8` and used once, at line 49 (the `openDispute` input). `openDispute` has exactly two callers, both in `routes/jobs.ts`: line 1480 passes `offer_declined`, line 1537 passes `worker_opened`. Nothing in `slotDeadlineChecker.ts` calls it. Reads of the field only compare to `worker_opened` (`jobs.ts:200`, `admin.ts:69`, `disputes.ts` 69 and 72). So `reject` and `offer_expired` are never written, which matches Section 157 (they stay in the type and the DB check but are no longer produced).
+- Not removed: older dispute rows can carry them (Section 155 recorded an `offer_expired` row), and a narrower type would stop matching the DB check. Instead a five-line comment above the type marks them legacy.
+- **Informational, not changed:** the notice chain in `openDispute` (`disputes.ts` 154-162) ends in a bare `else` that handles `offer_expired` only by default. A newly added `DisputeSource` would silently get the "Release offer expired" owner and worker notices unless it gets its own branch. The new comment says so.
+- Process note: the first sweep grep (`grep "source: '" | grep -i dispute`) filtered out the very lines it was meant to find and printed nothing; it was redone without the filter before any conclusion was drawn.
+- `git diff --stat`: 5 insertions in `backend/src/lib/disputes.ts`; `tsc` printed `TSC OK`. Pushed to the Piwork repo alone: `513f37d..500cd1e`.
+
+**Findings.**
+- **Closed:** the stale "BUG" comment near `/close-slots` (comment refreshed); the "Only N slot(s)" message (reviewed, left); dead `DisputeSource` values (documented). The cosmetic sub-list from Section 188 is now empty.
+- **New:** none beyond the informational bare-`else` note above.
+- **Still open (Section 188 list minus the above):** `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete`); the leftover `pending` row's database state and missing notice on a filled single-slot job (product decision: reject and notify, or leave); the `{{t:...}}` token in `changes_requested` bodies (informational). Optional: the missed-slot `/complete-slot` check; cancel `6999ed26-...` in-app.
+
+**Not verified.**
+- Both code commits are comment-only and were checked with `tsc` only; nothing was run live and no deploy was observed.
+- Whether the frontend reads a dispute `source` anywhere was not grepped (the sweep covered `backend/src` only). The DB check constraint on `disputes.source` was not read this session; it is taken from Section 157.
+- Everything on the Section 188 Not-verified list otherwise stands: the worker "Job closed" panel on a real leftover and the Vercel deploy of `bcaaefd`; the Pass H notices for the `f55755be-...` lapse; the missed-slot `/complete-slot` finalization and the `reevaluateOne` failure branch from that route; the creation time of `mptlx1hgg`; who opened `are3dozsc` on Android Chrome 135 Mobile; the Section 177-184 Not-verified lists.
+
+**Termux notes.** The GitHub username and password prompt appeared on both pushes. Untracked and not to be committed (twelve): the ten from Section 188 (`index.ts.bak170`, `slotDeadlineChecker.ts.bak163` and `.bak165`, `admin.ts.bak163`, `history.ts.bak166`, `jobs.ts.bak165`, `.bak167` and `.bak172`, `JobCard.tsx.bak166`, `JobDetail.tsx.bak173`) plus `backend/src/routes/jobs.ts.bak174` and `backend/src/lib/disputes.ts.bak174b`. `~/p174a.py` and `~/p174b.py` each ran once and stay in place.
+
+**Files:** `backend/src/routes/jobs.ts` (`513f37d`, comment only); `backend/src/lib/disputes.ts` (`500cd1e`, comment only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-174.md`.
+
+**Status:** two comment-only code commits shipped, three Still-open items closed, no behaviour change, no new bugs. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of any flag before changing it.
