@@ -9872,3 +9872,35 @@ Ledger for the job after the credit: one `refund`, `credit`, `1.0000`, `applicat
 **Files:** no code changed. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-169.md`.
 
 **Status:** the job-level refund retry is verified live; two Section 183 carry-forward items are closed. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test; optionally look at the `Not allowed by CORS` origin read-only.
+
+## Section 185 — Session 170 (2026-11-05): the `Not allowed by CORS` traces are rejections inside the `cors` middleware, before any route; a log-only rejected-origin line shipped and verified (`ee58c25`); the origin is still unidentified
+
+**Focus.** The read-only look at the `Not allowed by CORS` origin from the Section 184 Next line. Roadmap grepped first: `cors` appears only in Section 184 (the finding itself); no other origin, port or alias is recorded anywhere (no hit for `minepi`, `vercel.app` beyond the live-verified URL, `5173`, `127.0.0.1`).
+
+**Starting state.** The Section 184 starting-state commands (`git pull`, `git status --short`, `diff -rq` between the two docs copies) were not reported at the start of this session. The Piwork push at the end went from `82a2731` to `ee58c25` on `main`.
+
+**What the code does (`backend/src/index.ts`, read).** `allowedOrigins` holds exactly two entries, `http://localhost:3000` and `https://piwork-frontend.vercel.app`. The `cors` origin callback passes any request with no `Origin` header and any listed origin, and otherwise calls back with `new Error('Not allowed by CORS')`, which Express turns into a 500. The rejected origin was never logged, which is why Section 184 could not name it.
+
+**Frontend sweep (read-only).** `grep -rn "localhost\|127.0.0.1\|vercel.app\|VITE_"` over `vite.config.ts`, `.env*` and `src` in `~/Piwork/frontend` found only `VITE_BACKEND_URL` (`src/lib/api.ts:1`, the API base URL) and `VITE_PI_SANDBOX` (`src/lib/usePi.ts:7`, `:9`, the Pi sandbox toggle). No other host or port is hardcoded. The owner confirmed `piwork-frontend.vercel.app` is the only domain on the Vercel project.
+
+**What the Render log shows (read).** Bursts, each of about 3-5 `Not allowed by CORS` errors within roughly one second (a few pasted bursts begin with the tail of an error whose header was cut off), at 2026-11-04 about 07:51:10, 14:46:44, 15:54:01, 16:33:19, 17:05:11, 20:45:25, 20:59:48 and 21:19:01 UTC, and 2026-11-05 05:56:22 UTC. Every trace is identical and ends inside `corsMiddleware` (`cors/lib/index.js:204`, `optionsCallback` 199, origin callback `index.js:34:22`) with no route, handler or checker frame: the request is rejected before any route runs, so it cannot touch jobs, refunds or balances and is unrelated to Pass D or the Section 177-183 work. The bursts do not line up with the 5-minute checker cycle (the checker makes no HTTP/CORS calls anyway), and they have no consistent tie to deploys (the one near a deploy, 20:45:25, is 8 seconds before `Deploying...` at 20:45:33; the other bursts are not near one). The trace carries no origin, so the source cannot be read from it.
+
+**Change shipped: log-only rejected-origin line (`ee58c25`).** Patch script `~/p170a.py` (anchor `app.use(cors({` matched exactly once, abort otherwise); backup `backend/src/index.ts.bak170` (untracked, not committed). It adds a middleware before `cors(...)`: when a request has an `Origin` header that is not in `allowedOrigins`, it logs `CORS rejected:` with the origin, `req.method`, `req.path` (no query string) and the user-agent, then always calls `next()`. No response, route or CORS decision changes. `npx tsc --noEmit` in `backend` printed `TSC OK`. Commit `ee58c25` ("backend: log rejected CORS origin (log-only)", 1 file, 8 insertions), pushed to the Piwork repo only (backend code, no two-repo routine).
+
+**Verified live.** Render came live on the new build at 2026-11-05T06:13:29Z. `curl` against `/api/health`: no `Origin` 200, `Origin: https://piwork-frontend.vercel.app` 200, `Origin: https://example.test` 500 (the existing rejection behavior). The Render log then showed `CORS rejected: https://example.test GET /api/health curl/8.21.0` (06:17:05Z) and the stack now points at `index.js:41:22` with the new middleware frame at `index.js:33:5`. In Pi Browser the app loads and the Dashboard shows data (owner confirmed).
+
+**Findings (not fixed).**
+- The origin behind the bursts is still unknown. The 2026-11-05 05:56:22Z burst predates the `ee58c25` deploy (06:13:07Z), so it logged no origin. The next burst will.
+- Still open from Section 184, unchanged apart from the CORS item (origin logging is now live; the origin is unread): whether `/close-slots` rejects `closed` / `expired` / `partially_complete` jobs with unfilled slots (carried since Section 173, grepped this session, not read); overlapping second close (500); `/complete` without application-state or `worker_slots` check; `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; single-slot `paySubmittedSlot` update guard; finalization paths not compared (the inline status writes in `/complete-slot` and `/complete` remain); dead `DisputeSource` values; unlogged recompute sites (Section 173); lost-race loser left `pending` on a filled job (includes the unfilled applicant `ce640a43-...` left `pending` on a finished job, Section 181); the `{{t:...}}` token in `changes_requested` bodies (informational).
+
+**Not verified.**
+- Who sends the rejected requests (Pi Browser, a Vercel deployment-specific URL, a different localhost port, a bot or script were all left as unconfirmed candidates).
+- Whether a real burst logs as expected (only the `example.test` curl was seen).
+- Test-job state from Section 184 (`6999ed26-...`, `9665ddae-...`, `57d726f9-...`, `f55755be-...`; Pass H due about 2026-11-05 15:37 UTC for `f55755be-...`) was not checked this session.
+- Everything on the Section 177-184 Not-verified lists otherwise stands.
+
+**Termux notes.** The GitHub username and password prompt appeared on `git push`. Untracked and not to be committed: the seven `.bak` files from Section 184 plus `backend/src/index.ts.bak170`. `~/p170a.py` ran once.
+
+**Files:** `backend/src/index.ts` (commit `ee58c25`). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-170.md`.
+
+**Status:** CORS rejected-origin logging is live and verified; the origin is unidentified until the next burst is read. Next: filter the Render log for `CORS rejected:` and read the origin and user-agent; if it is a legitimate client, decide whether to add it to `allowedOrigins`; otherwise close as informational. Then pick from the Still-open list above, grepping the roadmap before proposing any live test.
