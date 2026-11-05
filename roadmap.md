@@ -9837,3 +9837,38 @@ Nothing else in the handler changed (the 400 and cancelled-job 409 guards, the p
 **Files:** `backend/src/routes/jobs.ts` (commit `15442d5`, Piwork repo only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-168.md`.
 
 **Status:** `/close-slots` no longer reports a database error as 403 or a failed write as 409; deployed, build verified. Next: pick from the Still-open list (the failed `/close-slots` refund retry, after an owner decision on idempotency; or a read-only look at the "In progress" with "1π refunded" History cards), grepping the roadmap before proposing any live test.
+
+## Section 184 — Session 169 (2026-11-05): Pass D (job-level refund reconcile) proved live on a simulated failed `/close-slots` refund; the "no retry" item is closed; the "In progress" / "1π refunded" cards are abandoned test jobs; no code changed
+
+**Focus.** Pick from the Section 183 Still-open list: the failed `/close-slots` refund retry (owner decision on idempotency needed) and the "In progress" with "1π refunded" History → Jobs cards (not investigated).
+
+**Starting state.** `git pull` in `~/Piwork` up to date; HEAD `23a75c7` (docs: session 168, roadmap section 183) on top of `15442d5` and `379d310`; only the seven `.bak` files untracked (`.bak163` x2, `.bak165` x2, `.bak166` x2, `.bak167` x1); `diff -rq` between the two docs copies silent. Roadmap read and grepped before proposing anything (Sections 118, 122-124, 173, 183 and every Still-open list).
+
+**"In progress" with "1π refunded" cards: not a bug.** The owner confirmed the jobs are abandoned test jobs left unfinished on purpose (they can be paid or closed in-app, and are kept in case they can serve another test). A read-only query by title returned three of the four: "Naming test 2" `f55755be-...` (2 slots, 0 closed, 2 filled, no job-level refunds), "slot test" `8d8e0d4f-...` (2 slots, 1 closed, 1 filled, 1.0000 job-level refund) and "Notice test" `01ec3d67-...` (2 slots, 0 closed, 2 filled). "Multi slot pass" did not match its title and was not looked up. The card labels follow the job state; the item is closed with no change.
+
+**"A failed `/close-slots` refund has no retry": stale; closed.** The item was carried unchanged through every Still-open list since Section 122, and the Section 183 brief proposed an idempotency-key decision for it. Section 124 had already shipped Pass D (`reconcileJobLevelRefunds`, `slotDeadlineChecker.ts` 394-540, last in `checkSlotDeadlines`): for every job with `slots_closed > 0` or `status = 'cancelled'` it sums the `kind = 'refund'` rows with `application_id` null, compares them with the expected total (cancelled: the full `budget`; otherwise `slots_closed × budget / worker_slots`), and credits only a shortfall, after the same shortfall is seen on two consecutive cycles. It is live only when `JOB_REFUND_RECONCILE_LIVE === 'true'` (read at line 382); the owner confirmed the flag is `true` on Render, and the checker polls every 300000 ms. The same pass covers Section 183's finding (a CAS write that landed despite an error leaves `slots_closed` raised with no refund). A plain unique index on job-level refunds would be wrong, because they legitimately repeat (Section 124); the planned per-close key was not built. No schema change and no code change.
+
+**Live test of Pass D (testnet).** A fresh 2-slot, 2π job `6999ed26-abc1-4819-934c-4a6745d344e8` (owner `walterdanny00`, no applications, no refunds, `slots_closed` 0) was prepared. A guarded SQL update (`worker_slots = 2`, `slots_closed = 0`, no applications, no refund rows) set `slots_closed = 1` and returned exactly one row, the shape of a failed refund. Render log:
+- `2026-11-04T22:10:08Z` `Job refund reconcile: shortfall first seen, waiting one cycle.` `expected: 1 actual: 0 shortfall: 1`
+- `2026-11-04T22:15:07Z` `Job refund reconcile: credited shortfall.` `amount: 1`
+
+Ledger for the job after the credit: one `refund`, `credit`, `1.0000`, `application_id` null (`22:15:07Z`). The owner's bell shows "Refund available, 1.00π ... is now available to withdraw" and the Dashboard card for the job shows Open, 0 applicants and "1π refunded". Pass: the retry works live and credits exactly one share, once.
+
+**Not re-run: cancelling the test job.** Section 123 already fixed `/cancel` to refund `budget × (worker_slots − slots_closed) / worker_slots` and verified on device that a partial close then cancel refunds only the unclosed slots, so a cancel here would add 1π and make the total equal Pass D's expected 2π. Not repeated.
+
+**Findings (not fixed).**
+- **New, informational:** the Render log repeatedly shows `Error: Not allowed by CORS` stack traces (`backend/dist/index.js:34`, in bursts of two or three, several times on 2026-11-04: about 07:51, 14:46, 15:54, 16:33, 17:05, 20:45, 20:59, 21:19 UTC). The roadmap has no mention of them; the requesting origin was not identified and nothing was investigated.
+- Pass D keeps its "seen once" state in memory (`seenShortfalls`), so a server restart adds one waiting cycle; a surplus is only logged, never corrected. Both are by design (Section 124).
+- Still open from Section 183 (the failed-refund retry and the "In progress" cards items are closed): whether `/close-slots` rejects `closed` / `expired` / `partially_complete` jobs with unfilled slots; overlapping second close (500); `/complete` without application-state or `worker_slots` check; `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; single-slot `paySubmittedSlot` update guard; finalization paths not compared (the inline status writes in `/complete-slot` and `/complete` remain); dead `DisputeSource` values; unlogged recompute sites (Section 173); lost-race loser left `pending` on a filled job (includes the unfilled applicant `ce640a43-...` left `pending` on a finished job, Section 181); the `{{t:...}}` token in `changes_requested` bodies (informational).
+
+**Not verified.**
+- The real failure path (an actual refund insert error or a timeout after commit) was simulated by SQL, not provoked.
+- A shortfall seen on one cycle and then a restart before the second (the in-memory state), and the surplus-logging branch, were not run.
+- The owner balance after the credit (`recompute_worker_balance`) was not checked against the ledger; only the ledger row, the notification and the Dashboard pill were seen.
+- Everything on the Section 177-183 Not-verified lists otherwise stands.
+
+**Termux and test-job notes.** The GitHub username and password prompt appeared on `git pull`. Untracked and not to be committed: the seven `.bak` files above. Test job state left behind: `6999ed26-...` `open`, 2 slots, `slots_closed` 1, one 1π refund credited, no applications (cancel it in-app when no longer needed; it should refund the other 1π); `9665ddae-...` `completed` (Eliza1914 `pending`); `57d726f9-...` `closed`; `f55755be-...` Olawalt in a 24h revision window (due about 2026-11-05 15:37 UTC; Pass H refunds it if nobody acts).
+
+**Files:** no code changed. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-169.md`.
+
+**Status:** the job-level refund retry is verified live; two Section 183 carry-forward items are closed. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test; optionally look at the `Not allowed by CORS` origin read-only.
