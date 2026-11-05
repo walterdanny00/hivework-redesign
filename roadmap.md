@@ -9904,3 +9904,58 @@ Ledger for the job after the credit: one `refund`, `credit`, `1.0000`, `applicat
 **Files:** `backend/src/index.ts` (commit `ee58c25`). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-170.md`.
 
 **Status:** CORS rejected-origin logging is live and verified; the origin is unidentified until the next burst is read. Next: filter the Render log for `CORS rejected:` and read the origin and user-agent; if it is a legitimate client, decide whether to add it to `allowedOrigins`; otherwise close as informational. Then pick from the Still-open list above, grepping the roadmap before proposing any live test.
+
+## Section 186 — Session 171 (2026-11-05): the `Not allowed by CORS` origin is a Vercel preview deployment (matches Piwork push times); `/close-slots` on terminal jobs with unfilled slots read and closed as unreachable; no code changed
+
+**Focus.** Read the first `CORS rejected:` bursts from the Section 185 logging, then the Section 185 Still-open item "whether `/close-slots` rejects `closed` / `expired` / `partially_complete` jobs with unfilled slots" (carried since Section 173, grepped in Section 185, never read). Roadmap grepped first for `close-slots`, `reevaluateOne`, `countFilledSlots` and the Pass C scope (Sections 116, 122, 173-174, 180) before any step was proposed. No live test was proposed or run; everything below is code read plus log read.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date, HEAD `494df40` (`docs: session 170, roadmap section 185`), then `ee58c25`, `82a2731`. `git status --short`: only the eight untracked `.bak` files (`index.ts.bak170`, `slotDeadlineChecker.ts.bak163`, `.bak165`, `admin.ts.bak163`, `history.ts.bak166`, `jobs.ts.bak165`, `.bak167`, `JobCard.tsx.bak166`). `git pull` in `~/hivework-redesign`: already up to date. `diff -rq` between the two docs copies printed nothing.
+
+**CORS origin (log read).** After the `ee58c25` deploy (live 2026-11-05 06:13:29Z) the log shows the curl check (`https://example.test GET /api/health curl/8.21.0`, 06:17:05Z) and then four rejections within about one second at 06:23:26-06:23:27Z: origin `https://piwork-frontend-are3dozsc-walterdanny00s-projects.vercel.app`, `OPTIONS /api/jobs/stats`, user-agent `Mozilla/5.0 (X11; Linux x86_64) ... HeadlessChrome/153.0.8010.0`. That is a Vercel deployment-specific URL (not the production domain) loaded by a headless browser; the requests are CORS preflights rejected inside `corsMiddleware` before any route (stack frames `index.js:41:22`, middleware `index.js:33:5`), so no job, refund or balance is touched.
+
+**Burst times vs Piwork commit times (UTC, `git log` read).** Every earlier burst begins within about a minute after a docs or frontend push to the Piwork repo:
+
+| Burst | Commit just before |
+|---|---|
+| 11-04 07:51 | 07:50 `e962c42` (docs) |
+| 11-04 14:46 | 14:46 `257a3ef` (docs) |
+| 11-04 15:54 | 15:53 `a652801` (docs) |
+| 11-04 16:33 | 16:32 `e9a5e2c` (docs) |
+| 11-04 17:05 | 17:04 `3d23242` (docs) |
+| 11-04 20:45 | 20:44 `02ff6dc` (frontend, `JobCard`) |
+| 11-04 20:59 | 20:59 `379d310` (docs) |
+| 11-04 21:19 | 21:18 `23a75c7` (docs) |
+| 11-05 05:56 | 05:55 `82a2731` (docs) |
+| 11-05 06:23 | 06:22 `494df40` (docs) |
+
+The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58c25`) produced no burst. Section 185 compared the bursts with Render deploys only, which is why it saw no tie. The working conclusion: Vercel builds a preview deployment for each Piwork push and loads it in headless Chrome; that preview's Dashboard calls `/api/jobs/stats` and its preflight is rejected. This is an inference from timing and the origin shape, **not confirmed in the Vercel dashboard**. Decision pending that confirmation: close as informational and leave `allowedOrigins` alone (allowing preview URLs would let every preview deployment call the production backend). Optional, not done: answer the rejection with a clean 403 instead of the 500 stack trace (a behavior change).
+
+**`/close-slots` read (`backend/src/routes/jobs.ts` 440-579, at `494df40`).** Checks in order: auth; `count` at least 1; job read scoped to the owner (read error 500, no row 403 "Not your job"); `slots <= 1` 400; `status === 'cancelled'` 409 (the only status rejected); `currentlyUnfilled = slots - filled - slots_closed` with `countFilledSlots`, `count > currentlyUnfilled` 400; CAS on `slots_closed` (write error 500, zero rows 409); post-CAS recount with `countFilledSlotsChecked` and undo on conflict; job-level `refund` credit of `budget / slots * count` with `application_id` null; unchecked `recomputeWorkerBalance`; `notifyRefundCredited`; then finalization: in-progress and ever-filled counts (error queues the job via `queueReevaluation`), and when nothing is in flight and `everFilled + slots_closed >= slots`, `reevaluateJobs(new Set([job.id]))`. No guard on `closed`, `expired`, `partially_complete` or `completed`.
+
+**Why that is not a reachable gap.**
+- `reevaluateOne` (`slotDeadlineChecker.ts` 263-~325, read): returns `true` immediately for a job already `completed` / `partially_complete` / `expired` / `closed` / `cancelled`, so the `reevaluateJobs` call in `/close-slots` is a no-op on a terminal job (this corrects a remark made earlier in the session that it could re-evaluate one). For a non-terminal job it returns without writing unless `everFilled + slots_closed >= worker_slots`, so it never finalizes a job with an unfilled slot.
+- `/complete-slot` (`routes/jobs.ts` 1235-1285, read): the inline status write at line 1268 is guarded by `!inProgress && allSlotsAccountedFor` (`everFilled + slots_closed >= slots`), with a comment recording the old premature-completion bug. It cannot finalize a job with an unfilled slot either.
+- Pass C (Section 122) closes and refunds the unfilled slots of `fixed` jobs at deadline + grace before the job can finalize, so those jobs reach `/close-slots` with `unfilled` 0 and get the 400.
+- `approve-application` only accepts `open`, or `in_progress` with `worker_slots > 1` (Section 174), so a slot on a terminal job can never be filled.
+- Money safety even if the state existed: the unfilled share is unspent, the refund amount is right, and the CAS on `slots_closed` stops a double refund against Pass C.
+- Not read this session: `/complete` (single-slot; lines 1123-1126 write `completed` on the assigned application and the job; the roadmap records that a multi-slot `/complete` stops at "No assigned worker found").
+
+**Decision.** No code change. A status guard on `/close-slots` would protect a state that cannot occur. The item is closed as unreachable.
+
+**Findings (not fixed).**
+- **New, narrowed from "finalization paths not compared":** the inline status write in `/complete-slot` (line 1268) ignores its update error and has no retry queue. If it fails, the job stays `in_progress` with every slot paid and nothing retries it; `reevaluateOne` logs and queues a retry for the same write. Cosmetic (Section 176 rated a stale `in_progress` job as such). Possible fix, not made (money-adjacent, owner's call): route that write through `reevaluateJobs`, as `/close-slots` does since Section 180. The inline write in `/complete` (line 1126) was not compared.
+- **New, cosmetic:** the `/close-slots` comment near line 534 still carries the old "BUG: job stayed in_progress" note; a negative `currentlyUnfilled` would produce an "Only -1 slot(s)" message (not reachable in normal flow).
+- **Closed by this session:** the `Not allowed by CORS` origin (pending Vercel confirmation, above); whether `/close-slots` rejects `closed` / `expired` / `partially_complete` jobs with unfilled slots (unreachable).
+- **Still open (Section 185 list, unchanged apart from the two closed items):** `/close-slots` overlapping second close (500); `/complete` without application-state or `worker_slots` check; `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; single-slot `paySubmittedSlot` update guard; finalization paths not compared (`/complete-slot` vs `reevaluateOne` now compared, above; the inline write in `/complete` remains); dead `DisputeSource` values; unlogged recompute sites (Section 173); lost-race loser left `pending` on a filled job (includes the unfilled applicant `ce640a43-...` left `pending` on a finished job, Section 181); the `{{t:...}}` token in `changes_requested` bodies (informational).
+
+**Not verified.**
+- That the `are3dozsc` deployment was built from `494df40` and that the earlier bursts were Vercel preview builds (Vercel dashboard not opened).
+- A burst after a docs-only push other than `494df40` logging the same origin pattern (only the 06:23Z burst has an origin).
+- Test-job state from Section 184 (`6999ed26-...` `open`, `slots_closed` 1; `9665ddae-...` `completed`; `57d726f9-...` `closed`; `f55755be-...` Olawalt revision window, Pass H due about 2026-11-05 15:37 UTC) was not checked.
+- Everything on the Section 177-184 Not-verified lists otherwise stands.
+
+**Termux notes.** The GitHub username and password prompt appeared on `git pull` in `~/Piwork`. Untracked and not to be committed: the eight `.bak` files listed under Starting state.
+
+**Files:** no code changed. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-171.md`.
+
+**Status:** CORS origin identified as a Vercel preview deployment, to be confirmed in the Vercel dashboard; the `/close-slots` terminal-status item is closed as unreachable with no code change. Next: confirm the preview deployment in Vercel and close the CORS item as informational; then either read `/complete` (application-state and `worker_slots` check) or decide the optional `/complete-slot` inline-write fix; grep the roadmap before proposing any live test.
