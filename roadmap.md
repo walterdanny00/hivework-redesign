@@ -1,5 +1,24 @@
 # Hivework Redesign — Design Roadmap
 
+> ## ⛔ STANDING RULE — SWEEP EVERY USE BEFORE YOU CHANGE ANYTHING SHARED
+>
+> **Read this before proposing any patch. Session 173 (Section 188) nearly shipped a regression by skipping it.**
+>
+> Before changing the value, meaning or contents of any **existing flag, variable, constant, status list, helper or shared condition**, have the owner print **every place it is used**: `grep -n "<name>" <file>`, then `sed -n 'X,Yp' <file>` over each use, and read what each use does with it. Reading only the line you intend to change is **not** a sweep. Describe how a screen behaves only after reading the lines that render it, never from memory of an older section.
+>
+> **Then make the narrowest change:** patch the one consumer that is wrong. Do not widen a shared flag that other consumers also read.
+>
+> **What went wrong (Section 188):** to fix one worker-side panel, session 173 proposed adding `|| singleSlotFilled` *inside* `jobClosedToApplicants` in `JobDetail.tsx`, after reading only the pending-row lines, and said the owner kept a live Approve button (false: lines 994-995 already disable it and label it "Slot filled"). A `grep` run after the patch showed that flag is also read at lines 990, 1026-1027 and 1353-1354. Widening it would have turned the owner's correct "Slot filled" state into "Job closed" and made the Approve-button branch unreachable for that case. It was caught before commit, reverted from `JobDetail.tsx.bak173`, and replaced by a two-line patch on the worker panel only (`bcaaefd`).
+>
+> **Checklist, in order:**
+> 1. Grep this roadmap for the item, and for any live test you plan to propose (a test already on record is not repeated).
+> 2. List every use of the thing you will change (the sweep above).
+> 3. Narrowest patch: exact-match anchor, backup first.
+> 4. `npx tsc --noEmit` and `git diff --stat` before any commit.
+> 5. Deliver the **complete** `roadmap.md` plus the session brief (see "Standing rule — roadmap delivery" below), never a section-only file.
+>
+> Same family, reported by the owner in session 173: three sessions in a row delivered a section-only roadmap file instead of the complete one, and another session had the owner repeat a test that was already on record. Steps 1 and 5 prevent both.
+
 Living reference for the visual redesign. Goal: the old app matches this new
 design system — not the reverse. Old code structure informs technical facts
 (routes, data shape) but never dictates UX decisions.
@@ -10002,3 +10021,49 @@ The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58
 **Files:** `backend/src/routes/jobs.ts` (commit `72bddf8`). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-172.md`.
 
 **Status:** CORS closed as informational; `/complete` and `/complete-slot` finalization compared, and `/complete-slot` now finalizes through the shared `reevaluateJobs` rule, deployed and verified live on a 2-slot job. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test; optionally run the missed-slot `/complete-slot` check (needs a 2-slot `fixed` job with one real missed slot) and read the Section 184 test-job state.
+
+## Section 188 — Session 173 (2026-11-05): `paySubmittedSlot` single-slot update guard and the single-slot retry shape closed by code read; worker "pending" panel now reads "Job closed" on a filled single-slot job (`bcaaefd`); `f55755be` Pass H lapse confirmed; first patch withdrawn before commit
+
+> **LESSON (see the standing rule at the top of this file).** The first patch this session widened `jobClosedToApplicants` after reading only the pending-row lines, and it came with a wrong claim about the owner view. A grep of every use, run before commit, showed it would have changed the owner's "Slot filled" rows to "Job closed". It was reverted and the narrow patch shipped. **List every use of a flag before changing it, and change only the consumer that is wrong.**
+
+**Focus.** Continue from the Section 187 Still-open list. The owner opened the session reporting that three sessions in a row had delivered a section-only roadmap file and that another had repeated a test already on record, so the roadmap was grepped before each proposal and this section is delivered as part of the complete file. Items taken: the Section 184 test-job state, the single-slot `paySubmittedSlot` update guard, the single-slot retry through `reevaluateOne`, and "lost-race loser left `pending` on a filled job".
+
+**Starting state (reported).** `git pull` in both repos: already up to date. `git log --oneline -4` in `~/Piwork`: `37dbb14` (`docs: session 172, roadmap section 187`), `72bddf8`, `551aeab`, `494df40`. `git status --short`: the nine untracked `.bak` files (`index.ts.bak170`, `slotDeadlineChecker.ts.bak163` and `.bak165`, `admin.ts.bak163`, `history.ts.bak166`, `jobs.ts.bak165`, `.bak167` and `.bak172`, `JobCard.tsx.bak166`). `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing.
+
+**Section 184 test-job state (Supabase SQL editor, read-only).**
+- `57d726f9-...`: `closed`, `slots_closed` 2 of 2. `9665ddae-...`: `completed`, `slots_closed` 1 of 2 (the pre-Section 180 status; the card and header read "Closed" since Section 182). `6999ed26-...`: `open`, `slots_closed` 1 of 2 (still to be cancelled in-app). All as recorded.
+- `f55755be-...` ("Naming test 2"): job `closed`, `slots_closed` 0; both applications `approved` / `missed` / `no_response`, `revision_due_at` null. Pass H fired on Olawalt's slot after the Section 179 `uphold_changes` window, as Section 179 predicted; Eliza1914's slot was closed by Pass I in Section 179. The job ended `closed` under the rule in the standing reference (every missed slot ended by `no_response` / dispute / release), and `slots_closed` 0 is right because `no_response` is not an owner close.
+- Ledger for `f55755be-...` (`balance_transactions`): exactly two rows, both `refund` 1.0000: application `5ed2daba-...` (Eliza1914) at 2026-11-04 15:15:50 (Pass I, matches Section 179) and application `f9f8ce25-...` (Olawalt) at 2026-11-05 15:38:23, just after the 15:37 UTC revision deadline. No other row kinds for the job. **Pass:** the `uphold_changes` then lapse chain on a multi-slot job ends with one refund per slot and no double credit.
+
+**`paySubmittedSlot` single-slot update guard: closed as by design (read, `lib/settlement.ts` 105-215 at `37dbb14`; nothing run).**
+- The application claim is atomic: single-slot updates `applications` where `status = 'submitted'` and returns the row (multi-slot claims on `slot_status = 'submitted'`); the loser gets 409 "This slot is no longer awaiting review." `refundSubmittedSlot` claims on the same column and moves the application back to `approved`, so a pay and a refund cannot both succeed on one slot.
+- The credit is idempotent through `uq_baltx_slot_settlement` (Section 176), so a race with `/complete` still yields one `job_completion` row.
+- The job write (`.neq('status','cancelled')`, sets `completed` and `payout_claimed = true`) can overwrite any non-cancelled status. That is correct: once the worker is paid, `completed` is the right end state, and a stricter guard such as "only from `in_progress`" would leave a paid job on a wrong status. It does not revive a cancelled job. Its error is checked, logged and queued (Section 176, line 186).
+
+**Single-slot retry shape in `reevaluateOne`: verified by code read (`slotDeadlineChecker.ts` 240-340).** A paid single-slot application is `completed` / `active` (by design, Section 152). Trace: in-flight count 0 (needs `approved`), awaiting-review 0, `everFilled` 1 (counts `completed`), `succeeded` 1, `missed` 0, so the job goes to `completed`. A queued retry after a failed write at `paySubmittedSlot` line 186 therefore finalizes a single-slot job. It does not set `payout_claimed`, which stays false; harmless, because `payout_claimed` is read only inside `/complete`, which needs `in_progress` (Section 176).
+- **Informational, not a bug:** a single-slot job under review (application `submitted` / `active`) is left alone only because `everFilled` counts `approved` and `completed`, not `submitted`. If `submitted` were ever added to that list, `succeeded` would finalize jobs that are still under review. Do not change that `.in([...])` list without re-reading `reevaluateOne` end to end.
+
+**Lost-race loser left `pending` on a filled job: narrowed, display fixed, row left alone.**
+- Already on record before this session: Section 115 (single-slot approval rejects and notifies the other pending applicants), Section 123 (`jobClosedToApplicants`, "Job closed" for pending rows and the worker panel), Section 138 (`closed` added to it), Pass F in Section 127 (pending applicants on `per_worker` jobs become `rejected`), and the deliberate choice in Section 122 to leave pending applicants on fixed multi-slot jobs untouched.
+- Sweep done first (Termux greps): backend `pending` writes at `routes/jobs.ts` 601 (apply), 666 (approve claim), 675-680 and 710 (reverts), 732 (reject sweep of other applicants), 760 (decline), 800 (undo-decline) and `slotDeadlineChecker.ts` 564 / 579 (Pass F); `notifyApplicationRejected` at `jobs.ts` 737 and 767 and `slotDeadlineChecker.ts` 584. Frontend `JobDetail.tsx` 816-830: `singleSlotFilled = !isMultiWorker && !!job && job.status !== 'open'` (821); `jobClosedToApplicants` (825-829) = terminal status (including `closed`) or a multi-slot job with no unfilled slot. Every use: owner pending rows 990-995 (closed shows "Job closed"; otherwise the Approve button, disabled and labelled "Slot filled" when `singleSlotFilled`), declined rows 1026-1027 ("Job closed" or "Slot filled"), worker pending panel 1353-1354 (keys on `jobClosedToApplicants` only).
+- **Gap found:** on a filled single-slot job that is still `in_progress`, the worker's pending panel read "Awaiting client review ... the moment a slot opens up", because `jobClosedToApplicants` excludes `singleSlotFilled`. The owner side was already correct.
+- **First patch withdrawn before commit.** `~/p173a.py` added `|| singleSlotFilled` to `jobClosedToApplicants` itself, proposed after reading only the pending-row lines and with the wrong statement that the owner kept a live Approve button. The `grep` of every use showed the flag is also read at 990 and 1026-1027, so the patch would have changed the owner's "Slot filled" states to "Job closed". Nothing reached the repo: the file was restored with `cp` from `JobDetail.tsx.bak173` and `git diff --stat` printed nothing.
+- **Fix shipped (`bcaaefd`).** `~/p173b.py` (both anchors matched exactly once) changes only the worker panel title and note at 1353-1354 to read `(jobClosedToApplicants || singleSlotFilled)`. `git diff --stat`: 2 insertions, 2 deletions in `frontend/src/pages/JobDetail.tsx`; `npx tsc --noEmit` printed `TSC OK`. Pushed to the Piwork repo alone (Section 30): `37dbb14..bcaaefd`.
+- **Residue (not fixed):** the database row stays `pending` and the worker gets no rejection notice. Cleanup (reject and notify) would be a product decision; not made.
+
+**Findings.**
+- **Closed by this session:** single-slot `paySubmittedSlot` update guard (by design); the single-slot retry through `reevaluateOne` (works); the worker "pending" panel mismatch on a filled single-slot job (display fixed).
+- **New:** none beyond the informational `everFilled` dependency above.
+- **Still open (Section 187 list minus the above):** `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; dead `DisputeSource` values; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete`); the leftover `pending` row's database state and missing notice (above); the `{{t:...}}` token in `changes_requested` bodies (informational); cosmetic: the stale "BUG" comment near `/close-slots` line 534 and the unreachable "Only -1 slot(s)" message.
+
+**Not verified.**
+- The worker "Job closed" panel on a real filled single-slot leftover, and the Vercel deploy of `bcaaefd`: a SQL lookup for a single-slot `in_progress` job with a `pending` application returned no rows, so no leftover exists and none was recreated. The owner view of such a leftover ("Slot filled") is from code only. Whether the race can actually leave a leftover is read from line numbers (666-737), not from the full code.
+- The Pass H notices to the owner and worker for the `f55755be-...` lapse, and the application and job rows right after the Section 179 `uphold_changes` resolve (only the end state was read).
+- A `/complete-slot` finalization with a missed slot (`partially_complete`) through the Section 187 call; the `reevaluateOne` failure branch from that route; the creation time of `mptlx1hgg`; who opened `are3dozsc` on Android Chrome 135 Mobile.
+- Everything on the Section 177-184 Not-verified lists otherwise stands. The Section 184 test-job state is no longer on the list (read above).
+
+**Termux notes.** The GitHub username and password prompt appeared on `git pull` in `~/Piwork` and on `git push`. Untracked and not to be committed: the nine `.bak` files from Section 187 plus `frontend/src/pages/JobDetail.tsx.bak173` (ten). `~/p173a.py` ran once and was undone with `cp` from `.bak173`; `~/p173b.py` ran once. Line numbers quoted for `JobDetail.tsx` are post-`bcaaefd` (the patch changed lines, not the line count).
+
+**Files:** `frontend/src/pages/JobDetail.tsx` (commit `bcaaefd`). Docs: `roadmap.md` (this section and the new standing rule at the top, delivered as the complete file); `sessions/session-173.md`.
+
+**Status:** the single-slot `paySubmittedSlot` guard and retry shape are closed; the worker pending panel is fixed on a filled single-slot job (display only, `tsc` only, not seen live); the Section 184 test jobs and the `f55755be-...` refunds are confirmed. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of any flag before changing it; optionally the missed-slot `/complete-slot` check, and the worker panel on a real leftover if one ever appears.
