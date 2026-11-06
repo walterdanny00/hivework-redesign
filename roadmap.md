@@ -10277,3 +10277,42 @@ The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58
 **Files:** none in code. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-178.md`.
 
 **Status:** the terminal-status guards are read and the Pass J rollback-window question is closed on the guards too. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
+
+## Section 194 — Session 179 (2026-11-06): `/cancel` now returns 500 on a job-claim write error; only a zero-row claim is the 409 (`f41641d`); the Section 193 "new, not fixed" item is closed
+
+**Focus.** The one new finding of Section 193: `/cancel` destructured only `data` from the claim update, so a database error returned the "approved worker" 409 with a misleading message. The roadmap was grepped first (standing rule at the top of this file): the item is recorded only in Section 193 (observation 1 and Findings); no earlier section fixed or tested it, and no live test was proposed or repeated.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date (the GitHub username and password prompt appeared). `git status --short`: the seventeen untracked backup files, the same list as Section 191. HEAD before the patch was `7836c9c` (`docs: session 178, finalizeJob read added to section 193`), above `33afe83`; last code commit before this session `a25e43e`. The `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` check was not run at the start of this session. The roadmap read in chat was the complete file at 10279 lines, ending at Section 193 (sha256 started `7379e2efff9c2688`; the `ef09…` hash in the session 178 brief is the file before Section 193 was added).
+
+**Sweep before the patch (Termux, `~/Piwork`).**
+- `grep -n "already has an approved worker" routes/jobs.ts`: one hit, line 406 (the 409 in `/cancel`).
+- `sed -n '380,445p' routes/jobs.ts` and `grep -n "cancelled" routes/jobs.ts`: inside `/cancel` the `cancelled` variable (line 398) is read only at line 405. The other hits are status strings, the `JOB_CLOSED_STATUSES` list (1376), the `includes([...])` lists at 894 and 1287, the `/close-slots` guard at 460, and comments.
+- Frontend: `grep -rn "approved worker"` found only unrelated copy (`PostJob.tsx` 528). `grep -rn "/cancel"` found one caller, `JobDetail.tsx` 587 (`handleCancelJob`). It shows `data.error` for any non-OK response and never branches on the status code, so a 500 reaches the existing cancel error box with no frontend change.
+- Convention: Section 183 (`/close-slots`): a read or write error returns 500; only a zero-row claim is 409.
+
+**Fix (`f41641d`, one file, +6 / -3, `tsc --noEmit` clean in `backend`; no frontend change).** In `backend/src/routes/jobs.ts`, `/cancel` only:
+1. The claim update drops `.single()` and captures `error` (`{ data: cancelledRows, error: cancelError }`).
+2. A claim error is logged ("Failed to claim job for cancel.", job id, error message) and returns 500 "Could not confirm the job was cancelled. Refresh the job and check before trying again."
+3. Only an empty result (`!cancelledRows || cancelledRows.length === 0`, the real zero-row race) returns the unchanged 409 "This job already has an approved worker and can no longer be cancelled outright."
+Nothing else changed: the owner-scoped job read, the `.eq('status', 'open')` guard, the refund insert, the credit-failure 500, the balance recompute, the notification, the success response. Patch script `~/p179a.py` (both anchors matched exactly once, abort otherwise); backup `backend/src/routes/jobs.ts.bak179` (untracked, not committed). The full `git --no-pager diff` was read before commit. Commit and push were `git add` of `jobs.ts` only; pushed to the Piwork repo alone (`7836c9c..f41641d`). `git --no-pager log --oneline -3`: `f41641d`, `7836c9c`, `33afe83`.
+
+**Deploy (Render log pasted by the owner).** Checked out commit `f41641d90c3e5a3d7392cb6da0925d07bb570b4e` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T15:08:43Z; `node dist/index.js` started with the withdrawal drainer and the slot deadline checker; "Your service is live" 2026-11-06T15:09:06Z. Pass. This is a build-and-deploy check only. The `npm install` step printed an audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical); not investigated.
+
+**Why no live test.** The new 500 branch fires only on a database failure on that update, which cannot be provoked safely in production. The zero-row 409 and the success path are unchanged by the diff and were exercised live earlier on record (cancelled-job tests, Sections 184 and 191).
+
+**Findings.**
+- **Closed:** the Section 193 item: `/cancel` reporting a database error as the "approved worker" 409.
+- **New (not fixed):** the owner-scoped job read at the top of `/cancel` (`const { data: job } = ... .single()`) has the same shape: a read error and a job that is not the caller's both give `job = null` and the 403 "Not your job". No state changes and no money move. It was offered as an optional second patch and not taken; the same pattern is on record for `approve-application` (Section 177 area, "any error is 403 Not your job").
+- **Still open (Section 193 list minus the `/cancel` claim item):** `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete`, and the recompute call in `/cancel`); the `{{t:...}}` token in `changes_requested` bodies (informational); the Cancel card wording (still true, left alone); the `/cancel` job-read 403 above. Optional: cancel `6999ed26-...` in-app.
+
+**Not verified.**
+- The new 500 branch was not run (see "Why no live test"); verified by `tsc`, the read diff and the deploy log only.
+- A `/cancel` happy-path run after this deploy was not repeated; the success path is unchanged by the diff.
+- If the claim write lands despite an error (for example a timeout after commit), the job is `cancelled` with no refund credited and no retry; the owner is told to refresh and check. Same family as the Section 183 note; no recovery exists.
+- The 100-row bound under load, live runs of terminal paths other than `cancelled`, the worker page for a row declined before the job ended, the deploy hash check, the Section 190 list, and the Section 193 limits (trigger or function created only in the Supabase SQL editor; manual status edits) all stand.
+
+**Termux notes.** Untracked and not to be committed: the seventeen files listed in Section 191, plus `backend/src/routes/jobs.ts.bak179` (eighteen; the list was not re-run after the patch). `~/p179a.py` is in the home directory, outside the repos. The GitHub username and password prompt appeared on `git pull` and `git push`. The pager was avoided with `git --no-pager` after the first `git diff` stopped at the `:` prompt.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `f41641d`, Piwork repo only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-179.md`.
+
+**Status:** `/cancel` no longer reports a claim write error as the "approved worker" 409; deployed, build verified. Next: pick from the Still-open list above (the `/cancel` job-read 403 is the smallest same-family item), grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
