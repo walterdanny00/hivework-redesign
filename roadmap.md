@@ -10790,3 +10790,57 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commit `8f7c89f`), Piwork repo only. Docs: `roadmap.md` (Section 209, delivered as the complete file); `sessions/session-184.md` (updated in place for the third commit).
 
 **Status:** three code commits this session, all pushed and build-verified from their Render logs (`bd3304f`, `ff16898`, `8f7c89f`). Next: apply the Section 208 pattern to `decline-application` (sweep its route first), or decide the draft-write items; re-grep ownership checks worded differently; grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 210 — Session 184 (2026-11-06), fourth patch: `decline-application` application read now returns 500 on a database error; a missing row and a malformed id stay the 404 (`9aa2464`)
+
+**Focus.** The next application read, using the Section 208 pattern. Roadmap grepped first: Section 198 (the decline write is guarded on job and `pending` status, 500 on a write error, 409 on zero rows, worker notice only after a confirmed row, owner UI shows a failed decline) and Section 199 (the job read was patched; the application read was deliberately left as the 404 because the id comes from the request body); the item is open in Sections 206, 208 and 209. No live test is on record and none is proposed.
+
+**Starting state (reported).** The Section 209 docs update was pushed first (`3cd3c13` in `~/Piwork`, `6709ae4` in `~/hivework-redesign`; `diff -rq` silent before and after the copy; roadmap sha256 `17abb35e3318`, 10792 lines). 34 untracked files at that point.
+
+**Sweep before the patch.** Routes 777 to 813 and 815 to 860 printed with line numbers. Lines 778 to 786 are `user_id`, `application_id` from the body and the owner-scoped job read (`.maybeSingle()`, 500 on error, 403 if missing), so no write has happened when the application read runs. The read was 788 to 789 (`.select('id, worker_id, status').eq('id', application_id).eq('job_id', job.id).single()`, `error` unread), the null check 790. `application` is used only at 791 (`application.status !== 'pending'`, 400) and 809 to 810 (`application.worker_id` in the notice). The guarded write at 795 to 800 already returns 500 on a write error (801 to 804) and 409 on zero rows (805 to 807). Frontend: Section 198 records that `confirmDecline` in `JobDetail.tsx` shows the failure; not re-read this session.
+
+**Fix (`9aa2464`, one file, +5 / -1, one hunk at 786, `tsc --noEmit` clean in `backend`).** `{ data: application }` becomes `{ data: application, error: applicationError }`. A new block before the null check: an error whose code is neither `PGRST116` nor `22P02` is logged ("Failed to read application for decline-application.", job id, application id, error message) and returns 500 "Could not read the application. Nothing was changed; try again."; a null row keeps the 404 "Application not found". `.single()` unchanged. Script `~/p184d.py` (anchored inside this route; the undo route starts with a different string; matched once, shape checked); backup `jobs.ts.bak184d` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `9aa2464460824fee64b408c27ece8ac7e591d945` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T22:12:12Z; "Your service is live" 22:12:36Z. Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `3cd3c13..9aa2464` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 35.
+
+**Findings.**
+- **Closed:** the `decline-application` application read reporting any error as the 404.
+- **Not verified (as in Sections 208 and 209):** that `22P02` is the exact code returned for a malformed id on the `applications` uuid column.
+
+**Not verified.** The new 500 branch was not run (it needs a database failure on that read, which cannot be provoked safely); `tsc`, the diff, the printed routes and the Render log only. No happy path re-run after the deploy (the diff changes only the read's error handling).
+
+**Files:** `backend/src/routes/jobs.ts` (`9aa2464`), Piwork repo only.
+
+**Status:** one code commit in this section, pushed and build-verified from its Render log. Next: `undo-decline-application` (Section 211).
+
+## Section 211 — Session 184 (2026-11-06), fifth patch: `undo-decline-application` application read now returns 500 on a database error; a missing row and a malformed id stay the 404 (`e22b648`)
+
+**Focus.** The sibling of Section 210, same pattern. Roadmap grepped first: Section 175 hardened the restore write (guarded on `job_id` and `status = 'rejected'`, 500 on a write error, 409 on zero rows, multi-slot job must be `open` or `in_progress`); Section 199 patched the job read and left this application read as the 404; no live test is on record and none is proposed.
+
+**Sweep before the patch.** From the same print as Section 210 (the line numbers below are those of the print, before the Section 210 patch added four lines above). Lines 816 to 824 are `user_id`, `application_id` and the owner-scoped job read (`.maybeSingle()`, 500 on error, 403 if missing). The application read was 826 to 827 (`.select('id, status').eq('id', application_id).eq('job_id', job.id).single()`, `error` unread), the null check 828. `application` is used only at 829 (`application.status !== 'rejected'`, 400); the checks after it read `job` (`worker_slots`, `status`, `slots_closed`) and `countFilledSlots`, and the guarded restore write at 846 to 851 returns 500 on a write error and 409 on zero rows. Frontend: `handleUndoDecline` shows `data.error` and has a `catch` (on record in the roadmap, Section 198).
+
+**Fix (`e22b648`, one file, +5 / -1, one hunk at 828, `tsc --noEmit` clean in `backend`).** Same change as Section 210: `{ data: application }` becomes `{ data: application, error: applicationError }`; an error code other than `PGRST116` and `22P02` is logged ("Failed to read application for undo-decline-application.", job id, application id, error message) and returns 500 "Could not read the application. Nothing was changed; try again."; a null row keeps the 404. Script `~/p184e.py` (anchored inside this route, matched once, shape checked); backup `jobs.ts.bak184e` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `e22b64840ec9b1f838c21f6ab802ac2b4a4eefd0` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T22:16:12Z; "Your service is live" 22:16:35Z. Pass, build-and-deploy only; same audit summary. Push `9aa2464..e22b648` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 36.
+
+**Findings.**
+- **Closed:** the `undo-decline-application` application read reporting any error as the 404. With Sections 208 to 211, the application reads whose body `application_id` errors were reported as the 404 are now fixed in `/request-changes`, `/reject`, `decline-application` and `undo-decline-application`.
+- **Left in that class:** the `approvedApp` reads in `/approve-application`. Section 196 recorded the final read as feeding only a fire-and-forget notice (harmless); it was not re-read this session, and whether to patch it at all is a decision, not a gap.
+
+**Not verified.** The new 500 branch was not run; `tsc`, the diff, the printed routes and the Render log only. No happy path re-run after the deploy.
+
+**Still open, consolidated after Sections 210 and 211.**
+- **Application reads:** only the `approvedApp` reads in `/approve-application` remain (see above); the Section 208 error-code check is the pattern if they are patched.
+- **Draft routes:** the `PATCH` update and the `DELETE` delete are filtered on `id` only with no row check (Sections 200, 201); the delete can, by code read, remove a job that was just paid (not reproduced); `deleteDraft` in `Dashboard.tsx` is silent on any failure. Highest risk of the open items.
+- **The `disputes` read in the applications list** (Section 206) and the raw `error.message` return from the applications query.
+- **`/complete` (Section 207):** the claim write landing despite an error; the worker lookup reporting a read error as the 400 "No assigned worker found for this job."; the four unchecked claim-release writes.
+- **Swallowed notices (no log):** `notifyChangesRequested` in `/request-changes` (Section 207) and the `release_offered` notice in `/reject` (Section 209).
+- **Unread:** ownership checks not worded "Not your job" (`respond-release`, `release-slot`, `open-dispute`, `dispute-response`, `submit-work`, `my-application`, the `/versions` route, `my-rating`, `rate`); `grep -n client_id jobs.ts` lists them.
+- **From Section 199, unchanged:** `/approve-application` write-landed-despite-error case (Section 197); `decline-application` overlapping-request race (409, not live-testable); `/close-slots` overlapping second close; `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173); the `{{t:...}}` token in `changes_requested` bodies; the Cancel card wording; optional: cancel `6999ed26-...` in-app; `npm audit` (12 vulnerabilities: 3 moderate, 8 high, 1 critical, shown on every deploy, not investigated).
+- **Earlier findings still standing:** the `/complete-slot` half-rollback (failure path reopens only `slot_status`); the Section 190 list and Section 193 limits.
+
+**Termux notes.** Untracked and not to be committed: the 31 listed in Section 206 plus `backend/src/routes/jobs.ts.bak184a` through `.bak184e` (36 expected). `~/p184a.py` through `~/p184e.py` are in the home directory, outside the repos. The GitHub username and password prompt appeared on `git pull` and on every push. Use `git --no-pager diff` to avoid the pager.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `e22b648`), Piwork repo only. Docs: `roadmap.md` (Sections 210 and 211, delivered as the complete file); `sessions/session-184.md` (updated in place).
+
+**Status:** five code commits this session, all pushed and build-verified from their Render logs (`bd3304f`, `ff16898`, `8f7c89f`, `9aa2464`, `e22b648`). Next: decide the draft-write items (the highest-risk open item; print the `PATCH` and `DELETE /:id/draft` routes and sweep first), or the `disputes` read in the applications list; re-grep ownership checks worded differently; grep the roadmap before proposing any live test and list every use of a flag before changing it.
