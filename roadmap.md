@@ -10398,3 +10398,126 @@ Nothing else changed: the approvable check, the capacity checks, the deadline bl
 **Files:** `backend/src/routes/jobs.ts` (commit `2912d89`, Piwork repo only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-180.md` (updated to cover Sections 195 and 196).
 
 **Status:** `/approve-application` no longer reports a job-read error as the 403 "Not your job"; deployed, build verified. Next: pick from the Still-open list above (the `approvedRow` 409 in the same route is the nearest item; the unread 403 sites are the same-family list), grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
+
+## Section 197 — Session 181 (2026-11-06): `/approve-application` application claim now returns 500 on a database error; only zero matching rows is the 409 (`565a075`); the Section 196 "new, not fixed" item is closed for the status code, the write-landed-despite-error case stays open
+
+**Focus.** The one new finding of Section 196: the `approvedRow` update (the application claim) in `/approve-application` used `.single()` and did not read `error`, so a database error and "no pending row matched" both gave `approvedRow = null` and the 409 "Application not found or no longer pending." The roadmap was grepped first (standing rule at the top of this file): `approvedRow` appears only in Section 196 (Sweep, Findings, Still open, Status); no earlier section fixed or tested it. No live test is on record, and none was proposed.
+
+**Starting state (reported).** Session 181 started from the session 180 brief and the 10400-line roadmap ending at Section 196. `git pull` in `~/Piwork`: already up to date. HEAD `da03186` (`docs: session 180 brief updated for section 196`), above `b8f1f8b` (`docs: session 180, roadmap section 196`). `git status --short | wc -l`: 20. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git`: silent (clean). `sha256sum` of the repo `roadmap.md` started `ca2c9fcd` (the earlier `e4e5315e…` in Section 196 was the Section 195 version, so a new hash was expected).
+
+**Sweep before the patch (Termux, `~/Piwork`).**
+- `grep -n "approvedRow" backend/src/routes/jobs.ts`: two uses, line 673 (the claim) and line 680 (`if (!approvedRow)`, the 409). Nothing reads the returned value; `.select('id')` only feeds that null check. Everything after the claim uses `application_id` from `req.body`. No shared flag is involved.
+- `grep -rn "no longer pending" backend/src frontend/src`: the 409 text appears in live code only at `jobs.ts` 681; every other hit is an untracked `.bak` file. `grep -rn "approve-application" frontend/src --include=*.tsx --include=*.ts -l`: one caller, `JobDetail.tsx` (`handleApprove`, read in Section 196): it shows `data.error` for any non-OK response and never branches on the status code or the text, so a 500 reaches the existing approve-error box with no frontend change.
+- Convention: Sections 183, 195, 196 (`.maybeSingle()` with `error` captured; error returns 500; a missing row keeps its own code).
+
+**Fix (`565a075`, one file, +6 / -2, `tsc --noEmit` clean in `backend`; no frontend change).** In `backend/src/routes/jobs.ts`, `/approve-application` only:
+1. The claim update swaps `.single()` for `.maybeSingle()` and captures `error` (`{ data: approvedRow, error: approvedError }`).
+2. A claim error is logged ("Failed to claim application for approve-application.", job id, application id, error message) and returns 500 "Could not confirm the approval. Refresh to check its status before trying again." The wording deliberately does not say "nothing was changed": a write that errored may still have landed.
+3. A null row without an error keeps the unchanged 409 "Application not found or no longer pending."
+Nothing else changed: the update payload and filters (`id`, `job_id`, `status = 'pending'`), the select list, the post-write recheck, the job claim and its revert, the auto-reject, the notices, the success response. Patch script `~/p180c.py` (anchor matched exactly once, abort otherwise); backup `backend/src/routes/jobs.ts.bak180c` (untracked, not committed). The full `git --no-pager diff` was read before commit. (The session first announced +5 / -1; `git diff --stat` showed 6 insertions and 2 deletions, because both the `const` line and the `.single()` line change.) Commit and push were `git add` of `jobs.ts` only; pushed to the Piwork repo alone (`da03186..565a075`).
+
+**Deploy (Render log pasted by the owner).** Checked out commit `565a075b17ec051b91d40e1fe05d538e7e47396c` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T17:54:58Z; `node dist/index.js` started with the withdrawal drainer and the slot deadline checker; "Your service is live" 2026-11-06T17:55:21Z. Pass. This is a build-and-deploy check only. The `npm install` step printed the same audit summary as Sections 194 to 196 (12 vulnerabilities: 3 moderate, 8 high, 1 critical); not investigated.
+
+**Why no live test.** The new 500 branch fires only on a database failure on that write, which cannot be provoked safely in production. The 409 for a missing or no-longer-pending application and every later branch of the route are unchanged by the diff and were exercised live earlier on record (Sections 175 and 177).
+
+**Findings.**
+- **Closed:** the `approvedRow` claim reporting a database error as the 409 "Application not found or no longer pending."
+- **Still open (new, not fixed):** a claim write that lands despite reporting an error. The owner would see the 500, a retry would then hit the 409 because the application is already `approved`, and the route's later steps (job claim, auto-reject, notices) would not have run for the first attempt. Adding a read-back or a revert is a design decision and was not made. Section 196 recorded that no money moves on this path at this step; that was not re-read.
+- **Not changed, same shape:** the `approvedApp` final read feeds only a fire-and-forget notice (Section 196, harmless) and was left alone.
+
+**Not verified.**
+- The new 500 branch was not run; verified by `tsc`, the read diff and the deploy log only.
+- An approval happy path after this deploy was not repeated; the success path is unchanged by the diff.
+- The write-landed-despite-error case is read from code, not reproduced.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `565a075`, Piwork repo only). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-181.md`.
+
+**Status:** `/approve-application` no longer reports an application-claim error as the 409; deployed, build verified. The write-landed-despite-error case is the open follow-up. Next: see Section 199's Still-open list.
+
+## Section 198 — Session 181 (2026-11-06), second patch: `/decline-application` update guarded on job and pending status, 500 on a write error, 409 on zero rows, worker notice only after a confirmed row (`8425747`); owner UI now shows the failure on the applicant card (`96a8dcb`)
+
+**Focus.** `decline-application`, the nearest sibling of the route fixed in Section 197 and the one no section had read. The roadmap was grepped first: `undo-decline-application` was read and its write path hardened in Section 175 (its owner-scoped job read was left in the "any error is 403" shape, Section 175 line "owner-scoped job read (any error is 403)"); `decline-application` appears only as the original feature description (roadmap line 5581), a `routes/jobs.ts` line number in Section 190 (`'rejected'` writers), and the Section 196 unread-sites list. No read, fix or test of it is on record, and no live test was proposed.
+
+**Sweep before the patch (Termux, `~/Piwork`).** The route was printed in full (765-785 before this session's edits; the doubled line at the join of the two `sed` ranges was the 785 overlap, not in the file).
+- Job read: `.single()`, `error` not read; any error becomes the 403 "Not your job". Uses of `job` afterwards: `job.id` (application filter, notice) and `job.title` (notice); `client_id` is selected but never read.
+- Application read: `.single()`, `error` not read; any error becomes the 404 "Application not found". Then it uses `application.status` (must be `pending`, else 400) and `application.worker_id`.
+- **The write:** `update({ status: 'rejected' }).eq('id', application_id)` filtered only on `id`: no `job_id` or `status = 'pending'` guard, no `error` read, no row check. The route then always returned `{ ok: true }` and always fired the "rejected" worker notice.
+- Consequences, read from code and not run: (1) if the write errors, the owner sees success and the worker is told they were rejected while the application is still `pending`; (2) if an approval lands between the status read and this write, the unguarded update can flip an `approved` application to `rejected`; on a single-slot job that would leave the job `in_progress` with `assigned_application_id` pointing at a rejected row. (2) needs two overlapping requests and is not live-testable. `undo-decline-application` got the equivalent hardening in Section 175; `decline-application` never did.
+- Frontend: `JobDetail.tsx` `confirmDecline` (read via `sed -n '515,575p'`) did nothing on a non-OK response (no error shown, no `catch`), so the false `{ ok: true }` marked the card `rejected` even when the write failed. `handleUndoDecline` already showed `data.error` and had a `catch` (on record at roadmap line 7389).
+
+**Fix 1, backend (`8425747`, one file, +13 / -1, `tsc --noEmit` clean in `backend`).** In `backend/src/routes/jobs.ts`, `decline-application` only:
+1. The update now filters on `id`, `job_id = job.id` and `status = 'pending'`, and selects `id`.
+2. A write error is logged ("decline-application update failed.", job id, application id, error message) and returns 500 "Could not decline the application. Refresh to check its status before trying again."
+3. Zero rows (`!declined || declined.length === 0`) returns 409 "This application was already changed. Please refresh."
+4. The worker notice (`notifyApplicationRejected`) fires only after a row is confirmed.
+Untouched: the job read and its 403, the application read and its 404, the 400 for a non-pending application. Patch script `~/p180d.py` (anchor matched exactly once, abort otherwise); backup `jobs.ts.bak180d` (untracked). The full diff was read before commit; pushed to the Piwork repo alone (`565a075..8425747`).
+
+**Fix 2, frontend (`96a8dcb`, `frontend/src/pages/JobDetail.tsx`, +8 / -0).** The sweep for where to show the error read every set, clear and read site: `approveError` is set at 516 and 519, cleared at 498 (the start of `handleApprove`) and read only at 989 (inside each applicant card); `undoError` is set at 544, 554 and 557 and read only at 1019 (the Declined section, outside the card). Reusing `approveError` would have had approve clicks clear a decline error; `undoError` renders in the wrong place. So a separate `declineError` state of the same `{ id, message }` shape was added (option chosen over reuse, so nothing approve or undo reads changed):
+1. State line `declineError`.
+2. `confirmDecline` clears it at the start; a non-OK response shows `data.error` (fallback "Could not decline this applicant."); a new `catch` shows "Network error, please try again."; the existing `finally` still closes the confirm box.
+3. One render line directly under the `approveError` line, using the existing `cs-err` box.
+Patch script `~/p180e.py` checked all three anchors before writing anything; backup `JobDetail.tsx.bak180e` (untracked). Typecheck validity: the frontend build script is `tsc && vite build`, the root `tsconfig.json` has `"include": ["src"]` (plus a `references` entry to `tsconfig.node.json`), so the silent `npx tsc --noEmit` is a real check. The diff was read before commit.
+
+**Deploy.**
+- Frontend `96a8dcb` (Vercel log pasted by the owner; the log shows Vercel as the host, the owner did not state it): "Cloning github.com/walterdanny00/Piwork (Branch: main, Commit: 96a8dcb)"; `tsc && vite build` clean on Vite 5.4.21, 79 modules transformed; `dist/assets/index-BSibeQ9D.js` 405.02 kB (gzip 108.30 kB), `index-B3V5AIKP.css` 3.70 kB; "Build Completed in /vercel/output [8s]"; "Deployment completed". Log times as displayed, 19:07:19 to 19:07:32 (the log does not state its time zone). Build-and-deploy check only.
+- Backend `8425747`: its own Render log was not seen. Its code is part of commit `cb1ecfd`, whose build passed (Section 199).
+
+**Why no live test.** The 500 branch needs a database failure; the 409 needs two overlapping requests; the new error box only shows on a failure. None can be provoked safely. Unlike Sections 195 to 197, the success path here is not strictly untouched: the update now also carries the `job_id` and `pending` filters and a row check. The earlier 400 for a non-pending application means a normal decline should still match one row, but a decline happy path after these deploys was **not** run.
+
+**Findings.**
+- **Closed:** `decline-application` answering `{ ok: true }` and notifying the worker without confirming that a row was rejected; the unguarded update that could overwrite an `approved` row; the silent owner UI on a failed decline.
+- **Still open (not fixed here):** the job read (403 on any error) and application read (404 on any error), handled in Section 199 (job read) and left for a decision (application read).
+
+**Not verified.**
+- No branch of the new backend code was run; no decline happy path was run after the deploys.
+- The new error display was not exercised in a browser.
+- The overlapping-approval race was reasoned from code, not reproduced.
+- The Render deploy of `8425747` on its own, and a Vercel deploy log for any commit after `96a8dcb`, were not seen.
+
+**Files:** `backend/src/routes/jobs.ts` (`8425747`); `frontend/src/pages/JobDetail.tsx` (`96a8dcb`); both Piwork repo only. Docs: `roadmap.md` (complete file); `sessions/session-181.md`.
+
+**Status:** a failed or lost decline no longer looks like a success to the owner or the worker; backend and frontend deployed, build verified only.
+
+## Section 199 — Session 181 (2026-11-06), third patch: `decline-application` and `undo-decline-application` owner-scoped job reads now return 500 on a read error; only a missing row is the 403 (`cb1ecfd`)
+
+**Focus.** The job-read shape named in Sections 175, 195 and 196 for the two decline routes: `.single()` with `error` not read, so a database error and a job that is not the caller's both gave the 403 "Not your job". No live test on record for either read, and none proposed.
+
+**Sweep before the patch (from the route prints already in hand this session).**
+- `decline-application`: `job` is used only after the null check: `job.id` and `job.title`.
+- `undo-decline-application`: `job.id`, `job.status`, `job.worker_slots`, `job.slots_closed`, all after the null check.
+- Neither route reads the read's error or status. Frontend: `confirmDecline` now shows `data.error` for any non-OK response (Section 198) and `handleUndoDecline` already did, so a 500 from either reaches an existing box with no frontend change.
+- **Scope, on record:** only the two **job** reads were patched. The two **application** reads (`decline-application` and `undo-decline-application`) were deliberately left as the 404 on any error: they filter on `application_id` from the request body, and a missing or malformed id makes the database return an error, which `.single()` turns into a 404 today. Capturing that error would turn bad input into a 500. Separating a real failure from bad input needs an error-code check or input validation, a separate decision. The same applies to the `approvedApp` reads. The job reads filter on `:id` from the URL, which the frontend sends from a real job, matching the `/cancel` and `/approve-application` precedent.
+
+**Fix (`cb1ecfd`, one file, +10 / -2, two hunks, `tsc --noEmit` clean in `backend`; no frontend change).** In `backend/src/routes/jobs.ts`, each of the two routes:
+1. The job read swaps `.single()` for `.maybeSingle()` and captures `error` (`{ data: job, error: jobError }`); select lists and owner filter unchanged.
+2. A read error is logged ("Failed to read job for decline-application." / "Failed to read job for undo-decline-application.", job id from `req.params.id`, error message) and returns 500 "Could not read the job. Nothing was changed; try again."
+3. A null job keeps the unchanged 403 "Not your job".
+Patch script `~/p180f.py` (both anchors matched exactly once before anything was written); backup `jobs.ts.bak180f` (untracked). The full diff was read before commit.
+
+**Push.** The first `git push` in the final step failed with "Could not resolve host: github.com" (a network drop); at that point `96a8dcb` was already on GitHub (`origin/main` and HEAD matched, "up to date with 'origin/main'") and nothing new was committed, so nothing was lost. After the `cb1ecfd` commit, `git push` went through (`96a8dcb..cb1ecfd`); `git fetch` and `git status -sb` showed no `ahead`; `git log --oneline -3 origin/main`: `cb1ecfd`, `96a8dcb`, `8425747`; `git status --short | wc -l`: 24.
+
+**Deploy (Render log pasted by the owner).** Checked out commit `cb1ecfdeca971c7341e07b687cf2db4c193849e4` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T18:13:25Z; `node dist/index.js` started with the withdrawal drainer and the slot deadline checker; "Your service is live" 2026-11-06T18:13:48Z. Pass. Build-and-deploy only; this build also contains `8425747` (Section 198). Same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical); not investigated.
+
+**Why no live test.** Both new 500 branches fire only on a database failure on those reads, which cannot be provoked safely in production. The 403 for a job that is not the caller's and every later branch are unchanged by the diff.
+
+**Findings.**
+- **Closed:** the "any error is 403" shape on the job reads of `decline-application` and `undo-decline-application` (this closes the item left open in Section 175 for undo). The "any error is 403" job-read item is now closed for `/close-slots`, `/cancel`, `/approve-application`, `decline-application` and `undo-decline-application`.
+- **Still open, consolidated after Sections 197 to 199:**
+  - Unread "Not your job" sites in `routes/jobs.ts`, not established to have the read-error-as-403 shape: draft patch, draft delete, `/complete`, `/complete-slot`, `/request-changes`, `/reject`, plus the applications list (a different shape). Route-declaration lines reported in the session chat after `cb1ecfd` (from `grep -n "^router\."`; that grep output is not in the shared copy, so treat as approximate and re-grep before reading): draft patch 325, draft delete 372, `/complete` 1034, `/complete-slot` 1177, `/request-changes` 1280, `/reject` 1393, applications list 211. The earlier Section 196 numbers were "Not your job" lines from before `5854fdc` and have shifted.
+  - Application reads that report any error as the 404: `decline-application`, `undo-decline-application`, and the `approvedApp` reads; needs an error-code check or input validation (see above).
+  - `/approve-application` application claim: write-landed-despite-error case (Section 197); needs a read-back or revert decision.
+  - `decline-application` overlapping-request race: now a 409, not live-testable.
+  - `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete` and the recompute call in `/cancel`); the `{{t:...}}` token in `changes_requested` bodies (informational); the Cancel card wording (still true, left alone). Optional: cancel `6999ed26-...` in-app.
+  - `npm audit`: 12 vulnerabilities (3 moderate, 8 high, 1 critical) shown on every deploy since Section 194; not investigated and not tracked as its own item until now.
+
+**Not verified.**
+- Neither new 500 branch was run; verified by `tsc`, the read diff and the deploy log only.
+- A decline and an undo-decline happy path after the deploys were not repeated; both success paths are unchanged by this patch (the decline write change is in Section 198).
+- The unread 403 sites and the line numbers listed above were not read or re-checked.
+- The 100-row bound under load, live runs of terminal paths other than `cancelled`, the worker page for a row declined before the job ended, the deploy hash check, the Section 190 list, and the Section 193 limits (trigger or function created only in the Supabase SQL editor; manual status edits) all stand.
+
+**Termux notes.** Untracked and not to be committed (24 by `wc -l`, listed in full by the final `git fetch` / `git status -sb`): `backend/src/index.ts.bak170`; `backend/src/lib/disputes.ts.bak174b`, `notifications.ts.bak176`, `slotDeadlineChecker.ts.bak163`, `.bak165`, `.bak175`, `.bak176`; `backend/src/routes/admin.ts.bak163`, `history.ts.bak166`; `backend/src/routes/jobs.ts.bak165`, `.bak167`, `.bak172`, `.bak174`, `.bak179`, `.bak180`, `.bak180b`, `.bak180c`, `.bak180d`, `.bak180f`; `frontend/src/components/ApplicationCard.tsx.bak176`, `JobCard.tsx.bak166`; `frontend/src/pages/JobDetail.tsx.bak173`, `.bak176`, `.bak180e`. Session 181 added `jobs.ts.bak180c`, `.bak180d`, `.bak180f` and `JobDetail.tsx.bak180e` to the twenty at the end of Section 196. `~/p180c.py`, `~/p180d.py`, `~/p180e.py`, `~/p180f.py` are in the home directory, outside the repos (with `~/p180a.py` and `~/p180b.py` from Sections 195 and 196). The GitHub username and password prompt appeared on `git pull`, `git push` and `git fetch`.
+
+**Files:** `backend/src/routes/jobs.ts` (commits `565a075`, `8425747`, `cb1ecfd`) and `frontend/src/pages/JobDetail.tsx` (`96a8dcb`), Piwork repo only. Docs: `roadmap.md` (Sections 197 to 199, delivered as the complete file); `sessions/session-181.md`.
+
+**Status:** four code commits this session, all pushed; the three backend commits are deployed and build-verified (`565a075` on its own log, `8425747` and `cb1ecfd` through the `cb1ecfd` log), the frontend commit `96a8dcb` built and deployed on Vercel. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
