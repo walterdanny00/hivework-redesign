@@ -15,15 +15,15 @@ The Section 192 Not-verified item: could the writes that set a terminal job stat
 - `/complete` (`routes/jobs.ts` 1019 onward, write at 1126): 400 unless `in_progress`; atomic `payout_claimed` claim guarded by `status = 'in_progress'`; the write at 1126 is reached only after that claim; failure paths release the claim with `.eq('status', 'in_progress')`.
 - `paySubmittedSlot` (`lib/settlement.ts` 150-200): line 184 writes only `completed`, `.neq('status', 'cancelled')`; failure queues a re-evaluation and restores nothing.
 - `reevaluateOne` (`lib/slotDeadlineChecker.ts` 263-338): early return at 271 for a missing or terminal job; the only job write (335) writes terminal statuses only, `.neq('status', 'cancelled')`.
+- `finalizeJob` (`lib/settlement.ts` 51-58): a wrapper around `reevaluateJobs` with a try/catch that queues a retry; no `jobs` write of its own. Callers at 104 and 182.
 
 ## Findings
-- Closed: the guards item. No write or guard moves a job out of a terminal status; terminal-over-terminal overwrites are possible only in short windows and do not matter to Pass J.
+- Closed: the guards item, including `finalizeJob`. No write or guard moves a job out of a terminal status; terminal-over-terminal overwrites are possible only in short windows and do not matter to Pass J.
 - New (not fixed): `/cancel` returns the "approved worker" 409 on a database error too, because the update error is not read. No state change, no money.
 
 ## Not verified
 - Read, not run; a rollback cannot be forced.
 - A trigger or function created only in the Supabase SQL editor, and manual status edits there, are outside the check.
-- The body of `finalizeJob` was not read.
 - Everything else on the Section 192 / 191 Not-verified list stands.
 
 ## Files touched

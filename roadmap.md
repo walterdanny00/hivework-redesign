@@ -10252,22 +10252,23 @@ The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58
 **3. `paySubmittedSlot` (`lib/settlement.ts` 150-200).**
 - Line 184 (single-slot branch): `update({ status: 'completed', payout_claimed: true }).eq('id', job.id).neq('status', 'cancelled')`. It writes only `completed`. It can overwrite `expired`, `closed` or `partially_complete` with `completed` (terminal over terminal; the worker was paid, so `completed` is right). It cannot touch `cancelled`, and a cancelled job (cancel only runs from `open`) has no submitted application to pay. On a write error it logs and calls `queueReevaluation(job.id)`; it restores nothing.
 - Line 123: `done` is an application-level write (`slot_status` / `status` on the application), not a job write.
-- The multi-slot branch calls `finalizeJob(job.id)`; the body of `finalizeJob` was not read this session.
+- The multi-slot branch calls `finalizeJob(job.id)` (read in item 5 below).
 - The credit-failure path restores the application columns (Section 169), not the job.
 
 **4. `reevaluateOne` (`lib/slotDeadlineChecker.ts` 263-338).** Line 271 reads the job and returns `true` with no write when the job is missing or its status is `completed`, `partially_complete`, `expired`, `closed` or `cancelled`; a read error other than `PGRST116` goes to the fail-closed path (Section 176). Every count query follows that return. The only job write is line 335: `update({ status: newStatus }).eq('id', jobId).neq('status', 'cancelled')`, where `newStatus` is `closed`, `expired`, `completed` or `partially_complete`. It never writes `open` or `in_progress`.
+
+**5. `finalizeJob` (`lib/settlement.ts` 51-58; read after the items above).** A wrapper: it calls `reevaluateJobs(new Set([jobId]))` inside a `try`, and on a throw logs "finalizeJob: reevaluateJobs threw after settlement; queued for retry." and calls `queueReevaluation(jobId)`. It writes nothing to `jobs` itself, and its doc comment says a failure here must never reach the caller, because the money has already moved. Callers (grep): `settlement.ts` 104 (inside `refundSubmittedSlot` by position; the surrounding lines were not read) and 182 (the multi-slot branch of `paySubmittedSlot`). So every job status write on the settlement paths goes through `reevaluateOne` (item 4).
 
 **Conclusion.** None of the four writes or guards moves a job out of a terminal status; each either claims from a non-terminal status or writes only a terminal one. Together with the Section 192 sweep, the "set then restored" question for Pass J is closed on the guards as well as on the writes.
 
 **Limits of this check (not verified).**
 - Read from the repo, not run. A rollback cannot be forced.
 - A trigger or function created only in the Supabase SQL editor and never committed to `supabase/migrations/` would not appear in these reads; manual status edits in the SQL editor are outside the check.
-- The body of `finalizeJob` was not read. The multi-slot settlement path was covered through the `slotDeadlineChecker.ts` 335 read in Section 192, not by reading `finalizeJob` itself.
 - The terminal-over-terminal windows above are reasoned from the code; none was reproduced.
 - Everything else on the Section 192 / 191 Not-verified list stands (100-row bound under load, live runs of terminal paths other than `cancelled`, the worker page for a row declined before the job ended, the deploy hash check, the Section 190 list).
 
 **Findings.**
-- **Closed:** the guards on `/cancel`, `/complete`, `paySubmittedSlot` and the `reevaluateOne` early return (the Section 192 Not-verified item).
+- **Closed:** the guards on `/cancel`, `/complete`, `paySubmittedSlot`, the `reevaluateOne` early return and the `finalizeJob` body (the Section 192 Not-verified item).
 - **New (not fixed):** `/cancel` returns the "approved worker" 409 on a database error as well, because the error is not read (observation 1; no state change, no money).
 - **Still open, unchanged from Section 192:** `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete`); the `{{t:...}}` token in `changes_requested` bodies (informational); the Cancel card wording (still true, left alone); optional: cancel `6999ed26-...` in-app.
 
