@@ -10198,3 +10198,36 @@ The five backend-only commits (`d5523f6`, `60b2ef7`, `bf58ee6`, `15442d5`, `ee58
 **Files:** `backend/src/lib/notifications.ts`, `backend/src/lib/slotDeadlineChecker.ts`, `frontend/src/components/ApplicationCard.tsx`, `frontend/src/pages/JobDetail.tsx` (all `a25e43e`, Piwork repo). Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-176.md`.
 
 **Status:** pending applicants on a terminal job are now rejected and notified by Pass J, the worker page and dashboard card say "Job closed", and the cancelled-job path is verified live. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
+
+## Section 192 — Session 177 (2026-11-06): the Section 191 "terminal status set then restored" item closed by code read; no code path in the repo moves a job out of a terminal status, so Pass J cannot reject an applicant in a rollback window; read-only session, no code change
+
+**Focus.** The first item on the Section 191 Not-verified list, which session 176 introduced itself: Pass J (`rejectPendingOnClosedJobs`) rejects pending applicants on `expired`, `closed`, `cancelled`, `completed` and `partially_complete` jobs, so any path that sets one of those statuses and later restores the job to `open` / `in_progress` could reject an applicant who should still be pending. The roadmap was grepped first: line 10190 (Section 191) is the only record, "not read this session"; earlier rollback entries (Sections 168-175) concern slot and application rollbacks, not job status. Standing rule applied: sweep every write before concluding. Read-only; no patch, no backup, no commit of code.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date (the GitHub username and password prompt appeared). HEAD `746ec66` (`docs: session 176, roadmap section 191`), then `a25e43e`, `0f34959`. `git status --short`: seventeen untracked backup files, exactly the list in the Termux notes of Section 191. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. `sha256sum` of `roadmap.md` in both repos started `f5feea198d2c5a66`, 10200 lines, matching the copy read in chat, Section 191 last. This closes the gap noted in Section 191, where the hash was not compared.
+
+**What was read (Termux, `~/Piwork/backend/src` at `746ec66`, no code change since `a25e43e`).**
+1. Every literal status write on `jobs`: `routes/jobs.ts` 399 (`cancelled`, the `/cancel` claim), 703 and 707 (`in_progress`, `approve-application`), 1126 (`completed`, `/complete`); `lib/settlement.ts` 184 (`completed`); `lib/slotDeadlineChecker.ts` 335 (`newStatus`); `routes/payments.ts` 86 (`open`). The other hits for `status: 'completed'` are on applications (`settlement.ts` 123, `jobs.ts` 1123 and 1195) or withdrawals (`withdrawalDrainer.ts` 252 and 318), not jobs.
+2. Every `jobs` update, including multi-line chains (grep with three lines of context before `.update(`).
+3. Every `rpc(` call.
+4. Migrations: files naming `jobs`, files with `create trigger` or `create or replace function`, `update jobs` statements, and `new.status`.
+
+**Result, write by write.**
+- `payments.ts` 86: reached only for a job read as `draft` (`completePayment`, `.eq('status', 'draft')` on the read; the update itself is by id), so it moves draft to `open`, never out of a terminal status.
+- `jobs.ts` 707 (`in_progress`): the update is guarded with `.in('status', ['open'])` for a single-slot job and `['open', 'in_progress']` for a multi-slot job, so a terminal job cannot match. The revert after a failed write (710 area) restores the application, not the job.
+- `slotDeadlineChecker.ts` 335: `newStatus` is one of `closed`, `expired`, `completed`, `partially_complete` only, written `.neq('status', 'cancelled')`; it moves a job toward terminal, never back. (It can in principle write one terminal status over another; Pass J treats all five alike, so that changes nothing for applicants. The early return for already-terminal jobs in `reevaluateOne`, recorded in Section 180, sits above line 300 and was not re-read this session.)
+- `jobs.ts` 399 (`cancelled`), 1126 and `settlement.ts` 184 (`completed`): these write terminal statuses. Their guards were not re-read this session.
+- `slotDeadlineChecker.ts` 209, 526 and `jobs.ts` 475, 495: `slots_closed` compare-and-set and the `/close-slots` undo; no `status`. `jobs.ts` 1052 and 1074, 1108, 1131, 1151: `payout_claimed` only. `payments.ts` 55: `payment_id`. `jobs.ts` 359: the job edit update (title, budget, deadline, slot, review-window columns); no `status`.
+- RPCs: `recompute_worker_balance`, `recompute_worker_stats`, `withdrawable_balance`, `increment_applications`; none writes a job status.
+- Migrations: `create or replace function` appears only in `init`, `increment_worker_stats_fn`, `earnings_balance_model` and `recompute_worker_stats_fn`; the only `update jobs` in any SQL is `applications_count` inside `increment_applications` (`20260614000000_init.sql` line 80); `create trigger` and `new.status` have no hits in `supabase/migrations/*.sql`.
+
+**Conclusion.** No code path, RPC or committed SQL function in the repo moves a job out of `expired`, `closed`, `cancelled`, `completed` or `partially_complete`, so Pass J cannot reject an applicant during a "set then restored" window. The item is closed by code read.
+
+**Limits of this check (not verified).** Read from the repo, not run: no test can force a rollback. A trigger or function created only in the Supabase SQL editor and never committed to `supabase/migrations/` would not appear in these greps. Manual status edits in the SQL editor are outside the check (an owner who restores a job by hand after Pass J has run would find its pending rows already `rejected`; the `undo-decline-application` route refuses on a terminal job).
+
+**Findings.** None new. Closed: the Section 191 rollback-window item. Still open, unchanged from Section 191: `/close-slots` overlapping second close (500; needs two overlapping requests, not live-testable, no money moves because Pass D reconciles the refund); `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173, includes `recomputeWorkerBalance` in `/complete`); the `{{t:...}}` token in `changes_requested` bodies (informational); the Cancel card wording (still true, left alone); optional: cancel `6999ed26-...` in-app. Not-verified list otherwise as in Section 191: the 100-row bound under load, live runs of the terminal paths other than `cancelled`, the worker page for a row declined before the job ended, the deploy hash check, and the Section 190 list.
+
+**Termux notes.** Untracked and not to be committed (seventeen, unchanged). No file was created or patched on the phone this session. The pager was not an issue.
+
+**Files:** none in code. Docs: `roadmap.md` (this section, delivered as the complete file); `sessions/session-177.md`.
+
+**Status:** the rollback-window question is answered by code read; Pass J is safe against it. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
