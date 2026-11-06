@@ -10521,3 +10521,113 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commits `565a075`, `8425747`, `cb1ecfd`) and `frontend/src/pages/JobDetail.tsx` (`96a8dcb`), Piwork repo only. Docs: `roadmap.md` (Sections 197 to 199, delivered as the complete file); `sessions/session-181.md`.
 
 **Status:** four code commits this session, all pushed; the three backend commits are deployed and build-verified (`565a075` on its own log, `8425747` and `cb1ecfd` through the `cb1ecfd` log), the frontend commit `96a8dcb` built and deployed on Vercel. Next: pick from the Still-open list above, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
+
+## Section 200 — Session 182 (2026-11-06): `PATCH /:id/draft` owner-scoped job read now returns 500 on a read error; only a missing row is the 403 (`42ed924`)
+
+**Focus.** First of the unread "Not your job" sites listed in Section 199. Roadmap grepped first: it records that this route has no UI (Section on draft delete, "backend supports `PATCH /:id/draft`, only delete was added"; the single-slot and `applications_close_at` sections list its validation as "no UI"). No test on record for the read, none proposed.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: up to date. HEAD `b74a512` (`docs: session 181 brief and roadmap (Sections 197-199)`), above `cb1ecfd`. `git status --short | wc -l`: 24. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git`: silent. Roadmap started at 10523 lines, sha256 `0a952869bd49`.
+
+**Sweep before the patch.** Route lines read in full (325 to 370; the job read at 331). `job` is used only at 332 (null check) and 333 (`job.status !== 'draft'`); the other grep hits were words inside error strings. The read uses `.single()` with `error` not read, so a database error and a job that is not the caller's both gave the 403. The write at 359 to 367 filters on `id` only (no `client_id`, no `status = 'draft'`) and does not check a row count; not changed here (see Still open).
+- **Frontend:** `grep -rn "/draft" frontend/src` (excluding `.bak`) found only `POST /api/jobs/draft` (`PostJob.tsx:270`) and the `DELETE` (`Dashboard.tsx:235`); `grep -rn "PATCH" frontend/src` printed nothing. No frontend code calls this route, so there is no error box to reach and no frontend change.
+
+**Fix (`42ed924`, one file, +5 / -1, one hunk, `tsc --noEmit` clean in `backend`).** In `backend/src/routes/jobs.ts`: `.single()` becomes `.maybeSingle()`, `error` captured (`{ data: job, error: jobError }`), a read error is logged ("Failed to read job for draft patch.", job id, error message) and returns 500 "Could not read the job. Nothing was changed; try again."; a null job keeps the unchanged 403. Patch script `~/p182a.py` (anchor matched exactly once before writing); backup `jobs.ts.bak182a` (untracked). Full diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `42ed92495a30c44c281cf0e941f30ccd624f73f6` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T18:59:33Z; "Your service is live" 18:59:55Z. Pass. Build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical).
+
+**Why no live test.** The new 500 branch fires only on a database failure on that read, which cannot be provoked safely, and the route has no UI.
+
+**Findings.**
+- **Closed:** the "any error is 403" job-read shape on `PATCH /:id/draft`.
+- **Still open (not fixed here):** the update at the end of the route is filtered on `id` only and never checks a row count, so a lost row would still answer `{ ok: true }`; needs a separate decision.
+
+**Files:** `backend/src/routes/jobs.ts` (`42ed924`), Piwork repo only.
+
+## Section 201 — Session 182 (2026-11-06), second patch: `DELETE /:id/draft` owner-scoped job read now returns 500 on a read error; only a missing row is the 403 (`b29fff3`)
+
+**Focus.** Second unread site from Section 199. Roadmap grepped first: the delete button was live-tested and confirmed when it was added (Dashboard "Unpaid drafts", the draft-delete section near line 6760). That happy path is not repeated, and this patch does not touch it.
+
+**Sweep before the patch.** Route lines 376 to 385 read in full (read at 379). `job` is used only at 380 (null check) and 381 (`job.status !== 'draft'`). Same `.single()` shape with `error` unread. The delete at 382 filters on `id` only and does not check a row count.
+- **Frontend:** the only caller is `Dashboard.tsx:235` (`deleteDraft`): it calls `onRefresh` on `res.ok` and does nothing otherwise. A 403, 400 or the new 500 is **silent** in the UI today; not changed here.
+
+**Fix (`b29fff3`, one file, +5 / -1, one hunk, `tsc` clean).** Same change as Section 200 with the log text "Failed to read job for draft delete."; a missing row keeps the 403, the status check and the delete are untouched. Script `~/p182b.py` (anchor matched once); backup `jobs.ts.bak182b` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted).** Commit `b29fff3725c10ec0850a9a84b057c7f48f8164c2`; `tsc` clean; "Build successful" 2026-11-06T19:11:16Z; "Your service is live" 19:11:39Z. Pass, build-and-deploy only.
+
+**Findings.**
+- **Closed:** the "any error is 403" job-read shape on `DELETE /:id/draft`.
+- **Still open (not fixed here):**
+  - The delete at 382 is filtered on `id` only. By code read, a payment completing between the read at 379 and the delete could delete a job that just became `open`. Not reproduced; needs a decision on adding `client_id` and `status = 'draft'` filters and a row check.
+  - `deleteDraft` in `Dashboard.tsx` shows nothing on any non-OK response.
+
+**Files:** `backend/src/routes/jobs.ts` (`b29fff3`), Piwork repo only.
+
+## Section 202 — Session 182 (2026-11-06), third patch: `POST /:id/complete` owner-scoped job read now returns 500 on a read error; only a missing row is the 403 (`e9f6906`)
+
+**Focus.** Third unread site. Roadmap grepped first: single-worker `/complete` is live-verified including the revision window (Section 148), and Section 148 records that the route has no application-state or `worker_slots` check (accepted). Neither is repeated or changed.
+
+**Line numbers.** The earlier patches in this session shifted the route; it started at **1062** when read (the first print used the pre-patch number 1054 and showed the tail of a helper above it; the read was printed correctly afterwards).
+
+**Sweep before the patch.** The job read is lines 1067 to 1071 (`.select('*, assigned_application_id')`, `.single()`), inside the `try` opened at 1066, the first database call in the route. Every use of `job` in the printed range is after the null check at 1072: 1074, 1077, 1081, 1112, 1117, 1136 to 1139, 1145 to 1151, 1166 to 1174, 1185, 1187; the other hits were a comment (1093) and error text (1118). The `catch` at 1188 to 1196 releases `payout_claimed` and returns 500 "Job completion failed"; an early `return` inside the `try` does not reach it, and the new return is before any claim.
+- **Frontend:** `frontend/src/lib/useCompleteSlot.ts` (used by `SubmissionReview.tsx`) shows the backend's `error` text in its `completeErrors` box for any non-OK, non-409 status and re-enables the button. No frontend change.
+
+**Fix (`e9f6906`, one file, +6 / -2, one hunk, `tsc` clean).** `.maybeSingle()`, `error` captured, log "Failed to read job for complete.", 500 "Could not read the job. No payment was started; try again." (worded for payment because the owner hook's other messages say "Do not retry" for ambiguous failures; a read failure here is before any claim, so a retry is safe). Missing row keeps the 403. Script `~/p182c.py` (anchor matched once); backup `jobs.ts.bak182c` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted).** Commit `e9f69061fe67533650fae91d42089b4c139b336e`; `tsc` clean; "Build successful" 2026-11-06T19:18:19Z; "Your service is live" 19:18:42Z. Pass, build-and-deploy only.
+
+**Findings.**
+- **Closed:** the "any error is 403" job-read shape on `/complete`.
+- **Not read this session:** `/complete` lines 1076 to 1111 (between the status checks and the claim write). The patch does not depend on them.
+
+**Files:** `backend/src/routes/jobs.ts` (`e9f6906`), Piwork repo only.
+
+## Section 203 — Session 182 (2026-11-06), fourth patch: `POST /:id/complete-slot` owner-scoped job read now returns 500 on a read error; only a missing row is the 403 (`7a7eb22`)
+
+**Focus.** Fourth unread site. The roadmap's earlier finding that this route's failure path reopens only `slot_status` (recorded near line 9270 before this session's additions) is separate and unchanged.
+
+**Sweep before the patch.** Route starts at 1209; the read is lines 1221 to 1225 (`.select('id, title, budget, worker_slots, client_id, slots_closed')`, `.single()`), inside the `try` opened at 1220. `slotClaimed` and `slotCredited` (1217, 1218) are both still `false` there; the claim comes after the dispute check at 1233. `job` is used at 1226 (null check), 1228, 1244, 1256, 1268, 1274, 1277, 1290 and 1292, all after the null check. A `return` inside the `try` does not reach the `catch`'s reopen logic. (The print also showed lines 1328 to 1337, which belong to `/request-changes`; the range ran past this route.)
+- **Frontend:** same `useCompleteSlot.ts` hook as Section 202; the 500 reaches the existing `completeErrors` box.
+
+**Fix (`7a7eb22`, one file, +6 / -2, one hunk, `tsc` clean).** Same shape as Section 202, log text "Failed to read job for complete-slot.", message "Could not read the job. No payment was started; try again." (announced as `+5 / -2`, a miscount; the diff is `+6 / -2`). Script `~/p182d.py` (anchor matched once); backup `jobs.ts.bak182d` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner after the first docs delivery).** Commit `7a7eb220ee773ea6b288f32f50cd19e94a34b1ca` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T19:24:43Z; "Your service is live" 19:25:06Z. Pass, build-and-deploy only. Push `e9f6906..7a7eb22` succeeded; `git status -sb` showed no `ahead`.
+
+**Findings.**
+- **Closed:** the "any error is 403" job-read shape on `/complete-slot`.
+
+**Files:** `backend/src/routes/jobs.ts` (`7a7eb22`), Piwork repo only.
+
+## Section 204 — Session 182 (2026-11-06), fifth patch: `POST /:id/request-changes` owner-scoped job read now returns 500 on a read error; only a missing row is the 403 (`3e44b39`)
+
+**Focus.** Fifth unread site. Roadmap grepped first: its live tests on record (Sections 132, 139, 156, 171 and others) cover the request, limit and multi-slot paths; none covers a read failure, none is repeated.
+
+**Sweep before the patch.** Route starts at 1316. Lines 1321 to 1329 are request validation only; there are no writes before the read at 1332 to 1336 (`.select('id, title, client_id, worker_slots, status')`, `.single()`, inside the `try` opened at 1331). `job` is used at 1337 (null check), 1338 (status list), 1341, 1346 (`job.id` in the application filter) and 1411 (`job.id`, `job.title`), all after the null check. An inner `catch` is at 1406 and the outer at 1416; the writes between 1347 and 1405 and both `catch` bodies were **not read**, and the early `return` does not reach either.
+- **Frontend:** `grep -rn "request-changes" frontend/src` found one caller, `OwnerActions.tsx:90`: `send('/request-changes', { application_id, note, revision_hours }, 'Could not send your request. Please try again.')`. The body of `send` was **not read**, so whether the backend's `error` text or only that fallback sentence reaches the owner is **not verified**.
+
+**Fix (`3e44b39`, one file, +6 / -2, one hunk, `tsc` clean).** `.maybeSingle()`, `error` captured, log "Failed to read job for request-changes.", 500 "Could not read the job. Nothing was changed; try again." Missing row keeps the 403. Script `~/p182e.py` (anchor matched once); backup `jobs.ts.bak182e` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner after the first docs delivery).** Commit `3e44b398bf1ccfc0f6f4875b4d3d1eaad74978c2` on `main`; `tsc` clean; "Build successful" 2026-11-06T19:33:41Z; "Your service is live" 19:34:05Z. Pass, build-and-deploy only. Push `7a7eb22..3e44b39` succeeded; `git status -sb | head -3` showed no `ahead`.
+
+**Findings.**
+- **Closed:** the "any error is 403" job-read shape on `/request-changes`.
+- **Closed (with Sections 200 to 203):** the job read is now fixed for draft patch, draft delete, `/complete`, `/complete-slot` and `/request-changes`, in addition to the five routes listed in Section 199.
+
+**Still open, consolidated after Sections 200 to 204.**
+- **Unread "Not your job" sites in `routes/jobs.ts`:** `/reject` (its route line was **1429** in the print taken before the `3e44b39` patch, so about 1433 now) and the applications list (a different shape: `!job || job.client_id !== user_id`, near line 215). Re-grep before reading; every number shifted by this session's patches (+4 for each of the two draft patches, +4 for each of the three payment-route patches except where noted in each section).
+- **Draft routes:** the `PATCH` update and the `DELETE` delete are filtered on `id` only with no row check (Sections 200, 201); the delete can, by code read, remove a job that was just paid; `deleteDraft` in `Dashboard.tsx` is silent on any failure.
+- **`/request-changes` frontend:** read `send` in `OwnerActions.tsx` to see what error text reaches the owner (Section 204).
+- **From Section 199, unchanged:** application reads that report any error as the 404 (`decline-application`, `undo-decline-application`, the `approvedApp` reads; needs an error-code check or input validation); `/approve-application` write-landed-despite-error case (Section 197); `decline-application` overlapping-request race (409, not live-testable); `/close-slots` overlapping second close; `/complete` without application-state or `worker_slots` check (accepted, Section 148); `creditRefundForSlot` notice after a tolerated `23505`; unbounded `reconcileMissingRefunds` scan; unlogged recompute sites (Section 173); the `{{t:...}}` token in `changes_requested` bodies; the Cancel card wording; optional: cancel `6999ed26-...` in-app; `npm audit` (12 vulnerabilities: 3 moderate, 8 high, 1 critical, shown on every deploy, not investigated).
+- **Earlier findings still standing:** the `/complete-slot` half-rollback (failure path reopens only `slot_status`); the Section 190 list and Section 193 limits.
+
+**Not verified.**
+- None of the five new 500 branches was run (each needs a database failure on that read, which cannot be provoked safely); `tsc`, the read diffs and the five Render deploy logs only.
+- No happy path was re-run after the deploys. All five patches change only the read; the `/complete` and `/complete-slot` payout paths are unchanged by the diffs.
+- Vercel was not involved (no frontend commit this session). All five Render deploy logs were seen; the audit summary (12 vulnerabilities) is the same on each.
+- `/complete` lines 1076 to 1111, `/request-changes` lines 1347 to 1405 and its two `catch` bodies, and `OwnerActions.tsx` `send` were not read.
+- The final `git status --short | wc -l` was not run. Expected 29 (the 24 from Section 199 plus `jobs.ts.bak182a` to `.bak182e`).
+
+**Termux notes.** Untracked and not to be committed: the 24 listed in Section 199 plus `backend/src/routes/jobs.ts.bak182a`, `.bak182b`, `.bak182c`, `.bak182d`, `.bak182e`. `~/p182a.py` to `~/p182e.py` are in the home directory, outside the repos (with `~/p180a.py` to `~/p180f.py`). The GitHub username and password prompt appeared on every `git pull`, `git push` and `git fetch`. All five pushes succeeded on the first try.
+
+**Files:** `backend/src/routes/jobs.ts` (commits `42ed924`, `b29fff3`, `e9f6906`, `7a7eb22`, `3e44b39`), Piwork repo only. Docs: `roadmap.md` (Sections 200 to 204, delivered as the complete file); `sessions/session-182.md`.
+
+**Status:** five code commits this session, all pushed; all five are deployed and build-verified from their Render logs (`42ed924`, `b29fff3`, `e9f6906`, `7a7eb22`, `3e44b39`). Next: read `/reject` and the applications list, read `send` in `OwnerActions.tsx`, then decide the open draft-write and application-read items, grepping the roadmap before proposing any live test and listing every use of a flag before changing it.
