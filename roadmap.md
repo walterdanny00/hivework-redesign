@@ -10887,3 +10887,42 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commit `1362939`), Piwork repo only. Docs: `roadmap.md` (Section 212, delivered as the complete file); `sessions/session-185.md`.
 
 **Status:** one code commit, pushed and build-verified from its Render log. Next: run the `completePayment` caller grep, then decide log-only versus throw-on-read-error (a money-path decision for the owner); sweep and decide the `/approve` read at `payments.ts` 37; then the `PATCH` draft write, the `disputes` read in the applications list, and the `approvedApp` reads. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 213 — Session 186 (2026-11-07, Render log UTC): `completePayment` now logs a missing job and a failed open update; log only, no behavior change (`b022ee6`)
+
+**Focus.** The highest-risk open item of Section 212: `completePayment` can return normally when no job was opened. Roadmap grepped first (Sections 110, 212, the `payments.ts` 86 note at roadmap line 10215, and a grep for "already completed", "complete twice", "second complete", "repeat" for any record of how Pi answers a repeated complete call); nothing on record for Pi's repeat-complete behavior; no live test proposed.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date (the GitHub username and password prompt appeared). HEAD `6d61f57` (`docs: session 185, Section 212`), then `1362939`, `782ec3f`. `git status --short | wc -l`: 37. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Roadmap at session start: 10889 lines.
+
+**Caller sweep (`grep -rn "completePayment" ~/Piwork/backend/src`).** Exactly two callers, both in `routes/payments.ts`: line 96 (`/complete`) and line 124 (`/incomplete`); the definition is at 67. Lines 60 to 135 read in full.
+- **`/complete` (96):** inside try/catch. A throw returns 500 `Completion failed`, which makes `PostJob.tsx` show the "contact support" message. A null job returns `{ ok: true }` and the app shows "Job posted!".
+- **`/incomplete` (124):** inside try/catch. A throw is logged and returns `ok: false` (deliberately not a 500, because it runs on every app load via `authenticate()`). A null job returns `{ ok: true }`.
+- **Neither caller reads a return value from `completePayment`.**
+- **Null must stay tolerated:** the job read is `.eq('payment_id', paymentId).eq('status', 'draft')`, so when `/complete` has already opened the job, the second call through `/incomplete` finds no draft and must do nothing.
+- **Second silent gap in the same function (found in this sweep):** the `status: 'open'` update (file line 86) never read its `error`, so a failed write after Pi had taken the payment also returned normally with the job still a draft and "Job posted!" on screen.
+
+**Decision (owner chose option 1).** Log only; no behavior change. Option 2 (throw on a real read error, code other than `PGRST116`, plus the same check on the update) is deferred: a later `/incomplete` retry would call Pi's complete a second time, and how Pi answers a repeated complete is not on record (the roadmap grep found nothing) and not verified. If Pi throws on a repeat, option 2 could stop a job from ever opening.
+
+**Fix (`b022ee6`, one file, +15 / -2, one hunk at 78, `tsc --noEmit` clean in `backend`).** In `completePayment` after the `wallet_verification` early return:
+- The draft read now keeps its error (`const { data: job, error: jobReadError }`); the read itself is unchanged.
+- When a draft is found, the `open` update now reads its `error` and, if set, logs `completePayment: could not open job <id> for payment <paymentId>, user <userId>:` with the message. The function still returns normally.
+- When no draft is found, an any-status lookup by `payment_id` (`.maybeSingle()`) runs. If a job exists, it logs `completePayment: payment <paymentId> already handled, job <id> is <status>` with `console.log`. If none exists, it logs `completePayment: no job found for completed payment <paymentId>, user <userId>.` with the draft-read error code and message and the lookup error, with `console.error`. Nothing is thrown and nothing is returned differently, so `/complete` and `/incomplete` respond exactly as before.
+- Script `~/p186a.py` (single anchor on the job read through the closing brace of the function, matched once, writes only on exactly one match); backup `backend/src/routes/payments.ts.bak186a` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `b022ee6d43ae4e451c7b028c7a42dc1d60ae49b5` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T07:16:41Z; "Your service is live" 07:17:04Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `6d61f57..b022ee6` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 38.
+
+**Findings.**
+- **Closed (visibility only):** `completePayment` no longer fails silently. A payment with no job, a failed draft read and a failed `open` write each leave a log line with the payment id and user id. The user-visible behavior is unchanged on purpose: a payment that reports "Job posted!" with no job opened can still happen; it is now findable in the Render log.
+- **Expected log noise:** the "already handled" line will appear whenever `/complete` and `/incomplete` both reach the same payment. The "no job found" line is an error line; read it as a possible lost job only after checking the payment id, since it would also fire for any completed payment type that has no job row.
+- **Still open, owner decision deferred:** option 2 (throw on a real read or update error so `/complete` returns 500). Blocked on knowing how Pi answers a repeated complete call for the same payment. Not on record.
+- **Same class, not patched:** the `/approve` job read at `payments.ts` 37 (`.single()`, error unread, a read error returns "Job not found or already paid"). Sweep first.
+- **Still open:** `PATCH /:id/draft` updates on `id` only with no row check (no UI caller); `deleteDraft` in `Dashboard.tsx` is recorded as silent on failure (Sections 201, 211, 212; not re-read), so the 409 is probably not shown.
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** The new log lines were not run (the failure paths cannot be provoked safely against a live payment); `tsc`, the diff and the Render build log only. No happy-path payment re-run after the deploy (the success path is unchanged by the diff: the draft read, the `open` update and the return are the same, with one added error check). How Pi answers a repeated complete call. What a job delete does to rows that reference the job (schema not in the tree).
+
+**Termux notes.** Untracked and not to be committed: the 37 from Section 212 plus `backend/src/routes/payments.ts.bak186a` (38 expected). `~/p186a.py`, `~/out185.txt`, `~/out185b.txt`, `~/out185c.txt` and `~/out186.txt` are in the home directory, outside the repos. The GitHub username and password prompt appeared on `git pull` and on the push. Use `git --no-pager diff` to avoid the pager.
+
+**Files:** `backend/src/routes/payments.ts` (commit `b022ee6`), Piwork repo only. Docs: `roadmap.md` (Section 213, delivered as the complete file); `sessions/session-186.md`.
+
+**Status:** one code commit, pushed and build-verified from its Render log. Next: sweep and decide the `/approve` read at `payments.ts` 37 (`sed -n '25,65p'` first, then every use of what it reads); then the `PATCH` draft write, the `disputes` read in the applications list and the `approvedApp` reads. Option 2 stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
