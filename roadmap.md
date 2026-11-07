@@ -10844,3 +10844,46 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commit `e22b648`), Piwork repo only. Docs: `roadmap.md` (Sections 210 and 211, delivered as the complete file); `sessions/session-184.md` (updated in place).
 
 **Status:** five code commits this session, all pushed and build-verified from their Render logs (`bd3304f`, `ff16898`, `8f7c89f`, `9aa2464`, `e22b648`). Next: decide the draft-write items (the highest-risk open item; print the `PATCH` and `DELETE /:id/draft` routes and sweep first), or the `disputes` read in the applications list; re-grep ownership checks worded differently; grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 212 — Session 185 (2026-11-06, Render log UTC): draft delete now filtered on owner and draft status with a row check, 409 on zero rows (`1362939`); a silent-success gap found in `completePayment` (not patched)
+
+**Focus.** The highest-risk open item of Section 211: the draft routes. Roadmap grepped first (Sections 110, 195, 200, 201 and the `payments.ts` 86 note at roadmap line 10215); no earlier test on record for any of it; no live test proposed or repeated.
+
+**Starting state (reported).** `git pull` in `~/Piwork`: already up to date (the GitHub username and password prompt appeared). HEAD `782ec3f` (`docs: session 184 update, Sections 210-211`), then `e22b648`, `9aa2464`. `git status --short | wc -l`: 36. `diff -rq ~/Piwork/hivework-redesign/ ~/hivework-redesign/ --exclude=.git` printed nothing. Roadmap at session start: 10846 lines, sha256 `0f519ec36c71`, matching the uploaded copy.
+
+**What was read (Termux, `~/Piwork/backend/src`, `~/Piwork/frontend/src`).**
+1. `routes/jobs.ts` 325 to 400: `PATCH /:id/draft` and `DELETE /:id/draft` in full.
+2. `routes/payments.ts` 25 to 175: `/approve` (escrow branch), `completePayment`, `/complete`, `/incomplete`.
+3. `grep -n "payment_id" routes/*.ts`: only `payments.ts` 55 (written at `/approve`) and 83 (read in `completePayment`).
+4. `frontend/src/pages/PostJob.tsx` 255 to 345 (`handlePayAndPost` and its callbacks), and a grep of `onCancel|onError|onReadyForServerApproval` across the frontend (`JobDetail.tsx` 460 to 475 is wallet verification, not escrow).
+5. A grep for SQL naming `payments` or `references jobs` under `backend/src` printed nothing: the schema is not in that tree, so what a job delete does to rows that reference it is not known.
+
+**Sweep result.**
+- **Both draft routes:** the job read is owner-scoped (`.eq('client_id', user_id)`, `.maybeSingle()`, 500 on error, 403 if missing, 400 unless `draft`). So an `id`-only write is not an ownership hole. The gap was the write: `PATCH` updates and `DELETE` deleted on `id` alone with no row count, and a delete matching zero rows returned `{ ok: true }`.
+- **`payments.ts`:** `/approve` reads the draft owner-scoped with `.single()` (error unread, so a read error returns the 400 "Job not found or already paid") and stamps `payment_id` at 55 by `id`; it is never cleared anywhere in `routes/*.ts`. `completePayment` calls Pi's complete first, then reads the job by `payment_id` and `status = 'draft'` with `.single()` (error unread) and, if a row came back, sets `open` by `id`. A null result does nothing and the function returns normally.
+- **`/incomplete`:** with a txid it calls `completePayment`; without one it cancels the payment at Pi and does not touch the job. Any error is logged and returns `ok: false`. It runs on every app load via `authenticate()`.
+- **`PostJob.tsx`:** every attempt creates a new draft through `POST /api/jobs/draft` and the frontend never deletes one. `onCancel` returns to review ("Payment was cancelled."), `onError` goes to the error step, both leaving the draft with whatever `payment_id` `/approve` stamped. `onReadyForServerCompletion` shows "Payment went through but the job could not be confirmed as posted. Contact support before paying again." only when `/complete` is not `ok`, otherwise "Job posted!".
+- **Consequence for the design:** a draft with a stale `payment_id` is normal (failed and cancelled payments, Section 110), so blocking delete on `payment_id` being set was rejected: it would make those drafts undeletable.
+
+**Decision.** Narrowest patch: the delete write only. The `PATCH` write was left alone (no UI caller, Section 110).
+
+**Fix (`1362939`, one file, +2 / -1, one hunk at 387, `tsc --noEmit` clean in `backend`).** `const { error } = await supabase.from('jobs').delete().eq('id', req.params.id)` becomes `const { data: deleted, error } = ...delete().eq('id', req.params.id).eq('client_id', user_id).eq('status', 'draft').select('id')`; after the existing 500 on error, an empty or missing `deleted` returns 409 "This draft can no longer be deleted. Refresh and check its status." Script `~/p185a.py` (anchor `.from('jobs').delete().eq('id', req.params.id)` matched once, shape checked, stops without writing otherwise); backup `jobs.ts.bak185a` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `13629391620cde5e4dc05fa37847ae291283b5ec` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-06T22:47:50Z; "Your service is live" 22:48:13Z. Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `782ec3f..1362939` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 37.
+
+**Findings.**
+- **Closed:** the draft delete writing on `id` alone and returning `ok: true` on zero rows.
+- **New, not patched, the highest-risk item now: `completePayment` can report success when no job was opened.** Pi has already taken the payment when the job read runs. If the job is gone (deleted) or the read fails, `job` is null, nothing happens, `/complete` returns `ok: true` and `PostJob.tsx` shows "Job posted!", with the job missing or still a draft and nothing logged. Code read only, not reproduced. A null result must stay tolerated, because `/complete` and `/incomplete` can both reach the same payment and the second call should be a no-op. Options put to the owner, no choice made: (1) log only, with the payment id, user id and a lookup by `payment_id` at any status, no behavior change; (2) throw on a real read error (code other than `PGRST116`), so `/complete` returns 500 and the existing "contact support" message shows, as a separate patch. The caller sweep (`grep -rn "completePayment" ~/Piwork/backend/src`) was requested and not yet run.
+- **Correction recorded:** the in-flight delete exposure is narrower than first stated this session. `/incomplete` runs on every app load, so recovery normally finishes before a delete could be tapped; the exposure is a second tab or device, or a recovery that fails (`ok: false`, log only). Not reproduced.
+- **Same class, not patched:** the `/approve` job read at `payments.ts` 37 (`.single()`, error unread, a read error returns "Job not found or already paid"). Sweep first.
+- **Still open:** the `PATCH /:id/draft` update is filtered on `id` only with no row check (no UI caller).
+- **Surfacing:** `deleteDraft` in `Dashboard.tsx` was recorded as silent on any failure (Sections 201 and 211; not re-read this session), so the new 409 is probably not shown to the user.
+- Everything else on the Section 211 consolidated list stands, except that the `DELETE` half of the draft-routes item is closed.
+
+**Not verified.** The 409 branch was not run (it needs the status to change between the read and the delete, which cannot be provoked safely); `tsc`, the diff, the printed routes and the Render log only. No happy path re-run after the deploy (Section 110 live-tested the delete before this change; the diff only adds filters and the zero-row branch). What the database does to rows that reference a deleted job is unknown (schema not in the tree).
+
+**Termux notes.** Untracked and not to be committed: the 36 listed in Section 211 plus `backend/src/routes/jobs.ts.bak185a` (37 expected). `~/p185a.py` is in the home directory, outside the repos. The GitHub username and password prompt appeared on `git pull` and on the push. Use `git --no-pager diff` to avoid the pager.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `1362939`), Piwork repo only. Docs: `roadmap.md` (Section 212, delivered as the complete file); `sessions/session-185.md`.
+
+**Status:** one code commit, pushed and build-verified from its Render log. Next: run the `completePayment` caller grep, then decide log-only versus throw-on-read-error (a money-path decision for the owner); sweep and decide the `/approve` read at `payments.ts` 37; then the `PATCH` draft write, the `disputes` read in the applications list, and the `approvedApp` reads. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
