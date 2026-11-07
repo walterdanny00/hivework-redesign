@@ -11142,3 +11142,69 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `frontend/src/pages/Dashboard.tsx` (commit `0b986a2`), Piwork repo only. Docs: `roadmap.md` (Section 219, delivered as the complete file); `sessions/session-188.md`.
 
 **Status:** one code commit this session (`0b986a2`), pushed and build-verified from its Vercel log. Next: sweep the worker-side uses of `myApp.dispute` in `JobDetail.tsx` (`grep -n "myApp.dispute\|myApp?.dispute" ~/Piwork/frontend/src/pages/JobDetail.tsx`, then `sed -n` over each use), or, if the owner prefers, the raw `error.message` returns (`grep -n "error.message" ~/Piwork/backend/src/routes/jobs.ts`, then every use). Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 220 — Session 189 (2026-11-07), docs only, no code commit: worker-side `myApp.dispute` sweep in `JobDetail.tsx`; failed-`disputes`-read case left as a known limit
+
+**Focus.** The item carried as "not swept" since Sections 217 and 218: the worker-side uses of `myApp.dispute` in `JobDetail.tsx`. Roadmap grepped first (`myApp.dispute`): only `dispute_used_this_round` (1418, Sections 216 and 217) was on record, and the dead third dispute branch had already been removed (`0364505`, Section 9091 area). No live test proposed; every behavior below is on record or by reading.
+
+**Starting state.** `git pull` in `~/Piwork`: up to date. `git status --short | wc -l`: 45. HEAD `038e344` (docs, session 188) on top of `0b986a2`. `diff -rq` between the two repo copies silent.
+
+**Sweep.**
+- `grep -n "myApp.dispute\|myApp?.dispute" JobDetail.tsx`: 1418, 1525, 1532, 1534, 1537, 1538, 1539, 1545.
+- `grep -n "dispute" JobDetail.tsx` (alias check, nothing missed by the narrower pattern): the other hits are not worker-side `myApp.dispute` reads. 13 is the `disputeResolvedLine` import; 740 and 756 are the two worker calls (`/open-dispute`, `/dispute-response`); 1085 to 1092 are owner-side reads of `app.dispute` and `disputeResolvedLine(app, ...)`; 1378 to 1383 read `closed_reason`; 1409 to 1412 are the changes-request dispute button. No destructured or aliased copy of `myApp.dispute`.
+- **1525** (status text in the "Awaiting payment release" panel): order is `review_due_at`, then open dispute, then `release_offer_expires_at`, then the default "No action needed". Opening a dispute nulls `review_due_at` (Sections on record at roadmap lines 7709, 7731, 8667), so the auto-pay text and an open dispute do not show together in normal use.
+- **1532 to 1545** (the "Your side of the dispute" panel): renders only for an open dispute or a release offer. Every `myApp.dispute.reason`, `.worker_response`, `.status` read inside is behind the open-status check, so none can throw on a null dispute.
+- **Refund branch (1550 onward):** does not read `dispute`; reached only when no dispute is open. A declined offer or a worker-opened dispute clears the offer fields (line 7728 on record), so a dispute and a refund offer do not coexist.
+- **How `myApp` is set:** line 443 (load effect) and 709 (`reloadMyApplication`) replace it whole, only when `d.application` exists; a failed fetch is swallowed (`.catch(() => {})`) and the old value stays. Line 691 (after submit) spreads `prev` and does not touch `dispute`. The effect reruns only on `user`, `job`, `isOwner`, `id`: no polling, no retry.
+
+**Decision.** Owner chose to leave the failed-read case as it is. Reasoning on record: it needs a transient database error at page load; a reload clears it; the failure is already logged on Render by Section 217 ("Failed to read dispute for my-application."); same footing as the "log only" decisions of Sections 213, 216, 217 and 218. The option not taken: a `dispute_read_failed` flag in the `my-application` response (backend `jobs.ts`, the `Application` type in `lib/jobTypes.ts`, the panel at 1525), which would have needed a read of `workerCall` and the two handlers first.
+
+**Findings.**
+- **Closed (by reading):** the "other worker-side uses of `myApp.dispute`" item. Three uses, all guarded; no alias.
+- **Known limit, not fixed:** if the `disputes` read fails when `my-application` loads, the backend sends `dispute: null`; a worker with an open dispute then sees "The client has your report and will release payment on review. No action needed." and no response box (both `review_due_at` and `release_offer_expires_at` are null during a dispute) until the page is reloaded. Logged server-side; not run, cannot be provoked safely.
+- **Still open:** throw-on-error in the payment path (blocked on how Pi answers a repeated complete or an approved-then-failed payment; not on record); the raw `error.message` returns (applications query at 220, `PATCH /:id/draft` write error, `DELETE /:id/draft` write error); the `my-application` main read at 186 to 190 reports any error as "no application"; the `workerCall` stale card on a 409 (Section 155 observation).
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** Nothing was run; this section is reading only. The claim that a failed read gives the misleading panel is from the lines pasted, not from the screen.
+
+**Termux notes.** No code changed; untracked count stays 45 (not to be committed). Docs commit only: `roadmap.md` (complete file) and `sessions/session-189.md`, through the two-repo push routine. Run `git show <hash>` from `~/Piwork`. Use `git --no-pager diff`.
+
+**Files:** none in code. Docs: `roadmap.md` (Section 220, delivered as the complete file); `sessions/session-189.md`.
+
+**Status:** zero code commits this session. Next: the raw `error.message` returns in `backend/src/routes/jobs.ts` (`grep -n "error.message" ~/Piwork/backend/src/routes/jobs.ts`, then `sed -n` over every use, and check what each client does with the returned text before changing any). Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 221 — Session 189 (2026-11-07, Render log), first code patch: seven raw `error.message` returns in `jobs.ts` replaced by generic text plus a server log (`b27103c`)
+
+**Focus.** The item carried in every "Still open" list since Section 206: raw `error.message` returned to clients. Roadmap grepped first (`raw error.message`): three sites on record (applications query at 220, `PATCH /:id/draft`, `DELETE /:id/draft`); no live test on record or proposed.
+
+**Starting state.** `git pull` in `~/Piwork`: up to date. `git status --short | wc -l`: 45. HEAD `038e344`. (Section 220 was a docs-only section earlier in this session.)
+
+**Sweep before the patch.**
+- `grep -n "error.message" jobs.ts`: 12 uses. Log-only, out of scope: 55, 177, 891, 1077, 1657. Returned to a client: 75, 139, 226, 314, 379, 395, 627. So the roadmap's list of three was short by four.
+- Route mapping from `grep -n "router\."` and the printed lines: 75 is the helper `getApplyableJobs` (callers `GET /` at 107, which returns the string as a 500, and `GET /stats` at 114, which destructures only `jobs`); 139 `GET /attachment-url`; 226 `GET /:id/applications`; 314 `POST /draft`; 379 `PATCH /:id/draft`; 395 `DELETE /:id/draft`; 627 `POST /:id/apply`.
+- Client reads, checked in the source: `SubmissionReport.tsx` 61 and 221 read only `data.url`; `JobDetail.tsx` 397 reads `d.applications || []`; `SubmissionReview.tsx` 42 and 54 use `Array.isArray(x.applications)`; `PostJob.tsx` 270 checks `!draftRes.ok` and throws its own message without reading the body; `JobDetail.tsx` 489 (apply) checks `res.ok` only; `Dashboard.tsx` 243 (delete) shows its own generic message since Section 219; `Jobs.tsx` 169 to 173 reads `d.jobs || []` and 182 to 185 reads `d.counts || {}`; `Home.tsx` 81 and `Landing.tsx` 44 call `/stats` (not read, the backend ignores the helper's error there). `PATCH /:id/draft` has no frontend caller (only 270 and 243 touch `/draft`). Result: no client shows or matches on any of the seven raw strings.
+
+**Decision.** Owner chose "patch it, as long as it doesn't break my code". Narrowest change: only the failure branch of each of the seven returns; 403, 409 and success paths untouched; no wider helper or shared constant introduced.
+
+**Fix (`b27103c`, one file, +28 / -7, `tsc --noEmit` clean in `backend`).** At each site `if (error) return ...error.message...` became a block that calls `console.error(<label>, <ids>, 'error:', error.message)` and returns a fixed text: 75 "Could not load jobs. Try again." (log carries `category`); 139 "Could not load the attachment. Try again." (log carries `path`); 226 "Could not read the applications. Try again."; 314 "Could not create the draft. Try again." (log carries `user_id`); 379 "Could not save the draft. Try again."; 395 "Could not delete the draft. Try again."; 627 "Could not submit your application. Try again." (log carries job id and `user_id`). Script `~/p189a.py` writes nothing unless all seven anchors match exactly once (it also refuses CRLF files and an existing backup); tested first on a stand-in file built from the printed lines, negative cases aborted without writing; on the real file all seven matched. Backup `backend/src/routes/jobs.ts.bak189a` (untracked). Diff read hunk by hunk before commit; no whitespace changes. Commit staged by path (`git add backend/src/routes/jobs.ts`), not `git add .`.
+
+**Deploy (Render log pasted by the owner).** Commit `b27103ce1a2456493d93e98c31d14c369b04e59c` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T18:21:29Z; "Your service is live" 18:21:54Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `038e344..b27103c` succeeded first try; `git status --short | wc -l`: 46. Owner reported Browse (`GET /`, which runs the changed helper) opened properly after the push.
+
+**Findings.**
+- **Closed:** the raw `error.message` returns in `jobs.ts`. The seven responses now carry fixed text; the real database error goes to the Render log with route, ids and `error:`.
+- **New, by reading only, not on record before (grep of `getApplyableJobs`, `/stats`, `handleApply` found no earlier entry):**
+  - `POST /:id/apply` failure is silent for the worker: `JobDetail.tsx` 489 acts only on `res.ok`, so a 500 (or any non-ok) shows nothing.
+  - `GET /stats` returns zero counts on a failed read (the route destructures only `jobs`; `Jobs.tsx`, `Home.tsx` and `Landing.tsx` then show zeros with no error).
+  - `GET /` failure shows an empty Browse list, not the page's `error` state: a 500 still parses as JSON and `Jobs.tsx` 169 to 173 takes `d.jobs || []`; `error` is set only on a network or JSON failure.
+  - Attachment fetches ignore errors in both callers (`SubmissionReport.tsx`): a failed signed URL means a missing image or a download that does nothing.
+- **Still open:** throw-on-error in the payment path (blocked on how Pi answers a repeated complete or an approved-then-failed payment; not on record); the `my-application` main read at 186 to 190 reports any error as "no application"; the `workerCall` stale card on a 409 (Section 155 observation); the four new frontend items above; what `SubmissionReview.tsx` renders when `applications` is null (set at 55, render not read).
+- **Not swept:** raw `error.message` returns in other route files (only `jobs.ts` was grepped).
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** None of the seven new log branches was run (each needs a failing write or read, which cannot be provoked safely); `tsc`, the diff and the Render build log only. Of the changed routes only `GET /` has had a post-deploy happy-path check (owner opened Browse); `attachment-url`, `applications`, draft create, update and delete, and `apply` were not re-run (the diff changes only their failure branches).
+
+**Termux notes.** Untracked and not to be committed: the 45 from Section 219 plus `backend/src/routes/jobs.ts.bak189a` (46 expected). `~/p189a.py` is in the home directory, outside the repos, with the earlier `p18*.py` and `out18*.txt` files. Run `git show <hash>` from `~/Piwork`, not `~/hivework-redesign`. The GitHub username and password prompt appeared on `git pull` and on the push. Use `git --no-pager diff`. This was a backend patch: the deploy log is Render's.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `b27103c`), Piwork repo only. Docs: `roadmap.md` (Sections 220 and 221, delivered as the complete file); `sessions/session-189.md` (updated to cover both).
+
+**Status:** one code commit this session (`b27103c`), pushed and build-verified from its Render log. Next, owner's choice: the silent `apply` failure on the worker's Apply button (`sed -n '480,500p' ~/Piwork/frontend/src/pages/JobDetail.tsx`, then `grep -n "applying\|setApplied\|showApplyForm" ~/Piwork/frontend/src/pages/JobDetail.tsx` and every use before any patch), or the Browse empty-list-on-500 (`Jobs.tsx` 169 to 173 plus every use of `error` and `setError` in that file). Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
