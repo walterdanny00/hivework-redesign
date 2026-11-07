@@ -10926,3 +10926,43 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/payments.ts` (commit `b022ee6`), Piwork repo only. Docs: `roadmap.md` (Section 213, delivered as the complete file); `sessions/session-186.md`.
 
 **Status:** one code commit, pushed and build-verified from its Render log. Next: sweep and decide the `/approve` read at `payments.ts` 37 (`sed -n '25,65p'` first, then every use of what it reads); then the `PATCH` draft write, the `disputes` read in the applications list and the `approvedApp` reads. Option 2 stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 214 — Session 186 (2026-11-07, Render log UTC), second patch: `/approve` job read now returns 500 on a database error (a missing row and a malformed id stay the 400); a failed `payment_id` stamp is now logged (`b52f1cc`)
+
+**Focus.** The item Section 212 named "same class, not patched": the `/approve` job read at `payments.ts` 37. Roadmap grepped first (`Job not found or already paid`, `payment_id` stamp wording): the only hits are Sections 212 and 213, which record it as unpatched; no earlier test or decision on record; no live test proposed.
+
+**Starting state.** `git pull` in both repos up to date after the Section 213 docs push (`b022ee6..9cfa7da` in `Piwork`, `1243660..9b5d38d` in `hivework-redesign`); final `diff -rq` silent. `git status --short | wc -l`: 38 before this patch.
+
+**What was read (Termux).**
+1. `routes/payments.ts` 25 to 65: the escrow branch of `/approve` (jobId from metadata, owner-scoped draft read with `.single()`, deadline refusals, Pi approve, `payment_id` stamp, catch).
+2. `grep -rn "Job not found or already paid\|Approval failed"` over `backend/src` and `frontend/src`: the first message is returned only at `payments.ts` 39 and the second only at 60 (the other two hits were the untracked backup `payments.ts.bak186a`). Neither string appears in `frontend/src`.
+3. `PostJob.tsx` 270 to 345: `onReadyForServerApproval` posts to `/api/payments/approve` and, on any non-ok response, ignores the body and shows "Server could not approve the escrow payment. Please try again." (lines 289 to 292). A 400 and a 500 look identical to the user.
+4. `git show ff16898 -- backend/src` (Section 208) for the established shape: keep the error, return 500 unless the code is `PGRST116` (no row) or `22P02` (malformed id), leave the existing not-found response for those two.
+
+**Sweep result.**
+- **The job read (line 35 to 39)** runs before Pi approves anything. A real database error and a genuinely missing job both returned 400 "Job not found or already paid". No other code reads that text and the front end does not branch on it, so changing the status for a real error is safe and changes the user's screen not at all.
+- **The `payment_id` stamp (line 55)** runs after Pi has approved the payment and its `error` was never read. If it failed, `/approve` still returned `ok: true`, the user paid, the job stayed a draft with no `payment_id`, `completePayment` found no draft and, before `b022ee6`, said nothing; after it, it logs "no job found" but still returns `ok: true` and the app shows "Job posted!".
+
+**Decision.** Same split as Section 213: fix the read (before any money moves), log only on the stamp (after Pi has approved). Throwing from the stamp was rejected: it would show "could not approve" after Pi had already approved the payment, and how Pi treats that is not on record.
+
+**Fix (`b52f1cc`, one file, +10 / -2, two hunks at 32 and 56, `tsc --noEmit` clean in `backend`).**
+1. The job read keeps its error: `const { data: job, error: jobError }`. After it, `if (jobError && jobError.code !== 'PGRST116' && jobError.code !== '22P02')` logs `Failed to read job for payment approve.` with `jobId`, `paymentId`, `userId` and the message and returns 500 "Could not read the job. Nothing was charged; try again." (true, because Pi has not been called yet). A missing row or malformed id reaches the existing 400 unchanged.
+2. The stamp now reads its error: `const { error: stampError } = ...update({ payment_id: paymentId }).eq('id', jobId)`; on error it logs `Failed to stamp payment_id on job after Pi approval.` with `jobId`, `paymentId`, `userId` and the message. Nothing is thrown and the response is unchanged (`{ ok: true }`).
+- Script `~/p186b.py` (two anchors, each matched exactly once, writes only if both match); backup `backend/src/routes/payments.ts.bak186b` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `b52f1cc2b6914b9ce41631e4f3f170fdb87c6985` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T07:33:03Z; "Your service is live" 07:33:25Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `9cfa7da..b52f1cc` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 39.
+
+**Findings.**
+- **Closed:** the `/approve` job read no longer reports a database error as "Job not found or already paid"; it is a 500 and a log line. The user-visible text is unchanged (the app shows its own fixed message for any non-ok).
+- **Closed (visibility only):** a failed `payment_id` stamp is now logged. Reading the Render log: a "Failed to stamp payment_id" line for a payment id is followed by a `completePayment: no job found for completed payment` line for the same id if the user then completes the payment; together they name the job (`jobId`) and user.
+- **Still open, owner decision deferred (from Section 213):** throwing on a real error inside `completePayment` and on the stamp, blocked on how Pi answers a repeated complete or an approved-then-failed payment. Not on record.
+- **Still open:** `PATCH /:id/draft` updates on `id` only with no row check (no UI caller); `deleteDraft` in `Dashboard.tsx` recorded as silent on failure (not re-read), so the 409 from Section 212 is probably not shown; the `disputes` read in the applications list; the `approvedApp` reads.
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** The 500 branch and the new log lines were not run (a database error cannot be provoked safely, and the stamp failure needs a failed write after a real Pi approval); `tsc`, the diff and the Render build log only. No happy-path payment re-run after the deploy (the success path is unchanged by the diff: same read, same deadline checks, same Pi call, same stamp and response, with two added error checks). How Pi answers a repeated complete call. What a job delete does to rows that reference the job (schema not in the tree).
+
+**Termux notes.** Untracked and not to be committed: the 38 from Section 213 plus `backend/src/routes/payments.ts.bak186b` (39 expected). `~/p186a.py`, `~/p186b.py`, `~/out185.txt`, `~/out185b.txt`, `~/out185c.txt` and `~/out186*.txt` are in the home directory, outside the repos. Run `git show <hash>` from `~/Piwork`: `~/hivework-redesign` has its own history and does not know the code commits. The GitHub username and password prompt appeared on `git pull` and on each push. Use `git --no-pager diff`.
+
+**Files:** `backend/src/routes/payments.ts` (commit `b52f1cc`), Piwork repo only. Docs: `roadmap.md` (Section 214, delivered as the complete file); `sessions/session-186.md` (updated to cover both patches).
+
+**Status:** two code commits this session (`b022ee6`, `b52f1cc`), both pushed and build-verified from their Render logs. Next: the `PATCH /:id/draft` write, then the `disputes` read in the applications list, then the `approvedApp` reads (sweep each first). Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
