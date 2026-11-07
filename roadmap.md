@@ -11076,3 +11076,34 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commit `70922d2`), Piwork repo only. Docs: `roadmap.md` (Sections 216 and 217, delivered as the complete file); `sessions/session-187.md` (updated to cover two patches).
 
 **Status:** two code commits this session (`6c6cc46`, `70922d2`), both pushed and build-verified from their Render logs. Next: the `approvedApp` reads (`grep -n "approvedApp" ~/Piwork/backend/src/routes/*.ts`, then every use of what each reads; Section 196 recorded the final read as feeding only a fire-and-forget notice, not re-read); then re-read `deleteDraft` in `Dashboard.tsx` (around line 235) to see whether the Section 212 409 reaches the user. Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 218 — Session 187 (2026-11-07, Render log UTC), third patch: `/approve-application` now logs a failed application read for the approval notice; response unchanged (`b139880`)
+
+**Focus.** The `approvedApp` read in `/approve-application`, the last application read left in the Section 208 family. Roadmap grepped first (`approvedApp`, `approvedRow`): Section 196 recorded the final read as feeding only a fire-and-forget notice (harmless); Section 197 patched `approvedRow` (the application claim) and left this read alone on purpose (roadmap line 10426). No test on record for it; none proposed.
+
+**Starting state.** Both repos in sync after the Section 217 docs push (`70922d2..44e1fa3` in `Piwork`, `3ea5981..5964e52` in `hivework-redesign`); final `diff -rq` silent. `git status --short | wc -l`: 42 before this patch.
+
+**Sweep before the patch.**
+- `grep -n "approvedApp" *.ts` (routes): one site only, `jobs.ts` 775 to 777 (the read, the `if`, the notice call).
+- `jobs.ts` 765 to 790 printed: the read sits under the comment "Step 8 (BUG-004): fire-and-forget, never blocks the response." It was `.select('worker_id').eq('id', application_id).single()` with `error` unread. `approvedApp` is used only at 776 (`approvedApp?.worker_id`) and 777 (`notifyApplicationApproved({ workerId, jobId, jobTitle }).catch(() => {})`); the route then returns `{ ok: true }`. Nothing else in the route reads it.
+- The claim update just matched this row, so a "no row" result is not the normal case here; no `PGRST116` handling was added (not needed for a log-only change).
+- Consequence by that reading: a failed read leaves `approvedApp` undefined, the `if` is skipped, and the worker gets no "application approved" notice, with nothing in the log. Not run.
+
+**Decision.** Log only; no behavior change; same footing as Sections 213, 216 and 217. Switching the claim to select `worker_id` and dropping this read would be a larger change and was not made.
+
+**Fix (`b139880`, one file, +2 / -1, one hunk at 772, `tsc --noEmit` clean in `backend`).** `const { data: approvedApp }` becomes `const { data: approvedApp, error: approvedAppError }`, followed by `if (approvedAppError) console.error('Failed to read application for approval notice.', req.params.id, application_id, approvedAppError.message)`. The `if (approvedApp?.worker_id)` notice and the response are unchanged. Script `~/p187c.py` (one anchor, the read expression itself, matched exactly once); backup `backend/src/routes/jobs.ts.bak187c` (untracked). Diff read before commit; no whitespace changes (the run-together lines in the earlier terminal print were wrapping).
+
+**Deploy (Render log pasted by the owner).** Commit `b13988017f6c7b422c9b4f1eab1d03afd62cf430` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T08:52:27Z; "Your service is live" 08:52:49Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `44e1fa3..b139880` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 43.
+
+**Findings.**
+- **Closed (visibility only):** the `approvedApp` read. A "Failed to read application for approval notice." line in the Render log names the job id and application id of an approval whose worker notice was not sent. With this, every application read in the Section 199 to 218 family is either on the 500-on-error pattern, or logged (the unread-error reads), or left on purpose (the `my-application` main read).
+- **Still open:** `deleteDraft` in `Dashboard.tsx` recorded as silent on failure (Sections 201, 211, 212, 215; not re-read), so the Section 212 409 is probably not shown; throw-on-error in the payment path (blocked on how Pi answers a repeated complete or an approved-then-failed payment; not on record); the raw `error.message` returns (applications query at 220, `PATCH /:id/draft` write error); the `my-application` main read at 186 to 190 reports any error as "no application"; other worker-side uses of `myApp.dispute` in `JobDetail.tsx` not swept; the `workerCall` stale card on a 409 (Section 155 observation).
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** The new log branch was not run (it needs a failing read right after a successful claim, which cannot be provoked safely); `tsc`, the diff and the Render build log only. No happy-path approval re-run after the deploy (the diff adds one captured field and one log line; the `if` and the notice call are unchanged).
+
+**Termux notes.** Untracked and not to be committed: the 42 from Section 217 plus `backend/src/routes/jobs.ts.bak187c` (43 expected). `~/p186a.py`, `~/p186b.py`, `~/p186c.py`, `~/p187a.py`, `~/p187b.py`, `~/p187c.py`, `~/out185*.txt` and `~/out186*.txt` are in the home directory, outside the repos. Run `git show <hash>` from `~/Piwork`, not `~/hivework-redesign`. The GitHub username and password prompt appeared on `git pull` and on each push. Use `git --no-pager diff`.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `b139880`), Piwork repo only. Docs: `roadmap.md` (Sections 216 to 218, delivered as the complete file); `sessions/session-187.md` (updated to cover three patches).
+
+**Status:** three code commits this session (`6c6cc46`, `70922d2`, `b139880`), all pushed and build-verified from their Render logs. Next: re-read `deleteDraft` in `Dashboard.tsx` (`grep -n "deleteDraft" ~/Piwork/frontend/src/pages/Dashboard.tsx`, then `sed -n` around the function, about line 235) to see whether the Section 212 409 reaches the user, and sweep every use of what it reads before any patch. Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
