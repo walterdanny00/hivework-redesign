@@ -11041,3 +11041,38 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/jobs.ts` (commit `6c6cc46`), Piwork repo only. Docs: `roadmap.md` (Section 216, delivered as the complete file); `sessions/session-187.md`.
 
 **Status:** one code commit this session (`6c6cc46`), pushed and build-verified from its Render log. Next: sweep the worker `my-application` route (`grep -rn "upheld_dispute_count\|dispute_used_this_round" ~/Piwork/frontend/src`, then `sed -n` over each use) before deciding anything on its unread `disputes` and `upheldRows` errors; then the `approvedApp` reads (`grep -n "approvedApp" ~/Piwork/backend/src/routes/*.ts`); then re-read `deleteDraft` in `Dashboard.tsx` (around line 235) to see whether the 409 reaches the user. Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 217 — Session 187 (2026-11-07, Render log UTC), second patch: `my-application` now logs a failed `disputes` read and a failed upheld-disputes read; response unchanged (`70922d2`)
+
+**Focus.** The worker `GET /:id/my-application` route, recorded in Section 216 as "seen, not swept". Roadmap grepped first (`upheldDisputeUsedForRound`, `dispute_used_this_round`, `workerCall`): Section 160 records the helper and the frontend gate (lines 157, 9030 to 9032), a later section records that the `openDispute` upheld lookup fails closed (line 9577), and Section 155 records that `workerCall` refreshes only on success. No test on record for any of it; none proposed.
+
+**Sweep before the patch.**
+- `grep -rn "upheld_dispute_count\|dispute_used_this_round" frontend/src`: `lib/jobTypes.ts` 7 and 8 (type declarations only) and one live use, `JobDetail.tsx` 1418, plus stale `.bak` copies (`.bak173`, `.bak176`, `.bak180e`) that do not count. `upheld_dispute_count` is not rendered anywhere.
+- `JobDetail.tsx` 1410 to 1430 read: the "Dispute these changes" button renders only when `!myApp?.dispute_used_this_round`; otherwise the note "An admin already reviewed your dispute for this round. Resubmit your work or give up the slot." shows. So a false flag from a failed read shows the button on a round that may already be used.
+- Backend guard, `lib/disputes.ts` 80 to 100 read: `openDispute` reads the upheld disputes itself, returns 500 "Could not open the dispute. Please try again." on a lookup error (88 to 91 area), and returns 409 with the same text as the frontend note when `upheldDisputeUsedForRound` is true. The `uphold` lookup is fail-closed, as recorded.
+- Frontend path of a refused attempt: `handleOpenDispute` (`JobDetail.tsx` 739 to 744) calls `workerCall`; `workerCall` (713 to 730) sets `workerError` from the response's `error` field on any non-OK response (fallback "Something went wrong. Please try again."), and the render site shows `workerError` (1411). The 409 text therefore reaches the worker.
+- Worst case by that reading: one dispute attempt that answers with a clear message. Not run.
+
+**Decision (owner: proceed on the same footing as Section 216).** Log only; no behavior change. The main read at `my-application` 186 to 190 (`.single()`, `error` unread, `if (!data) return { application: null }`) was left alone on purpose: reading its error would need the `PGRST116` handling of Section 208, because "no application yet" is the normal case there.
+
+**Fix (`70922d2`, one file, +4 / -2, one hunk at 189, `tsc --noEmit` clean in `backend`).**
+- `disputeRows` read: `const { data: disputeRows, error: disputeError }`, then `if (disputeError) console.error('Failed to read dispute for my-application.', req.params.id, data.id, disputeError.message)` after the `.limit(1)`.
+- `upheldRows` read: `const { data: upheldRows, error: upheldError }`, then `if (upheldError) console.error('Failed to read upheld disputes for my-application.', req.params.id, data.id, upheldError.message)` before `upheldList`.
+- `dispute`, `upheld_dispute_count`, `dispute_used_this_round` and the response are unchanged. Script `~/p187b.py` (three anchors, each matched exactly once, writes only if all match); backup `backend/src/routes/jobs.ts.bak187b` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `70922d2ad8dd926628f5515c184cb37e9c6a9e6b` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T08:24:10Z; "Your service is live" 08:24:33Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `19feb2f..70922d2` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 42. (`19feb2f` is the Section 216 docs commit in `Piwork`.)
+
+**Findings.**
+- **Closed (visibility only):** the two silent reads in `my-application`. A "Failed to read dispute for my-application." or "Failed to read upheld disputes for my-application." line in the Render log names the job id and application id.
+- **Closed (by reading):** the Section 216 hypothesis that a worker could be offered a dispute already used. The button can show, but `openDispute` refuses with a 409 and the worker sees the text.
+- **Not swept:** other worker-side uses of `myApp.dispute` in `JobDetail.tsx` (only the `dispute_used_this_round` use at 1418 was read). A failed `disputes` read gives `dispute: null` there.
+- **Still open:** the `approvedApp` reads in `/approve-application`; `deleteDraft` in `Dashboard.tsx` recorded as silent on failure (not re-read); throw-on-error in the payment path (blocked on Pi's repeat-complete behavior); the raw `error.message` returns (applications query, `PATCH /:id/draft`); the `my-application` main read at 186 to 190 reports any error as "no application"; the `workerCall` stale card on a 409 (Section 155 observation, unchanged).
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** The two new log branches were not run (they need a failing `disputes` read, which cannot be provoked safely); `tsc`, the diff and the Render build log only. No happy-path re-run of `my-application` after the deploy. The other worker-side `myApp.dispute` uses were not read.
+
+**Termux notes.** Untracked and not to be committed: the 41 from Section 216 plus `backend/src/routes/jobs.ts.bak187b` (42 expected). `~/p186a.py`, `~/p186b.py`, `~/p186c.py`, `~/p187a.py`, `~/p187b.py`, `~/out185*.txt` and `~/out186*.txt` are in the home directory, outside the repos. Run `git show <hash>` from `~/Piwork`, not `~/hivework-redesign`. The GitHub username and password prompt appeared on `git pull` and on each push. Use `git --no-pager diff`.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `70922d2`), Piwork repo only. Docs: `roadmap.md` (Sections 216 and 217, delivered as the complete file); `sessions/session-187.md` (updated to cover two patches).
+
+**Status:** two code commits this session (`6c6cc46`, `70922d2`), both pushed and build-verified from their Render logs. Next: the `approvedApp` reads (`grep -n "approvedApp" ~/Piwork/backend/src/routes/*.ts`, then every use of what each reads; Section 196 recorded the final read as feeding only a fire-and-forget notice, not re-read); then re-read `deleteDraft` in `Dashboard.tsx` (around line 235) to see whether the Section 212 409 reaches the user. Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
