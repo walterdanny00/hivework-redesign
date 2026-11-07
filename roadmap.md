@@ -10966,3 +10966,42 @@ Patch script `~/p180f.py` (both anchors matched exactly once before anything was
 **Files:** `backend/src/routes/payments.ts` (commit `b52f1cc`), Piwork repo only. Docs: `roadmap.md` (Section 214, delivered as the complete file); `sessions/session-186.md` (updated to cover both patches).
 
 **Status:** two code commits this session (`b022ee6`, `b52f1cc`), both pushed and build-verified from their Render logs. Next: the `PATCH /:id/draft` write, then the `disputes` read in the applications list, then the `approvedApp` reads (sweep each first). Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
+
+## Section 215 — Session 186 (2026-11-07, Render log UTC), third patch: draft edit (`PATCH /:id/draft`) now filtered on owner and draft status with a row check, 409 on zero rows (`f065e38`)
+
+**Focus.** The `PATCH` half of the draft-routes item (Sections 200, 201, 211, 212; the `DELETE` half closed in Section 212). Roadmap grepped first (`patch.*draft`, `no UI caller`): Section 110 and line 6770 record that the backend supports `PATCH /:id/draft` and only delete has UI; Section 200 records the route's owner-scoped read fix and that `grep -rn "PATCH" frontend/src` printed nothing; Section 212 left the write for later. No test on record for this route and none proposed.
+
+**Starting state.** Both repos up to date after the Section 214 docs push (`b52f1cc..cee8990` in `Piwork`, `9b5d38d..ee9ac86` in `hivework-redesign`); final `diff -rq` silent. `git status --short | wc -l`: 39 before this patch.
+
+**What was read (Termux).**
+1. `grep -n "draft" routes/jobs.ts`: the `PATCH` handler starts at 329, the `DELETE` at 380.
+2. `routes/jobs.ts` 320 to 379: the `PATCH /:id/draft` route in full. The job read at 335 is owner-scoped (`.eq('client_id', user_id).maybeSingle()`), 500 on a read error, 403 if missing, 400 unless `draft` (341). The deadline, slot and review-window validations follow. The write at 367 to 376 was `update({...}).eq('id', req.params.id)` with only `error` read: no owner or status filter and no row check; it returned `{ ok: true }` for zero rows and returned the database `error.message` to the caller on a write error.
+3. `grep -rn "/draft" frontend/src`: only `POST /api/jobs/draft` (`PostJob.tsx` 270) and the `DELETE` (`Dashboard.tsx` 235); no `PATCH` caller. The route has no UI.
+
+**Sweep result.** `user_id` is already in scope in the route. Nothing else reads the update's result. The race is the same as the one closed for delete in Section 212: the draft check is at 341 and the write at 367, so if a payment completes between them (the job becomes `open`) the write still matched on `id` and could overwrite a funded job's budget, deadline or slots. It needs a direct API call and unlucky timing, since no UI calls the route.
+
+**Decision (owner: proceed if it does not break or malfunction the code).** Narrowest patch, the same shape as `1362939`: filter the write on owner and draft status and check the row count.
+
+**Fix (`f065e38`, one file, +3 / -2, two hunks at 364 and 372, `tsc --noEmit` clean in `backend`).**
+- `const { error }` becomes `const { data: updated, error }`.
+- The update now ends `.eq('id', req.params.id).eq('client_id', user_id).eq('status', 'draft').select('id')`.
+- After the existing 500 on error, `if (!updated || updated.length === 0)` returns 409 "This draft can no longer be edited. Refresh and check its status."
+- A normal edit of the owner's own draft matches one row and returns `{ ok: true }` as before. Left alone on purpose: the 500 that returns `error.message` (separate, not money-related).
+- Script `~/p186c.py` (two anchors, each matched exactly once, writes only if both match); backup `backend/src/routes/jobs.ts.bak186c` (untracked). Diff read before commit.
+
+**Deploy (Render log pasted by the owner).** Commit `f065e381ac6d2c880e3e90b88aa9ec0851b93aa6` on `main`; `npm install && npm run build` (`tsc`) clean; "Build successful" 2026-11-07T07:57:42Z; "Your service is live" 07:58:05Z (service started on port 10000, withdrawal drainer and slot deadline checker started). Pass, build-and-deploy only; same audit summary (12 vulnerabilities: 3 moderate, 8 high, 1 critical). Push `cee8990..f065e38` succeeded first try; `git status -sb` showed no `ahead`; `git status --short | wc -l`: 40.
+
+**Findings.**
+- **Closed:** the draft edit writing on `id` alone and returning `ok: true` on zero rows. With Section 212, both draft write routes are now filtered on owner and draft status with a row check, so the draft-routes item from Section 211 is closed for its write half.
+- **Still open:** `deleteDraft` in `Dashboard.tsx` is recorded as silent on failure (Sections 201, 211, 212; not re-read), so the 409 from Section 212 is probably not shown to the user. `PATCH` returns the database `error.message` on a write error (not patched, not money-related).
+- **Still open, from Sections 213 and 214:** throw-on-error in the payment path, blocked on how Pi answers a repeated complete call or an approved-then-failed payment (not on record).
+- **Still open:** the `disputes` read in the applications list; the `approvedApp` reads.
+- Everything else on the Section 211 consolidated list stands.
+
+**Not verified.** The 409 branch was not run: it needs the status to change between the read and the write, which cannot be provoked safely, and no UI calls the route; `tsc`, the diff and the Render build log only. No `PATCH` happy-path call after the deploy (no UI; the diff only adds filters, a row-count check and one return). What the database does to rows that reference a deleted job (schema not in the tree).
+
+**Termux notes.** Untracked and not to be committed: the 39 from Section 214 plus `backend/src/routes/jobs.ts.bak186c` (40 expected). `~/p186a.py`, `~/p186b.py`, `~/p186c.py`, `~/out185*.txt` and `~/out186*.txt` are in the home directory, outside the repos. Run `git show <hash>` from `~/Piwork`, not `~/hivework-redesign`. The GitHub username and password prompt appeared on `git pull` and on each push. Use `git --no-pager diff`.
+
+**Files:** `backend/src/routes/jobs.ts` (commit `f065e38`), Piwork repo only. Docs: `roadmap.md` (Section 215, delivered as the complete file); `sessions/session-186.md` (updated to cover three patches).
+
+**Status:** three code commits this session (`b022ee6`, `b52f1cc`, `f065e38`), all pushed and build-verified from their Render logs. Next: the `disputes` read in the applications list (`grep -n "disputes" ~/Piwork/backend/src/routes/jobs.ts`, then every use of what it reads), then the `approvedApp` reads (`grep -n "approvedApp" ~/Piwork/backend/src/routes/*.ts`); then re-read `deleteDraft` in `Dashboard.tsx` to see whether the 409 reaches the user. Throw-on-error in the payment path stays parked until Pi's repeat-complete behavior is known. Grep the roadmap before proposing any live test and list every use of a flag before changing it.
